@@ -6,7 +6,7 @@
 'use strict';
 
 (() => {
-  console.info('[EZOS] term.js build: tabs(dynamic+, state-dot, pulldown, touch-scroll-fix, vv-pin, keyrow-reorder+wrap, switch-next-to-esc, ctrl-end, actions-stack-when-wrapped, ctrl-keys-no-focus, mobile-no-brand, wrap-hysteresis, git-buttons-submit, send-after-down, shift-tab, sanitize, file-upload, web-links, goto-terminal, file-links-to-editor, local-selection, mic-next-to-switch, prompt-btns-no-kbd, keyrow-no-kbd, mic-to-terminal-when-off, resilient-net)(2026-07-05h)'); // 版確認用
+  console.info('[EZOS] term.js build: tabs(dynamic+, state-dot, pulldown, touch-scroll-fix, vv-pin, keyrow-reorder+wrap, switch-next-to-esc, ctrl-end, actions-stack-when-wrapped, ctrl-keys-no-focus, mobile-no-brand, wrap-hysteresis, git-buttons-submit, send-after-down, shift-tab, sanitize, file-upload, web-links, goto-terminal, file-links-to-editor, local-selection, mic-next-to-switch, prompt-btns-no-kbd, keyrow-no-kbd, mic-to-terminal-when-off, resilient-net, mic-stream-to-terminal)(2026-07-05i)'); // 版確認用
   const isMobile = window.EZ.view === 'mobile';
   const ACTIVE_KEY = 'ez_active_sid'; // 閲覧中タブ(このブラウザ限定の表示都合)
 
@@ -369,14 +369,17 @@
   function setupMic(tab, btn) {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) { btn.disabled = true; btn.title = 'このブラウザは音声入力に非対応です'; btn.classList.add('unsupported'); return; }
-    let rec = null, recording = false, baseValue = '', finalAcc = '';
+    let rec = null, recording = false, baseValue = '', finalAcc = '', lastInterim = '', sentLen = 0;
+    // OFF時: 確定した音声を差分だけターミナルのカーソルへ挿入する(Gitボタンと同じ
+    // bracketed paste。Enterは送らないのでカーソル位置に文字が入るだけ)。
+    const streamToTerminal = (text) => { if (text) tabSendRaw(tab, '\x1b[200~' + text + '\x1b[201~'); };
     const startRec = () => {
       rec = new SR();
       rec.lang = 'ja-JP';
       rec.interimResults = true;
       rec.continuous = true;
       baseValue = tab.inputEl.value;
-      finalAcc = '';
+      finalAcc = ''; lastInterim = ''; sentLen = 0;
       rec.onstart = () => { recording = true; btn.classList.add('rec'); btn.textContent = '⏹'; btn.title = '音声入力を停止'; };
       rec.onresult = (e) => {
         let interim = '';
@@ -384,9 +387,21 @@
           const r = e.results[i];
           if (r.isFinal) finalAcc += r[0].transcript; else interim += r[0].transcript;
         }
-        const added = finalAcc + interim;
-        const sep = baseValue && added && !/\s$/.test(baseValue) ? ' ' : '';
-        tab.inputEl.value = baseValue + sep + added;
+        lastInterim = interim;
+        if (tab.inputOn) {
+          // ON: 入力欄へ反映(確定+未確定)。停止時に送信ボタン等で送出できる。
+          const added = finalAcc + interim;
+          const sep = baseValue && added && !/\s$/.test(baseValue) ? ' ' : '';
+          tab.inputEl.value = baseValue + sep + added;
+        } else {
+          // OFF: 確定した分だけをその都度ターミナルへ流し込む(onendの発火に依存しない)。
+          // 未確定(interim)はまだ送らない(後で変化して二重入力になるため)。
+          if (finalAcc.length > sentLen) {
+            const delta = finalAcc.slice(sentLen);
+            sentLen = finalAcc.length;
+            streamToTerminal(delta);
+          }
+        }
       };
       rec.onerror = (e) => {
         const msg = {
@@ -399,14 +414,11 @@
       };
       rec.onend = () => {
         recording = false; btn.classList.remove('rec'); btn.textContent = '🎤'; btn.title = '音声入力';
-        // 入力欄OFF(直接入力)時は入力欄が隠れているため、認識した全文(確定+未確定)を
-        // そのままプロンプト(シェル/Claude)へ tmux 経由で直接流し込む。Git ボタンと同じ
-        // bracketed paste方式で確定挿入し、Enterは送らないので実行前に確認・編集できる。
         if (!tab.inputOn) {
-          const full = tab.inputEl.value; // onresultで確定+未確定を反映済み
-          const spoken = (baseValue && full.startsWith(baseValue) ? full.slice(baseValue.length) : full).trim();
-          if (spoken) tabSendRaw(tab, '\x1b[200~' + spoken + '\x1b[201~');
-          tab.inputEl.value = baseValue; // 認識分を隠れた入力欄に残さない
+          // OFF: 確定分は onresult で逐次ターミナルへ送出済み。停止時に確定化されずに
+          // 残った末尾(interim)だけを一度フラッシュして取りこぼしを防ぐ(保険)。
+          const tail = (finalAcc + lastInterim).slice(sentLen);
+          if (tail) { sentLen += tail.length; streamToTerminal(tail); }
           return;
         }
         baseValue = tab.inputEl.value; // 認識確定分を次回の基準に取り込む
