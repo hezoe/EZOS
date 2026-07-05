@@ -3,10 +3,23 @@
 
 /* ツールバー */
 .eze-bar { flex: none; display: flex; align-items: center; gap: 6px; padding: 4px 8px; background: var(--panel); border-bottom: 1px solid var(--line); }
-.eze-menus { display: flex; gap: 2px; }
-.eze-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--dim); font-size: 13px; }
+.eze-menus { flex: none; display: flex; gap: 2px; }
 .eze-close { flex: none; background: var(--card); border: 1px solid var(--line); color: var(--text); border-radius: 6px; width: 30px; height: 28px; cursor: pointer; }
 .eze-close:hover { background: var(--card-hover); }
+
+/* 開いているファイルのタブ(編集メニューの右)。多い時は横スクロール。 */
+.eze-tabs { flex: 1; min-width: 0; display: flex; gap: 4px; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
+.eze-tab {
+  flex: none; display: flex; align-items: center; gap: 6px; max-width: 200px;
+  padding: 3px 6px 3px 10px; background: var(--card); border: 1px solid var(--line);
+  border-radius: 6px; cursor: pointer; font-size: 13px; color: var(--dim); user-select: none;
+}
+.eze-tab:hover { background: var(--card-hover); }
+.eze-tab.active { background: var(--card-hover); color: var(--text); border-color: var(--accent); }
+.eze-tab-nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.eze-tab.dirty .eze-tab-nm::after { content: ' \25CF'; color: var(--accent); font-size: 11px; } /* ● 未保存マーク */
+.eze-tab-x { flex: none; background: transparent; border: none; color: inherit; cursor: pointer; font-size: 11px; line-height: 1; padding: 3px; border-radius: 4px; opacity: .7; }
+.eze-tab-x:hover { background: var(--red); color: #fff; opacity: 1; }
 
 /* エディタ本体: 透明テキストの textarea の背後に色付き pre を重ねるオーバーレイ。
    両者は padding/font/line-height/折り返し設定を完全に一致させて桁を揃える。 */

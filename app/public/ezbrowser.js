@@ -164,6 +164,26 @@
     document.body.appendChild(ov);
     return close;
   }
+  // 3択の確認ダイアログ(EZeditor がタブを閉じる際に使用)。'save'|'discard'|'cancel' を返す。
+  function confirmClose(name) {
+    return new Promise((resolve) => {
+      const ov = document.createElement('div'); ov.className = 'ezb-modal-ov';
+      const box = document.createElement('div'); box.className = 'ezb-modal';
+      const h = document.createElement('div'); h.className = 'ezb-modal-t'; h.textContent = '未保存の変更';
+      const msg = document.createElement('div'); msg.className = 'ezb-modal-msg';
+      msg.textContent = `「${name}」には未保存の変更があります。保存しますか?`;
+      const foot = document.createElement('div'); foot.className = 'ezb-modal-foot';
+      const mk = (label, val, cls) => {
+        const b = document.createElement('button'); b.textContent = label; if (cls) b.className = cls;
+        b.addEventListener('click', () => { ov.remove(); resolve(val); });
+        return b;
+      };
+      foot.append(mk('キャンセル', 'cancel'), mk('保存せず閉じる', 'discard'), mk('保存して閉じる', 'save', 'ezb-ok'));
+      box.append(h, msg, foot); ov.appendChild(box);
+      ov.addEventListener('mousedown', (e) => { if (e.target === ov) { ov.remove(); resolve('cancel'); } });
+      document.body.appendChild(ov);
+    });
+  }
   function buildPermGrid(mode0) {
     const bits = { ur: 0o400, uw: 0o200, ux: 0o100, gr: 0o40, gw: 0o20, gx: 0o10, or: 0o4, ow: 0o2, ox: 0o1 };
     const el = document.createElement('table'); el.className = 'ezb-perm';
@@ -442,7 +462,7 @@
     if (!window.EZEditor) { console.warn('[EZOS] EZEditor 未読込'); return; }
     editor = window.EZEditor.create({
       mountEl: editorEl,
-      menuButton, flash, fjson, join,
+      menuButton, flash, fjson, join, confirmClose,
       getCwd: () => state.cwd,
       reloadBrowser: () => { if (loaded) load(state.cwd); },
       onShow: () => { editorOpen = true; setMode('editor'); },

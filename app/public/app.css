@@ -382,6 +382,7 @@ body[data-mode="editor"] #terminals { visibility: hidden; pointer-events: none; 
 .ezb-modal-ov { position: fixed; inset: 0; z-index: 340; background: rgba(0,0,0,.5); display: flex; align-items: center; justify-content: center; padding: 12px; }
 .ezb-modal { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; min-width: 280px; max-width: 92vw; }
 .ezb-modal-t { font-weight: 600; margin-bottom: 10px; }
+.ezb-modal-msg { color: var(--text); font-size: 14px; line-height: 1.5; }
 .ezb-modal-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
 .ezb-modal-foot button { padding: 7px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--text); cursor: pointer; font: inherit; }
 .ezb-ok { background: var(--accent); border-color: var(--accent); color: #fff; }
