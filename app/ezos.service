@@ -10,7 +10,12 @@ Wants=network-online.target docker.service
 Type=simple
 User=debian
 WorkingDirectory=/home/debian/EZOS/app
-ExecStart=/usr/bin/node server.js
+# --max-old-space-size: V8ヒープの上限(MB)。この機は総メモリ約1GBと逼迫しがちなので、
+# 万一のリーク/暴走で node が青天井にヒープを伸ばし機ごと OOM に巻き込むのを防ぐ保険
+# (平常時のサーバーは30MB前後なので128MBは十分な余裕)。このフラグは node 自身にのみ効き、
+# claude.js が spawn する claude(これも node製)には波及しない。NODE_OPTIONS 環境変数だと
+# 子まで継承され Claude Code のヒープまで縛ってしまうため、あえて ExecStart 引数で渡す。
+ExecStart=/usr/bin/node --max-old-space-size=128 server.js
 Restart=always
 RestartSec=3
 # nodeプロセスのみ停止し、node-ptyが起動したtmuxサーバー(=永続ターミナル)は

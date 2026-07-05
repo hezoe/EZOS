@@ -35,9 +35,12 @@ export function createTermServer({ isAuthed, origin }) {
       // 複数クライアントが同一セッションに繋いだとき、最小ではなく最後に操作した
       // クライアントのサイズに追従させる (スマホ+PC同時接続時の表示崩れ回避)
       execFile('tmux', txa(['set-option', '-g', 'window-size', 'latest']), () => {});
-      // マウス操作を有効化(ホイールで履歴スクロール)。履歴保持行数も拡大。
+      // マウス操作を有効化(ホイールで履歴スクロール)。
       execFile('tmux', txa(['set-option', '-g', 'mouse', 'on']), () => {});
-      execFile('tmux', txa(['set-option', '-g', 'history-limit', '10000']), () => {});
+      // 履歴保持行数。tmuxはこの行数×セッション数分をサーバープロセスに常駐保持するため、
+      // 総メモリ約1GBの小型機では抑えめにする(3000行あれば実用上の遡りは十分)。
+      // クライアント側 xterm も scrollback を持つので、直近の見返しはブラウザ側でも効く。
+      execFile('tmux', txa(['set-option', '-g', 'history-limit', '3000']), () => {});
     }
 
     let p;

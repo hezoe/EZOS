@@ -554,7 +554,9 @@
       cursorBlink: true,
       fontSize: isMobile ? 13 : 15,
       fontFamily: 'ui-monospace, "Cascadia Code", Consolas, "Courier New", monospace',
-      scrollback: 5000,
+      // 各タブ分のスクロールバックをブラウザが保持するため、スマホ等の非力な端末の
+      // メモリを圧迫しない範囲に抑える(2000行あれば直近の見返しには十分)。
+      scrollback: 2000,
       theme: TERM_THEME,
       disableStdin: true, // 直接文字入力はロック。入力は各ターミナル一体の入力欄/キー行から(IME安定化)
       // tmux mouse on でもドラッグ選択・リンククリックを xterm 側でローカル処理させる。

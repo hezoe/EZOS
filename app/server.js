@@ -75,8 +75,35 @@ function getConversations() {
   return readJson('conversations.json', []);
 }
 
+// conversations.json は関連APIごとに丸ごとメモリへ読み込まれる正本なので、際限なく
+// 膨らむと(特に Claude の長大な出力や巨大な貼り付けで)そのままヒープを圧迫する。
+// 保存のたびに次の3段で上限をかけ、常駐サイズを一定に保つ。UIの表示履歴を削るだけで、
+// Claude 側の会話継続(claudeSessionId 経由)には影響しない。
+const MAX_MSG_CHARS = 200 * 1024;   // 1メッセージあたりの保持文字数(巨大出力/貼り付けの丸め)
+const MAX_MSGS_PER_CONV = 400;      // 1会話で保持する直近メッセージ数
+const MAX_CONVS = 100;              // 保持する会話数(古いものから間引く)
+
+function trimConversations(list) {
+  const recent = list
+    .slice()
+    .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+    .slice(0, MAX_CONVS);
+  for (const conv of recent) {
+    if (!Array.isArray(conv.messages)) continue;
+    if (conv.messages.length > MAX_MSGS_PER_CONV) {
+      conv.messages = conv.messages.slice(-MAX_MSGS_PER_CONV);
+    }
+    for (const m of conv.messages) {
+      if (typeof m.text === 'string' && m.text.length > MAX_MSG_CHARS) {
+        m.text = m.text.slice(0, MAX_MSG_CHARS) + '\n…(省略: 表示履歴を短縮しました)';
+      }
+    }
+  }
+  return recent;
+}
+
 function saveConversations(list) {
-  writeJson('conversations.json', list);
+  writeJson('conversations.json', trimConversations(list));
 }
 
 /* ---------------- HTTPユーティリティ ---------------- */
