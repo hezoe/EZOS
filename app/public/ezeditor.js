@@ -86,8 +86,10 @@
     }
 
     /* ---------- 開く ---------- */
-    async function open(entry) {
-      const full = ctx.join(ctx.getCwd(), entry.name);
+    // EZbrowser の一覧から: 現在フォルダ + ファイル名で開く
+    function open(entry) { return openPath(ctx.join(ctx.getCwd(), entry.name)); }
+    // 絶対パス指定で開く(ターミナルのファイルクリック等)
+    async function openPath(full) {
       const exist = tabs.find((t) => t.path === full); // 既に開いていれば読み直さずそのタブへ
       if (exist) { ctx.onShow(); activate(exist.id); return; }
       try {
@@ -199,7 +201,7 @@
     }
 
     build();
-    return { open, hasOpen: () => tabs.length > 0 };
+    return { open, openPath, hasOpen: () => tabs.length > 0 };
   }
 
   console.info('[EZOS] ezeditor.js build: standalone editor, multi-tab(2段: tabs/menu), syntax-highlight(2026-07-05g)');

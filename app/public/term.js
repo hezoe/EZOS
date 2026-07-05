@@ -6,7 +6,7 @@
 'use strict';
 
 (() => {
-  console.info('[EZOS] term.js build: tabs(dynamic+, state-dot, pulldown, touch-scroll-fix, vv-pin, keyrow-reorder+wrap, switch-next-to-esc, ctrl-end, actions-stack-when-wrapped, ctrl-keys-no-focus, mobile-no-brand, wrap-hysteresis, git-buttons-submit, send-after-down, shift-tab, sanitize, file-upload, web-links, goto-terminal)(2026-07-05c)'); // 版確認用
+  console.info('[EZOS] term.js build: tabs(dynamic+, state-dot, pulldown, touch-scroll-fix, vv-pin, keyrow-reorder+wrap, switch-next-to-esc, ctrl-end, actions-stack-when-wrapped, ctrl-keys-no-focus, mobile-no-brand, wrap-hysteresis, git-buttons-submit, send-after-down, shift-tab, sanitize, file-upload, web-links, goto-terminal, file-links-to-editor, local-selection)(2026-07-05d)'); // 版確認用
   const isMobile = window.EZ.view === 'mobile';
   const ACTIVE_KEY = 'ez_active_sid'; // 閲覧中タブ(このブラウザ限定の表示都合)
 
@@ -313,6 +313,68 @@
     });
   }
 
+  /* ---- ターミナル上のファイルパス検出 → クリックでEZeditorに開く ----
+     URLは WebLinksAddon が担当。ここはファイルパス専用のリンクプロバイダ(自前実装)。
+     行のセル情報から桁を計算するので、全角(CJK)混在行でも下線位置がずれない。
+     対象は provideLinks が渡す1バッファ行(折返しの跨ぎは非対応=許容範囲)。 */
+  const HOME = '/home/debian';
+  // スラッシュを含むパス、または既知の拡張子を持つ素のファイル名にマッチ
+  const FILE_LINK_RE = /[\w.@~+-]*(?:\/[\w.@+~-]+)+\/?|[\w@+-][\w.@+-]*\.(?:js|mjs|cjs|jsx|ts|tsx|json|css|scss|less|html?|xml|svg|vue|md|markdown|te?xt|sh|bash|zsh|py|rb|go|rs|c|h|hpp|cc|cpp|java|kt|swift|ya?ml|toml|ini|cfg|conf|env|php|sql|log|lock)\b/g;
+  const PATH_BOUNDARY = /[:\w@~+.\-/]/; // 直前がこの文字ならパス片ではない(URL断片や語中)
+
+  // 1バッファ行を、文字列と「各文字が始まる0基点の桁」の対応表に変換(全角=2桁を考慮)
+  function rowStringAndCols(line) {
+    const cols = line.length;
+    const cell = line.getCell(0);
+    let str = ''; const colAt = [];
+    for (let c = 0; c < cols; c++) {
+      if (!line.getCell(c, cell)) continue;
+      if (cell.getWidth() === 0) continue;   // 全角の2セル目(幅0)はスキップ
+      const chars = cell.getChars() || ' ';  // 空セルは空白1つ扱い
+      for (let k = 0; k < chars.length; k++) colAt.push(c);
+      str += chars;
+    }
+    colAt.push(cols); // 番兵: 文字列末尾の次の位置 = 行末桁
+    return { str, colAt };
+  }
+  function provideFileLinks(term, tab, bufferLineNumber, callback) {
+    const line = term.buffer.active.getLine(bufferLineNumber - 1);
+    if (!line) { callback(undefined); return; }
+    const { str, colAt } = rowStringAndCols(line);
+    const re = new RegExp(FILE_LINK_RE.source, 'g');
+    const links = []; let m;
+    while ((m = re.exec(str))) {
+      if (m.index > 0 && PATH_BOUNDARY.test(str[m.index - 1])) continue; // 前境界チェック
+      const text = m[0].replace(/[.,:;)\]}'"]+$/, ''); // 末尾の句読点を除去
+      if (!text || text.endsWith('/') || !/[/.]/.test(text)) continue; // 空・dir・目印なしは除外
+      const i = m.index, end = i + text.length;
+      const startX = colAt[i] + 1;                                   // 1基点の開始桁
+      const endX = colAt[end] !== undefined ? colAt[end] : line.length; // 末尾の次の桁
+      links.push({
+        range: { start: { x: startX, y: bufferLineNumber }, end: { x: endX, y: bufferLineNumber } },
+        text, activate: () => openFileFromTerminal(tab, text), hover() {}, leave() {},
+      });
+    }
+    callback(links.length ? links : undefined);
+  }
+  // 検出したパスを絶対パスに解決して EZeditor に開く(相対は端末のcwd基準)
+  async function openFileFromTerminal(tab, raw) {
+    let s = String(raw).trim().replace(/:\d+(?::\d+)?$/, ''); // 末尾の :行:桁 は落とす
+    if (!s) return;
+    let abs;
+    if (s[0] === '/') abs = s;
+    else if (s === '~') abs = HOME;
+    else if (s.startsWith('~/')) abs = HOME + s.slice(1);
+    else {
+      let cwd = null;
+      try { const j = await api('/api/term/cwd?sid=' + encodeURIComponent(tab.sid)); cwd = j && j.cwd; } catch { /* noop */ }
+      if (!cwd) { alert('相対パスの基準ディレクトリを取得できませんでした: ' + s); return; }
+      abs = cwd.replace(/\/+$/, '') + '/' + s;
+    }
+    if (window.EZ && typeof window.EZ.openFileInEditor === 'function') window.EZ.openFileInEditor(abs);
+    else alert('EZeditor が利用できません');
+  }
+
   /* ---- タブ(ローカル実体)の生成/破棄。各タブ = 表示 + 制御キー行 + 独立入力欄 ---- */
   function createTab(meta) {
     const wrap = document.createElement('div');
@@ -331,6 +393,10 @@
       scrollback: 5000,
       theme: TERM_THEME,
       disableStdin: true, // 直接文字入力はロック。入力は各ターミナル一体の入力欄/キー行から(IME安定化)
+      // tmux mouse on でもドラッグ選択・リンククリックを xterm 側でローカル処理させる。
+      // これで「入力切替 ON/OFF に関係なく」選択コピーとファイルクリックが動く
+      // (アプリ側へマウス報告したい時だけ Alt を押しながら操作する)。
+      mouseEventsRequireAlt: true,
     });
     const fit = new FitAddon.FitAddon();
     term.loadAddon(fit);
@@ -363,6 +429,10 @@
       inputEl: null, histIndex: history.length, histDraft: '',
       ws: null, connected: false, closedByUser: false,
     };
+
+    // ファイルパスをクリックでEZeditorに開く(URLは上のWebLinksが担当)。
+    // mouseEventsRequireAlt=true により入力ON/OFFのどちらでもクリックが届く。
+    try { term.registerLinkProvider({ provideLinks: (n, cb) => provideFileLinks(term, tab, n, cb) }); } catch { /* 未対応環境では無視 */ }
 
     // このターミナル専用の制御キー行(右端に入力欄ON/OFFスイッチを同居させ省スペース化)
     const keyrow = document.createElement('div');

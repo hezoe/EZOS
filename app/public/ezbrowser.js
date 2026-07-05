@@ -470,6 +470,8 @@
     });
   }
   function openInEditor(e) { if (editor) editor.open(e); }
+  // 絶対パスでEZeditorに開く(ターミナル上のファイルクリックから呼ばれる)
+  window.EZ.openFileInEditor = (path) => { if (editor && path) editor.openPath(path); };
 
   /* ---------- 初期化 ---------- */
   browserEl.removeAttribute('hidden'); editorEl.removeAttribute('hidden');

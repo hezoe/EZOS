@@ -409,6 +409,13 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // 指定ターミナルの現在ディレクトリ(相対パスのファイルクリックをEZeditorで開く際の基準)
+    if (p === '/api/term/cwd' && req.method === 'GET') {
+      const cwd = await getCwd(url.searchParams.get('sid'));
+      sendJson(res, 200, { cwd: cwd || null });
+      return;
+    }
+
     if (p === '/api/term/add' && req.method === 'POST') {
       const body = await readBody(req);
       const term = addTerminal(body.title);
