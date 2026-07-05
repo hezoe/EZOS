@@ -1,0 +1,16 @@
+# 依存
+node_modules/
+
+# 実行時データ（認証情報・セットアップキー・トークン・パスキー等）
+app/data/
+site/data/*
+!site/data/.htaccess
+
+# ログ・一時・OS
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+
+# Claude Code 資格情報（万一のため）
+.credentials.json

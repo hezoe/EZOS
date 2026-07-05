@@ -1,0 +1,6 @@
+DirectoryIndex index.php
+Options -Indexes
+
+<FilesMatch "\.(json|md)$">
+  Require all denied
+</FilesMatch>

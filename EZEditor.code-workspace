@@ -1,0 +1,11 @@
+{
+	"folders": [
+		{
+			"name": "🤖 EZEditor",
+			"path": "."
+		}
+	],
+	"settings": {
+		"window.title": "🤖 EZEditor - ${activeEditorShort}${separator}${rootName}"
+	}
+}

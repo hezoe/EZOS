@@ -1,0 +1,19 @@
+[Unit]
+Description=EZeditor - Claude web UI
+After=network.target
+
+[Service]
+Type=simple
+User=debian
+WorkingDirectory=/home/debian/ezeditor/app
+ExecStart=/usr/bin/node server.js
+Restart=always
+RestartSec=3
+# nodeプロセスのみ停止し、node-ptyが起動したtmuxサーバー(=永続ターミナル)は
+# 再起動/デプロイをまたいで生かし続ける
+KillMode=process
+Environment=NODE_ENV=production
+Environment=HOME=/home/debian
+
+[Install]
+WantedBy=multi-user.target
