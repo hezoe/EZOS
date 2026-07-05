@@ -17,7 +17,7 @@
   /* ---------- fetch ヘルパー(term.js とは別IIFEなので自前) ---------- */
   async function fapi(path, opts = {}) {
     const o = Object.assign({}, opts);
-    o.headers = Object.assign({ 'X-Requested-With': 'ezeditor' }, opts.headers || {});
+    o.headers = Object.assign({ 'X-Requested-With': 'ezos' }, opts.headers || {});
     const res = await fetch(path, o);
     if (res.status === 401) { location.reload(); throw new Error('unauthorized'); }
     return res;

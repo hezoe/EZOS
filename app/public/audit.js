@@ -1,4 +1,4 @@
-/* EZeditor 監査ログ・リアルタイムビュー (tail -f 相当) */
+/* EZOS 監査ログ・リアルタイムビュー (tail -f 相当) */
 'use strict';
 
 (() => {

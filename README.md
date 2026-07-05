@@ -24,9 +24,9 @@
 |---|---|
 | リポジトリ | `github.com/hezoe/EZOS` |
 | アプリ | `app/`(Node 20、`type:module`) |
-| systemd サービス | `ezeditor`(WorkingDirectory=作業ツリーの `app/` を直接起動) |
+| systemd サービス | `ezos`(WorkingDirectory=作業ツリーの `app/` を直接起動) |
 | 待受(localhost) | `127.0.0.1:3100` |
-| 公開ドメイン | `ezeditor.ezoe.net`(Caddy がreverse_proxy、証明書自動) |
+| 公開ドメイン | `ezos.ezoe.net`(Caddy がreverse_proxy、証明書自動) |
 | 認証設定 | `rpID`・`origin`・`port`・`setupKey` を `app/data/config.json` に保持 |
 
 - **データ**: `app/data/*.json`（DB不使用、`.gitignore` 対象）。`config.json` にセットアップキー等の実行時設定

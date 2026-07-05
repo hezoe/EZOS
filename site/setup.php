@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 /**
  * 初期セットアップ (CLI専用): 秘密情報を生成して data/config.json を作る
- *   ssh ezoe.net 'cd www/ezoe/EZeditor && php setup.php'
+ *   ssh ezoe.net 'cd www/ezoe/EZOS && php setup.php'
  * 再実行しても既存の設定は上書きしない。--regen-setup-key でセットアップキーだけ再生成。
  */
 

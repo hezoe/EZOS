@@ -1,4 +1,4 @@
-// EZeditor サーバー: パスキー認証 + Claude Code チャット
+// EZOS サーバー: パスキー認証 + Claude Code チャット
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -226,7 +226,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     // CSRF対策: POSTは独自ヘッダー必須
-    if (req.method === 'POST' && req.headers['x-requested-with'] !== 'ezeditor') {
+    if (req.method === 'POST' && req.headers['x-requested-with'] !== 'ezos') {
       sendJson(res, 400, { error: 'bad request' });
       return;
     }
@@ -864,6 +864,6 @@ const HOSTS = cfg.hosts || ['127.0.0.1', '172.17.0.1'];
 for (const host of HOSTS) {
   const s = host === HOSTS[0] ? server : http.createServer(server.listeners('request')[0]);
   s.on('upgrade', handleUpgrade);
-  s.listen(PORT, host, () => console.log(`EZeditor listening on ${host}:${PORT}`));
+  s.listen(PORT, host, () => console.log(`EZOS listening on ${host}:${PORT}`));
   s.on('error', (e) => console.error(`listen ${host}:${PORT} failed: ${e.message}`));
 }

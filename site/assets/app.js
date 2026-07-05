@@ -424,7 +424,7 @@ if (window.EZ.authed) {
 `curl -s -X POST '${r.endpoint}' \\
   -H 'Content-Type: application/json' \\
   -H 'X-Api-Token: ${r.token}' \\
-  -d '{"id":"PC名-プロジェクト名","state":"working","label":"名札","project":"EZEditor","task":"いま取り組んでいる事","task_url":"https://..."}'`;
+  -d '{"id":"PC名-プロジェクト名","state":"working","label":"名札","project":"EZOS","task":"いま取り組んでいる事","task_url":"https://..."}'`;
     } catch (e) {
       document.getElementById('conn-example').textContent = e.message;
     }

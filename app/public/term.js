@@ -1,4 +1,4 @@
-/* EZeditor Webターミナル (xterm.js) — 複数タブ + サーバー共有
+/* EZOS Webターミナル (xterm.js) — 複数タブ + サーバー共有
    タブ構成(ターミナルの数・タイトル・順序)はサーバー(/api/term/*)が正本で、
    全ブラウザ・全デバイスで同一。各タブは tmux セッション ez_<sid> に attach するため、
    複数ブラウザから同じ画面が見える。状態(確認待ち/処理中/完了)も共有。
@@ -6,7 +6,7 @@
 'use strict';
 
 (() => {
-  console.info('[EZeditor] term.js build: tabs(dynamic+, state-dot, pulldown, touch-scroll-fix, vv-pin, keyrow-reorder+wrap, switch-next-to-esc, ctrl-end, actions-stack-when-wrapped, ctrl-keys-no-focus, mobile-no-brand, wrap-hysteresis, git-buttons-submit, send-after-down, shift-tab, sanitize, file-upload, web-links, goto-terminal)(2026-07-05c)'); // 版確認用
+  console.info('[EZOS] term.js build: tabs(dynamic+, state-dot, pulldown, touch-scroll-fix, vv-pin, keyrow-reorder+wrap, switch-next-to-esc, ctrl-end, actions-stack-when-wrapped, ctrl-keys-no-focus, mobile-no-brand, wrap-hysteresis, git-buttons-submit, send-after-down, shift-tab, sanitize, file-upload, web-links, goto-terminal)(2026-07-05c)'); // 版確認用
   const isMobile = window.EZ.view === 'mobile';
   const ACTIVE_KEY = 'ez_active_sid'; // 閲覧中タブ(このブラウザ限定の表示都合)
 
@@ -80,7 +80,7 @@
         const name = file.name || `paste_${Date.now()}_${n}.${ext}`;
         const res = await fetch(`/api/upload?sid=${encodeURIComponent(tab.sid)}&name=${encodeURIComponent(name)}`, {
           method: 'POST',
-          headers: { 'X-Requested-With': 'ezeditor', 'Content-Type': file.type || 'application/octet-stream' },
+          headers: { 'X-Requested-With': 'ezos', 'Content-Type': file.type || 'application/octet-stream' },
           body: file,
         });
         const j = await res.json().catch(() => ({}));
@@ -145,8 +145,8 @@
   /* ---- サーバーAPI ---- */
   async function api(path, data) {
     const opt = data !== undefined
-      ? { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'ezeditor' }, body: JSON.stringify(data) }
-      : { headers: { 'X-Requested-With': 'ezeditor' } };
+      ? { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'ezos' }, body: JSON.stringify(data) }
+      : { headers: { 'X-Requested-With': 'ezos' } };
     const res = await fetch(path, opt);
     if (res.status === 401) { location.reload(); throw new Error('unauthorized'); }
     return res.json().catch(() => ({}));

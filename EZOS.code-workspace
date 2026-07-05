@@ -1,0 +1,11 @@
+{
+	"folders": [
+		{
+			"name": "🤖 EZOS",
+			"path": "."
+		}
+	],
+	"settings": {
+		"window.title": "🤖 EZOS - ${activeEditorShort}${separator}${rootName}"
+	}
+}

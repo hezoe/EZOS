@@ -1,11 +1,11 @@
 [Unit]
-Description=EZeditor - Claude web UI
+Description=EZOS - Claude web UI
 After=network.target
 
 [Service]
 Type=simple
 User=debian
-WorkingDirectory=/home/debian/ezeditor/app
+WorkingDirectory=/home/debian/EZOS/app
 ExecStart=/usr/bin/node server.js
 Restart=always
 RestartSec=3

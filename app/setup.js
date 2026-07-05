@@ -3,7 +3,7 @@
 //
 // 新規インストール時は環境変数で値を渡せる(未指定なら既定値=この本番機の設定):
 //   EZOS_RPID       WebAuthn の rpID(親ドメイン)          既定: ezoe.net
-//   EZOS_ORIGIN     公開オリジン(https://<host>)           既定: https://ezeditor.ezoe.net
+//   EZOS_ORIGIN     公開オリジン(https://<host>)           既定: https://ezos.ezoe.net
 //   EZOS_PORT       localhost 待受ポート                    既定: 3100
 //   EZOS_USERNAME   パスキーの表示ユーザー名                 既定: hiroshi
 //   EZOS_SETUP_KEY  セットアップキーを指定(通常は自動生成)
@@ -27,7 +27,7 @@ if (fs.existsSync(FILE)) {
 if (!cfg) {
   cfg = {
     rpID: process.env.EZOS_RPID || 'ezoe.net',
-    origin: process.env.EZOS_ORIGIN || 'https://ezeditor.ezoe.net',
+    origin: process.env.EZOS_ORIGIN || 'https://ezos.ezoe.net',
     port: Number(process.env.EZOS_PORT) || 3100,
     setupKey: process.env.EZOS_SETUP_KEY || randomBytes(16).toString('hex'),
     userName: process.env.EZOS_USERNAME || 'hiroshi',

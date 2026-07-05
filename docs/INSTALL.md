@@ -115,7 +115,7 @@ EZOS_ORIGIN="$ORIGIN" EZOS_RPID="$RPID" EZOS_PORT="$PORT" \
 
 ## STEP 5. systemd サービス化（自動起動・自動再起動）
 
-`app/ezeditor.service` は基準機向けの参考ファイル。**下のテンプレで実値を埋めて生成**する。
+`app/ezos.service` は基準機向けの参考ファイル。**下のテンプレで実値を埋めて生成**する。
 `KillMode=process` は node だけ止めて node-pty が起こした tmux(=永続ターミナル)を再起動で生かし続けるため。
 
 ```bash

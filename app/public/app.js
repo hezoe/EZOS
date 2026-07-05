@@ -1,4 +1,4 @@
-/* EZeditor front-end */
+/* EZOS front-end */
 'use strict';
 
 const b64u2buf = (s) => {
@@ -10,9 +10,9 @@ const buf2b64u = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf)))
 
 async function api(path, data) {
   const opt = data !== undefined
-    ? { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'ezeditor' },
+    ? { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'ezos' },
         body: JSON.stringify(data) }
-    : { headers: { 'X-Requested-With': 'ezeditor' } };
+    : { headers: { 'X-Requested-With': 'ezos' } };
   const res = await fetch(path, opt);
   const json = await res.json().catch(() => ({ error: 'サーバーエラー' }));
   if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
@@ -255,7 +255,7 @@ if (window.EZ.authed) {
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'ezeditor' },
+        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'ezos' },
         body: JSON.stringify({
           convId: currentConv,
           prompt,
