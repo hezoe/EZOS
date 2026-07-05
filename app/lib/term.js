@@ -5,6 +5,7 @@ import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { WebSocketServer } from 'ws';
 import pty from 'node-pty';
+import { txa } from './tmux.js';
 
 const HOME = process.env.HOME || '/home/debian';
 const HAS_TMUX = fs.existsSync('/usr/bin/tmux');
@@ -27,16 +28,16 @@ export function createTermServer({ isAuthed, origin }) {
     //     同時にぶら下がると tmux がウィンドウを1サイズに固定し、はみ出た領域に埋め草
     //     (「....」)が出るため。常に「今見ているデバイス」にウィンドウを一致させる。
     const [cmd, args] = HAS_TMUX
-      ? ['tmux', ['new-session', '-A', '-D', '-s', `ez_${name}`]]
+      ? ['tmux', txa(['new-session', '-A', '-D', '-s', `ez_${name}`])]
       : ['bash', ['-l']];
 
     if (HAS_TMUX) {
       // 複数クライアントが同一セッションに繋いだとき、最小ではなく最後に操作した
       // クライアントのサイズに追従させる (スマホ+PC同時接続時の表示崩れ回避)
-      execFile('tmux', ['set-option', '-g', 'window-size', 'latest'], () => {});
+      execFile('tmux', txa(['set-option', '-g', 'window-size', 'latest']), () => {});
       // マウス操作を有効化(ホイールで履歴スクロール)。履歴保持行数も拡大。
-      execFile('tmux', ['set-option', '-g', 'mouse', 'on'], () => {});
-      execFile('tmux', ['set-option', '-g', 'history-limit', '10000'], () => {});
+      execFile('tmux', txa(['set-option', '-g', 'mouse', 'on']), () => {});
+      execFile('tmux', txa(['set-option', '-g', 'history-limit', '10000']), () => {});
     }
 
     let p;
@@ -82,7 +83,7 @@ export function createTermServer({ isAuthed, origin }) {
       } else if (m.t === 'kill') {
         // タブを閉じたときの明示終了: tmuxセッションごと破棄する
         if (HAS_TMUX) {
-          execFile('tmux', ['kill-session', '-t', `ez_${name}`], () => {});
+          execFile('tmux', txa(['kill-session', '-t', `ez_${name}`]), () => {});
         }
         try { p.kill(); } catch { /* already dead */ }
       }

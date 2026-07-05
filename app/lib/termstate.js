@@ -3,6 +3,7 @@
 import fs from 'node:fs';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { txa } from './tmux.js';
 
 const pexec = promisify(execFile);
 const HAS_TMUX = fs.existsSync('/usr/bin/tmux');
@@ -20,7 +21,7 @@ function dirName(path) {
 export async function getTitles() {
   if (!HAS_TMUX) return {};
   try {
-    const { stdout } = await pexec('tmux', ['list-sessions', '-F', '#{session_name}::#{pane_current_path}']);
+    const { stdout } = await pexec('tmux', txa(['list-sessions', '-F', '#{session_name}::#{pane_current_path}']));
     const out = {};
     for (const line of stdout.split('\n')) {
       const i = line.indexOf('::');
@@ -42,7 +43,7 @@ export async function getCwd(sid) {
   const name = sanitizeSid(sid);
   if (!name) return null;
   try {
-    const { stdout } = await pexec('tmux', ['display-message', '-p', '-t', `ez_${name}`, '#{pane_current_path}']);
+    const { stdout } = await pexec('tmux', txa(['display-message', '-p', '-t', `ez_${name}`, '#{pane_current_path}']));
     const dir = stdout.trim();
     return dir || null;
   } catch {
@@ -58,9 +59,9 @@ export async function createSession(sid, dir, kind) {
   if (!name) return;
   const args = ['new-session', '-d', '-s', `ez_${name}`, '-x', '220', '-y', '50'];
   if (dir) args.push('-c', dir);
-  try { await pexec('tmux', args); } catch { return; } // 既存/失敗時は素のまま(WS接続時に既定生成)
+  try { await pexec('tmux', txa(args)); } catch { return; } // 既存/失敗時は素のまま(WS接続時に既定生成)
   if (kind === 'claude') {
-    try { await pexec('tmux', ['send-keys', '-t', `ez_${name}`, 'claude', 'Enter']); } catch { /* noop */ }
+    try { await pexec('tmux', txa(['send-keys', '-t', `ez_${name}`, 'claude', 'Enter'])); } catch { /* noop */ }
   }
 }
 
@@ -68,7 +69,7 @@ export async function createSession(sid, dir, kind) {
 export async function listSids() {
   if (!HAS_TMUX) return [];
   try {
-    const { stdout } = await pexec('tmux', ['list-sessions', '-F', '#{session_name}']);
+    const { stdout } = await pexec('tmux', txa(['list-sessions', '-F', '#{session_name}']));
     return stdout.split('\n')
       .map((s) => s.trim())
       .filter((s) => s.startsWith('ez_'))
@@ -79,7 +80,7 @@ export async function listSids() {
 }
 
 async function capturePane(sid) {
-  const { stdout } = await pexec('tmux', ['capture-pane', '-p', '-t', `ez_${sanitizeSid(sid)}`]);
+  const { stdout } = await pexec('tmux', txa(['capture-pane', '-p', '-t', `ez_${sanitizeSid(sid)}`]));
   return stdout;
 }
 
@@ -164,7 +165,7 @@ export async function sendKey(sid, key) {
   const s = sanitizeSid(sid);
   const spec = KEY_MAP[key];
   if (!s || !spec) throw new Error('不正なキーです');
-  await pexec('tmux', ['send-keys', '-t', `ez_${s}`, ...spec]);
+  await pexec('tmux', txa(['send-keys', '-t', `ez_${s}`, ...spec]));
 }
 
 /** 指定ターミナルのtmuxセッションを破棄 (存在しなくてもエラーにしない) */
@@ -172,5 +173,5 @@ export async function killSession(sid) {
   if (!HAS_TMUX) return;
   const s = sanitizeSid(sid);
   if (!s) return;
-  try { await pexec('tmux', ['kill-session', '-t', `ez_${s}`]); } catch { /* 既に無い */ }
+  try { await pexec('tmux', txa(['kill-session', '-t', `ez_${s}`])); } catch { /* 既に無い */ }
 }
