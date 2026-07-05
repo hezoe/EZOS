@@ -6,9 +6,21 @@
 'use strict';
 
 (() => {
-  console.info('[EZOS] term.js build: tabs(dynamic+, state-dot, pulldown, touch-scroll-fix, vv-pin, keyrow-reorder+wrap, switch-next-to-esc, ctrl-end, actions-stack-when-wrapped, ctrl-keys-no-focus, mobile-no-brand, wrap-hysteresis, git-buttons-submit, send-after-down, shift-tab, sanitize, file-upload, web-links, goto-terminal, file-links-to-editor, local-selection)(2026-07-05d)'); // 版確認用
+  console.info('[EZOS] term.js build: tabs(dynamic+, state-dot, pulldown, touch-scroll-fix, vv-pin, keyrow-reorder+wrap, switch-next-to-esc, ctrl-end, actions-stack-when-wrapped, ctrl-keys-no-focus, mobile-no-brand, wrap-hysteresis, git-buttons-submit, send-after-down, shift-tab, sanitize, file-upload, web-links, goto-terminal, file-links-to-editor, local-selection, mic-next-to-switch, prompt-btns-no-kbd, keyrow-no-kbd, mic-to-terminal-when-off, resilient-net)(2026-07-05h)'); // 版確認用
   const isMobile = window.EZ.view === 'mobile';
   const ACTIVE_KEY = 'ez_active_sid'; // 閲覧中タブ(このブラウザ限定の表示都合)
+
+  /* ---- 低速・高遅延・断続的な回線(機内Wi-Fi等)でも切れずに使い続けるための調整値 ----
+     方針: (1)自動再接続(指数バックオフ+ジッタ, 無限リトライ) (2)アプリ層ハートビートで
+     「無通信のまま生きているつもりのゾンビ接続」を検出して張り直す (3)未接続中の入力は
+     キューに退避し復帰時にまとめて送出(打った内容を失わない) (4)遅延に強い長めの判定。
+     tmux でセッションは永続するので、再接続すれば画面も入力も継続できる。 */
+  const HB_MS = 15000;              // ハートビート送信間隔
+  const DEAD_MS = 50000;            // この時間 無通信ならゾンビ接続とみなし強制再接続(高遅延に余裕)
+  const RECONNECT_BASE_MS = 700;    // 再接続バックオフの基準
+  const RECONNECT_MAX_MS = 15000;   // 再接続バックオフの上限
+  const API_TIMEOUT_MS = 20000;     // ポーリング等 HTTP が回線ハングで詰まらないよう打ち切る上限
+  const SEND_QUEUE_MAX = 5000;      // 未接続中に貯める入力の上限(暴走防止)
 
   const tabsEl = document.getElementById('term-tabs');
   const btnAddTab = document.getElementById('btn-add-tab');
@@ -29,8 +41,9 @@
   { const h = Number(localStorage.getItem(INPUT_H_KEY)); applyInputHeight(h >= 40 ? h : 92); }
 
   function tabSendRaw(tab, data) {
-    if (tab.ws && tab.ws.readyState === WebSocket.OPEN) { tab.ws.send(JSON.stringify({ t: 'i', d: data })); return; }
-    connect(tab); // 未接続なら再接続
+    // 直接送らずキュー経由にする。未接続なら退避して再接続し、復帰時に自動で送出する
+    // (機内Wi-Fi等で一瞬切れても入力を取りこぼさない)。
+    enqueueInput(tab, data);
   }
 
   // 入力欄 ON/OFF (ON=入力欄で編集・ターミナル直接入力ロック / OFF=直接入力・入力欄はスイッチ列のみ)
@@ -49,17 +62,20 @@
     if (tab === active) { fitActive(); (on ? tab.inputEl : tab.term).focus(); }
   }
   function submitTab(tab) {
-    if (!tab.ws || tab.ws.readyState !== WebSocket.OPEN) { connect(tab); return; }
     const text = tab.inputEl.value;
-    // bracketed pasteで内容を挿入(複数行・IME確定済みを安全に)し、Enter(\r)で送出
-    if (text.length) tab.ws.send(JSON.stringify({ t: 'i', d: '\x1b[200~' + text + '\x1b[201~' }));
-    tab.ws.send(JSON.stringify({ t: 'i', d: '\r' }));
+    // bracketed pasteで内容を挿入(複数行・IME確定済みを安全に)し、Enter(\r)で送出。
+    // キュー経由なので未接続でも取りこぼさず、再接続後にまとめて送られる。
+    if (text.length) tabSendRaw(tab, '\x1b[200~' + text + '\x1b[201~');
+    tabSendRaw(tab, '\r');
     if (text.trim() && history[history.length - 1] !== text) {
       history.push(text); if (history.length > 300) history.shift();
       try { localStorage.setItem(HIST_KEY, JSON.stringify(history)); } catch { /* noop */ }
     }
     tab.histIndex = history.length; tab.histDraft = '';
-    tab.inputEl.value = ''; tab.inputEl.focus();
+    tab.inputEl.value = '';
+    // スマホ: 送信はプロンプトへ直接入力する操作なので、入力欄へフォーカスを戻して
+    // ソフトキーボード(入力モード)を呼び出さない。PCは従来どおり続けて入力できるよう戻す。
+    if (!isMobile) tab.inputEl.focus();
   }
   // 入力欄末尾にテキストを挿入(前後に空白を補い、既存文字列と繋がらないように)
   function appendToInput(tab, text) {
@@ -97,13 +113,14 @@
     if (!history.length) return;
     if (tab.histIndex === history.length) tab.histDraft = tab.inputEl.value; // 編集中を退避
     if (tab.histIndex > 0) tab.histIndex -= 1;
-    tab.inputEl.value = history[tab.histIndex] ?? ''; tab.inputEl.focus();
+    tab.inputEl.value = history[tab.histIndex] ?? '';
+    if (!isMobile) tab.inputEl.focus(); // スマホ: 入力モードへ勝手に切り替えない
   }
   function histDown(tab) {
     if (tab.histIndex >= history.length) return;
     tab.histIndex += 1;
     tab.inputEl.value = tab.histIndex === history.length ? tab.histDraft : (history[tab.histIndex] ?? '');
-    tab.inputEl.focus();
+    if (!isMobile) tab.inputEl.focus(); // スマホ: 入力モードへ勝手に切り替えない
   }
   function setupResize(handle) {
     let dragging = false, startY = 0, startH = 0;
@@ -147,6 +164,9 @@
     const opt = data !== undefined
       ? { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'ezos' }, body: JSON.stringify(data) }
       : { headers: { 'X-Requested-With': 'ezos' } };
+    // 回線ハングで fetch が永久に返らないと polling が止まるため、上限時間で打ち切る
+    // (AbortSignal.timeout 非対応の古い環境では従来どおりタイムアウト無し)。
+    if (typeof AbortSignal !== 'undefined' && AbortSignal.timeout) opt.signal = AbortSignal.timeout(API_TIMEOUT_MS);
     const res = await fetch(path, opt);
     if (res.status === 401) { location.reload(); throw new Error('unauthorized'); }
     return res.json().catch(() => ({}));
@@ -161,9 +181,73 @@
     reconnectBtn.hidden = on;
   }
 
+  /* ---- 送信キュー: 未接続中の入力を退避し、接続復帰時にまとめて送る ----
+     機内Wi-Fi等で一瞬切れても「打った内容が消える」ことを防ぐ。tmuxは永続するので
+     復帰後に流し込めば続きから操作できる。resize/pingは最新値のみ意味があるので退避しない。 */
+  function enqueueInput(tab, data) {
+    tab.sendQueue.push({ t: 'i', d: data });
+    if (tab.sendQueue.length > SEND_QUEUE_MAX) tab.sendQueue.shift(); // 暴走防止(最古を捨てる)
+    flushQueue(tab);
+  }
+  function flushQueue(tab) {
+    const ws = tab.ws;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      while (tab.sendQueue.length) {
+        try { ws.send(JSON.stringify(tab.sendQueue[0])); } catch { break; }
+        tab.sendQueue.shift();
+      }
+    } else if (!tab.closedByUser) {
+      connect(tab); // 未接続なら張り直す。onopen で再度 flushQueue される
+    }
+  }
+
+  /* ---- ハートビート: アプリ層 ping/pong で「無通信のゾンビ接続」を検出して張り直す ----
+     ブラウザからは WebSocket プロトコル ping を送れないため、{t:'ping'} を送って
+     サーバに {t:'pong'} を返させ、一定時間まったく受信が無ければ死んだ接続とみなす。
+     受信(端末データ含む)があるたび lastRecv を更新するので、通信中は誤検出しない。 */
+  function stopHeartbeat(tab) {
+    if (tab.hbTimer) { clearInterval(tab.hbTimer); tab.hbTimer = null; }
+  }
+  function startHeartbeat(tab) {
+    stopHeartbeat(tab);
+    tab.lastRecv = Date.now();
+    tab.hbTimer = setInterval(() => {
+      const ws = tab.ws;
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+      if (Date.now() - tab.lastRecv > DEAD_MS) {
+        try { ws.close(); } catch { /* noop */ } // onclose が自動再接続を仕掛ける
+        return;
+      }
+      try { ws.send(JSON.stringify({ t: 'ping' })); } catch { /* 次回判定に委ねる */ }
+    }, HB_MS);
+  }
+
+  /* ---- 自動再接続: 通信断のときだけ指数バックオフ(+ジッタ)で無限リトライ ----
+     セッション終了/別デバイスへの切替(gotExit)や、ユーザーが閉じた場合は再接続しない。 */
+  function scheduleReconnect(tab) {
+    if (tab.closedByUser || tab.gotExit || tab.reconnectTimer) return;
+    const n = tab.reconnectAttempts;
+    const cap = Math.min(RECONNECT_MAX_MS, RECONNECT_BASE_MS * 2 ** n);
+    const delay = cap / 2 + Math.random() * (cap / 2); // 同時再接続の集中を避けるジッタ
+    tab.reconnectAttempts = n + 1;
+    tab.reconnectTimer = setTimeout(() => { tab.reconnectTimer = null; connect(tab); }, delay);
+  }
+  // 回線復帰(online)/前面復帰(visible)時に、切断中タブを即再接続(バックオフ待ちを飛ばす)
+  function kickReconnect(tab) {
+    if (tab.closedByUser || tab.gotExit) return;
+    const ws = tab.ws;
+    if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
+    if (tab.reconnectTimer) { clearTimeout(tab.reconnectTimer); tab.reconnectTimer = null; }
+    tab.reconnectAttempts = 0;
+    connect(tab);
+  }
+
   /* ---- WebSocket接続 (tmuxセッションへattach) ---- */
   function connect(tab) {
-    // 既存接続は必ず閉じてから張り直す (Enter連打などによる多重接続を防ぐ)
+    // すでに接続確立/確立中なら二重接続しない(flushQueueやタップ連打での多重張りを防ぐ)
+    if (tab.ws && (tab.ws.readyState === WebSocket.CONNECTING || tab.ws.readyState === WebSocket.OPEN)) return;
+    if (tab.reconnectTimer) { clearTimeout(tab.reconnectTimer); tab.reconnectTimer = null; }
+    // 古いソケットが残っていれば確実に閉じてから張り直す
     if (tab.ws) {
       try {
         tab.ws.onopen = tab.ws.onmessage = tab.ws.onclose = tab.ws.onerror = null;
@@ -171,11 +255,13 @@
       } catch { /* noop */ }
       tab.ws = null;
     }
+    stopHeartbeat(tab);
     if (tab === active) fitActive();
     const cols = tab.term.cols || 80;
     const rows = tab.term.rows || 24;
     const proto = location.protocol === 'https:' ? 'wss' : 'ws';
     tab.closedByUser = false;
+    tab.gotExit = false; // 新規attempt。以降にexitを受けたら立て直す
     const ws = new WebSocket(
       `${proto}://${location.host}/ws/term?s=${encodeURIComponent(tab.sid)}&cols=${cols}&rows=${rows}`);
     ws.binaryType = 'arraybuffer';
@@ -183,14 +269,24 @@
 
     ws.onopen = () => {
       tab.connected = true;
+      tab.reconnectAttempts = 0;
+      tab.reconnectNotified = false;
+      startHeartbeat(tab);
+      flushQueue(tab); // 未接続中に溜めた入力を送出(打った内容を失わない)
+      sendResize(tab); // 復帰直後にサイズを再通知(端末が縮小フレームのままにならないよう)
       updateConn();
       if (tab === active) { fitActive(); (tab.inputOn ? tab.inputEl : tab.term)?.focus(); }
     };
     ws.onmessage = (ev) => {
+      tab.lastRecv = Date.now(); // 受信があった=生存。ハートビート判定の基準
       if (typeof ev.data === 'string') {
         try {
           const m = JSON.parse(ev.data);
-          if (m.t === 'exit') tab.term.write(`\r\n\x1b[90m[セッション終了 (code ${m.code})]\x1b[0m\r\n`);
+          if (m.t === 'pong') return; // ハートビート応答(lastRecv更新のみ)
+          if (m.t === 'exit') {
+            tab.gotExit = true; // セッション終了/別デバイスへ切替 → 自動再接続しない
+            tab.term.write(`\r\n\x1b[90m[セッション終了 (code ${m.code})]\x1b[0m\r\n`);
+          }
           if (m.t === 'err') tab.term.write(`\r\n\x1b[31m${m.m}\x1b[0m\r\n`);
         } catch { /* noop */ }
       } else {
@@ -199,17 +295,30 @@
     };
     ws.onclose = () => {
       tab.connected = false;
+      stopHeartbeat(tab);
       updateConn();
-      if (!tab.closedByUser) {
+      if (tab.closedByUser) return;
+      if (tab.gotExit) {
         // 別デバイスが接続すると(-D)ここがデタッチされ、tmuxが縮小サイズで再描画した
         // 埋め草フレームが残る。resetで消してから復帰案内を出す(古い画面の残骸を見せない)。
         tab.term.reset();
-        tab.term.write('\x1b[90m[切断されました — 別のデバイスで開いたか通信が切れました。'
+        tab.term.write('\x1b[90m[別のデバイスで開かれたためデタッチしました。'
           + '再接続ボタン／Enter／このタブをタップで復帰します]\x1b[0m\r\n');
+        return;
       }
+      // 通信断(機内Wi-Fi等): 自動再接続。案内は一度だけ出す(再試行のたびに汚さない)。
+      if (!tab.reconnectNotified) {
+        tab.term.write('\r\n\x1b[90m[接続が切れました — 自動的に再接続します…]\x1b[0m\r\n');
+        tab.reconnectNotified = true;
+      }
+      scheduleReconnect(tab);
     };
     ws.onerror = () => { /* onclose が続く */ };
   }
+
+  // 回線が戻ったら即再接続(バックオフ待ちを飛ばして素早く復帰)
+  window.addEventListener('online', () => tabs.forEach(kickReconnect));
+  window.addEventListener('visibilitychange', () => { if (!document.hidden) tabs.forEach(kickReconnect); });
 
   function sendResize(tab) {
     if (tab.ws && tab.ws.readyState === WebSocket.OPEN) {
@@ -290,8 +399,18 @@
       };
       rec.onend = () => {
         recording = false; btn.classList.remove('rec'); btn.textContent = '🎤'; btn.title = '音声入力';
+        // 入力欄OFF(直接入力)時は入力欄が隠れているため、認識した全文(確定+未確定)を
+        // そのままプロンプト(シェル/Claude)へ tmux 経由で直接流し込む。Git ボタンと同じ
+        // bracketed paste方式で確定挿入し、Enterは送らないので実行前に確認・編集できる。
+        if (!tab.inputOn) {
+          const full = tab.inputEl.value; // onresultで確定+未確定を反映済み
+          const spoken = (baseValue && full.startsWith(baseValue) ? full.slice(baseValue.length) : full).trim();
+          if (spoken) tabSendRaw(tab, '\x1b[200~' + spoken + '\x1b[201~');
+          tab.inputEl.value = baseValue; // 認識分を隠れた入力欄に残さない
+          return;
+        }
         baseValue = tab.inputEl.value; // 認識確定分を次回の基準に取り込む
-        tab.inputEl.focus();
+        if (!isMobile) tab.inputEl.focus(); // スマホ: 入力モード(ソフトキーボード)を呼ばない
       };
       try { rec.start(); } catch { /* すでに開始済み */ }
     };
@@ -428,6 +547,11 @@
       sid: meta.sid, title: meta.title, term, fit, wrap, view, tabBtn, nameEl, dotEl,
       inputEl: null, histIndex: history.length, histDraft: '',
       ws: null, connected: false, closedByUser: false,
+      // 回線耐性用の状態(自動再接続・ハートビート・送信キュー)
+      gotExit: false,          // {t:'exit'} 受信(セッション終了/別デバイスに切替) → 自動再接続しない
+      sendQueue: [],           // 未接続中の入力を退避。復帰時に flushQueue でまとめて送出
+      reconnectTimer: null, reconnectAttempts: 0, reconnectNotified: false,
+      hbTimer: null, lastRecv: 0,
     };
 
     // ファイルパスをクリックでEZeditorに開く(URLは上のWebLinksが担当)。
@@ -437,15 +561,16 @@
     // このターミナル専用の制御キー行(右端に入力欄ON/OFFスイッチを同居させ省スペース化)
     const keyrow = document.createElement('div');
     keyrow.className = 'tw-keyrow';
-    // 制御信号系(^C/^D/^End)は入力欄へフォーカスを移さない(カーソルが飛んで
-    // モバイルのキーボードが出るのを防ぐ)。それ以外は従来どおり入力先へフォーカス。
+    // これらのキーは常にプロンプトへ直接送信する(tabSendRaw)。スマホでは送信後に
+    // フォーカスを移さず、入力モード(ソフトキーボード)へ勝手に切り替わらないようにする。
+    // PCでは従来どおり入力先へフォーカスを戻す(制御信号系 ^C/^D/^End は除く=カーソルが飛ぶため)。
     const NO_FOCUS = new Set(['^C', '^D', '^End']);
     for (const [label, seq] of KEYROW) {
       const b = document.createElement('button');
       b.textContent = label;
       b.addEventListener('click', () => {
         tabSendRaw(tab, seq);
-        if (!NO_FOCUS.has(label)) (tab.inputOn ? tab.inputEl : tab.term).focus();
+        if (!isMobile && !NO_FOCUS.has(label)) (tab.inputOn ? tab.inputEl : tab.term).focus();
       });
       keyrow.appendChild(b);
     }
@@ -459,12 +584,12 @@
       const b = document.createElement('button');
       b.className = 'gitkey'; b.textContent = label; b.title = title;
       b.addEventListener('click', () => {
-        if (!tab.ws || tab.ws.readyState !== WebSocket.OPEN) { connect(tab); return; }
         // 入力欄「送信」と同じ方式: ブラケットペーストでコマンドを確定入力し、
         // 独立したEnter(\r)で送信する。これでシェルでもClaudeプロンプトでも実行される
         // (素の \r だとClaudeでは改行扱いになり送信されないことがあるため)。
-        tab.ws.send(JSON.stringify({ t: 'i', d: '\x1b[200~' + cmd + '\x1b[201~' }));
-        tab.ws.send(JSON.stringify({ t: 'i', d: '\r' }));
+        // キュー経由なので未接続でも取りこぼさず、再接続後にまとめて送られる。
+        tabSendRaw(tab, '\x1b[200~' + cmd + '\x1b[201~');
+        tabSendRaw(tab, '\r');
       });
       return b;
     };
@@ -472,6 +597,16 @@
       mkGit('G↓', 'GitHubからpull (git pull)', GIT_PULL),
       mkGit('G↑', 'コミットしてGitHubへpush (add・commit・push)', GIT_PUSH),
     );
+
+    // 入力欄下の丸ボタン生成ヘルパ(マイクもこれで作り、スマホではキー行へ置く)
+    const mkIb = (label, title, cls) => {
+      const b = document.createElement('button');
+      b.className = 'ib-btn' + (cls ? ' ' + cls : ''); b.textContent = label; b.title = title;
+      return b;
+    };
+    // マイク(音声入力): 認識結果は入力欄に限らず直接プロンプトへ入力することもある。
+    // スマホでは入力切替スイッチのすぐ右に置き、入力欄OFF(直接入力)でも使えるようにする。
+    const mic = mkIb('🎤', '音声入力', 'mic'); setupMic(tab, mic);
 
     const swLabel = document.createElement('label');
     swLabel.className = 'tw-switch';
@@ -481,6 +616,7 @@
     const swSlider = document.createElement('span'); swSlider.className = 'tw-slider';
     swLabel.append(swText, switchInput, swSlider);
     keyrow.append(swLabel);
+    if (isMobile) keyrow.append(mic); // スマホ: 入力切替スイッチのすぐ右にマイクを配置
     tab.switchEl = switchInput;
     switchInput.addEventListener('change', () => setInputMode(tab, switchInput.checked));
     wrap.appendChild(keyrow);
@@ -518,12 +654,6 @@
     });
     const ctrls = document.createElement('div');
     ctrls.className = 'tw-ctrls';
-    const mkIb = (label, title, cls) => {
-      const b = document.createElement('button');
-      b.className = 'ib-btn' + (cls ? ' ' + cls : ''); b.textContent = label; b.title = title;
-      return b;
-    };
-    const mic = mkIb('🎤', '音声入力', 'mic'); setupMic(tab, mic);
     // 添付(📎): 画像などのファイルを端末のカレントディレクトリへアップロードし、パスを入力欄に挿入
     const fileInput = document.createElement('input');
     fileInput.type = 'file'; fileInput.multiple = true; fileInput.hidden = true;
@@ -534,7 +664,9 @@
     const down = mkIb('⇩', '次の入力'); down.addEventListener('click', () => histDown(tab));
     const spacer = document.createElement('span'); spacer.className = 'spacer';
     const send = mkIb('送信 ⏎', '送信 (Ctrl+Enter)', 'send'); send.addEventListener('click', () => submitTab(tab));
-    ctrls.append(mic, attach, up, down, send, spacer);
+    // スマホではマイクをキー行(スイッチの右)へ移したので、入力バーには含めない
+    if (isMobile) ctrls.append(attach, up, down, send, spacer);
+    else ctrls.append(mic, attach, up, down, send, spacer);
     bar.append(ta, ctrls, fileInput);
     wrap.appendChild(bar);
 
@@ -619,6 +751,9 @@
 
   function destroyTab(tab) {
     tab.closedByUser = true;
+    stopHeartbeat(tab);
+    if (tab.reconnectTimer) { clearTimeout(tab.reconnectTimer); tab.reconnectTimer = null; }
+    tab.sendQueue.length = 0;
     try { tab.ws?.close(); } catch { /* noop */ }
     tab.term.dispose();
     tab.wrap.remove();

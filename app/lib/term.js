@@ -74,7 +74,11 @@ export function createTermServer({ isAuthed, origin }) {
       } catch {
         return;
       }
-      if (m.t === 'i' && typeof m.d === 'string') {
+      if (m.t === 'ping') {
+        // クライアントのアプリ層ハートビート。pongを返して「生存」を知らせる
+        // (低速回線でブラウザが接続の生死を判定できるようにするため)。
+        if (ws.readyState === ws.OPEN) ws.send(JSON.stringify({ t: 'pong' }));
+      } else if (m.t === 'i' && typeof m.d === 'string') {
         p.write(m.d);
       } else if (m.t === 'r' && m.c && m.r) {
         try {
@@ -94,10 +98,20 @@ export function createTermServer({ isAuthed, origin }) {
       try { p.kill(); } catch { /* already dead */ }
     });
 
+    // WebSocketプロトコル ping で接続を保温しつつ(NAT/プロキシのアイドル切断を防ぐ)、
+    // pong応答で生死を判定する。低速・断続回線ではデタッチ済みのゾンビ接続が残って
+    // pty/attach がリークしやすいので、一定回数 pong が返らなければ terminate して回収する
+    // (tmuxセッション自体は永続=安全)。keep-alive頻度(25s)と生死判定(未応答2回≈50s)を
+    // 分け、高遅延でも正常な接続を誤って切らないようにする。
+    let missed = 0;
+    ws.on('pong', () => { missed = 0; });
     const ping = setInterval(() => {
-      if (ws.readyState === ws.OPEN) ws.ping();
-      else clearInterval(ping);
-    }, 20000);
+      if (ws.readyState !== ws.OPEN) { clearInterval(ping); return; }
+      if (missed >= 2) { try { ws.terminate(); } catch { /* noop */ } clearInterval(ping); return; }
+      missed += 1;
+      try { ws.ping(); } catch { /* 次周期で terminate される */ }
+    }, 25000);
+    ws.on('close', () => clearInterval(ping));
   });
 
   // http(s)サーバーの upgrade イベントに接続する
