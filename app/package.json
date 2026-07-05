@@ -3,7 +3,7 @@
   "version": "2.0.0",
   "private": true,
   "type": "module",
-  "description": "EZeditor - Web terminal for the VPS (passkey-protected), run Claude Code from any browser",
+  "description": "EZOS - passkey-protected web cockpit (EZterminal / EZbrowser / EZeditor) to run Claude Code from any browser",
   "scripts": {
     "start": "node server.js",
     "setup": "node setup.js"

@@ -1,5 +1,13 @@
 // 初期セットアップ: data/config.json を生成してセットアップキーを表示する
 // 再実行しても既存設定は上書きしない。--regen-setup-key でキーのみ再生成。
+//
+// 新規インストール時は環境変数で値を渡せる(未指定なら既定値=この本番機の設定):
+//   EZOS_RPID       WebAuthn の rpID(親ドメイン)          既定: ezoe.net
+//   EZOS_ORIGIN     公開オリジン(https://<host>)           既定: https://ezeditor.ezoe.net
+//   EZOS_PORT       localhost 待受ポート                    既定: 3100
+//   EZOS_USERNAME   パスキーの表示ユーザー名                 既定: hiroshi
+//   EZOS_SETUP_KEY  セットアップキーを指定(通常は自動生成)
+// 例) EZOS_ORIGIN=https://ezos.ezoe.net EZOS_PORT=3101 node setup.js
 import { randomBytes } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -18,11 +26,11 @@ if (fs.existsSync(FILE)) {
 
 if (!cfg) {
   cfg = {
-    rpID: 'ezoe.net',
-    origin: 'https://ezeditor.ezoe.net',
-    port: 3100,
-    setupKey: randomBytes(16).toString('hex'),
-    userName: 'hiroshi',
+    rpID: process.env.EZOS_RPID || 'ezoe.net',
+    origin: process.env.EZOS_ORIGIN || 'https://ezeditor.ezoe.net',
+    port: Number(process.env.EZOS_PORT) || 3100,
+    setupKey: process.env.EZOS_SETUP_KEY || randomBytes(16).toString('hex'),
+    userName: process.env.EZOS_USERNAME || 'hiroshi',
   };
   fs.writeFileSync(FILE, JSON.stringify(cfg, null, 2), { mode: 0o600 });
   console.log('config.json を作成しました。');

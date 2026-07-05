@@ -12,7 +12,7 @@
   const cycleBtn = document.getElementById('mode-cycle');
   if (!browserEl || !editorEl || !cycleBtn) return;
 
-  console.info('[EZOS] ezbrowser.js build: mode-cycle+explorer+editor, rename(2026-07-05b)');
+  console.info('[EZOS] ezbrowser.js build: mode-cycle+explorer+editor, rename, terminal-menu(2026-07-05c)');
 
   /* ---------- fetch ヘルパー(term.js とは別IIFEなので自前) ---------- */
   async function fapi(path, opts = {}) {
@@ -230,6 +230,10 @@
       ['—'],
       ['隠しファイル: ' + (state.hidden ? 'ON' : 'OFF'), toggleHidden],
     ])));
+    menubarEl.appendChild(menuButton('ターミナル', () => ([
+      ['CLI', () => openTerminal('cli')],
+      ['Claude', () => openTerminal('claude')],
+    ])));
   }
 
   /* ---------- 一覧描画 ---------- */
@@ -368,6 +372,17 @@
   function setView(v) { state.view = v; localStorage.setItem('ez_view', v); buildMenubar(); renderList(); }
   function toggleHidden() { state.hidden = !state.hidden; buildMenubar(); load(state.cwd); }
   function doUpload() { uploadInput.click(); }
+  // 現在フォルダで新規ターミナルをEZterminalに追加し、そこへ移動する(CLI or Claude)
+  async function openTerminal(kind) {
+    try {
+      const base = state.cwd.split('/').pop() || 'term';
+      const title = kind === 'claude' ? `Claude:${base}` : base;
+      const j = await fjson('/api/term/add', { dir: state.cwd, kind, title });
+      const sid = j.terminal && j.terminal.sid;
+      if (sid && window.EZ.gotoTerminal) { setMode('terminal'); await window.EZ.gotoTerminal(sid); }
+      else if (!window.EZ.gotoTerminal) alert('端末機能が読み込まれていません');
+    } catch (e) { alert(e.message); }
+  }
   async function doMkdir() { try { await fjson('/api/fs/mkdir', { dir: state.cwd }); await load(state.cwd); flash('フォルダを作成'); } catch (e) { alert(e.message); } }
   async function doCreateText() {
     try { const j = await fjson('/api/fs/create', { dir: state.cwd }); await load(state.cwd); openInEditor({ name: j.name, type: 'file', editable: true }); }

@@ -13,7 +13,7 @@ import {
 import { ROOT, readJson, writeJson, loadConfig } from './lib/store.js';
 import { runClaude } from './lib/claude.js';
 import { createTermServer } from './lib/term.js';
-import { getStates, sendKey, getTitles, getCwd } from './lib/termstate.js';
+import { getStates, sendKey, getTitles, getCwd, createSession } from './lib/termstate.js';
 import { listTerminals, addTerminal, removeTerminal } from './lib/terminals.js';
 import { REAL_ROOT, HttpError, safePath, childPath, isTextFile, statEntry } from './lib/filemgr.js';
 
@@ -411,7 +411,15 @@ const server = http.createServer(async (req, res) => {
 
     if (p === '/api/term/add' && req.method === 'POST') {
       const body = await readBody(req);
-      sendJson(res, 200, { terminal: addTerminal(body.title) });
+      const term = addTerminal(body.title);
+      // EZbrowserからの追加: dir指定があればその場所でtmuxセッションを事前生成(CLI/Claude)
+      if (body.dir) {
+        try {
+          const dir = await safePath(body.dir); // /home/debian 配下のみ
+          await createSession(term.sid, dir, body.kind === 'claude' ? 'claude' : 'cli');
+        } catch { /* 事前生成失敗でもレジストリは作成済み。WS接続時に既定生成される */ }
+      }
+      sendJson(res, 200, { terminal: term });
       return;
     }
 

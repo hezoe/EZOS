@@ -50,6 +50,20 @@ export async function getCwd(sid) {
   }
 }
 
+/** 指定sidのtmuxセッションを、指定ディレクトリで事前生成する(EZbrowserからの端末追加用)。
+   kind==='claude' なら生成後に対話シェルへ `claude` を送って起動する(PATH解決を確実に)。 */
+export async function createSession(sid, dir, kind) {
+  if (!HAS_TMUX) return;
+  const name = sanitizeSid(sid);
+  if (!name) return;
+  const args = ['new-session', '-d', '-s', `ez_${name}`, '-x', '220', '-y', '50'];
+  if (dir) args.push('-c', dir);
+  try { await pexec('tmux', args); } catch { return; } // 既存/失敗時は素のまま(WS接続時に既定生成)
+  if (kind === 'claude') {
+    try { await pexec('tmux', ['send-keys', '-t', `ez_${name}`, 'claude', 'Enter']); } catch { /* noop */ }
+  }
+}
+
 /** ez_ プレフィックスのtmuxセッション一覧(=各ターミナルタブ)のsidを返す */
 export async function listSids() {
   if (!HAS_TMUX) return [];

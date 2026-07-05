@@ -6,7 +6,7 @@
 'use strict';
 
 (() => {
-  console.info('[EZeditor] term.js build: tabs(dynamic+, state-dot, pulldown, touch-scroll-fix, vv-pin, keyrow-reorder+wrap, switch-next-to-esc, ctrl-end, actions-stack-when-wrapped, ctrl-keys-no-focus, mobile-no-brand, wrap-hysteresis, git-buttons-submit, send-after-down, shift-tab, sanitize, file-upload, web-links)(2026-07-05b)'); // 版確認用
+  console.info('[EZeditor] term.js build: tabs(dynamic+, state-dot, pulldown, touch-scroll-fix, vv-pin, keyrow-reorder+wrap, switch-next-to-esc, ctrl-end, actions-stack-when-wrapped, ctrl-keys-no-focus, mobile-no-brand, wrap-hysteresis, git-buttons-submit, send-after-down, shift-tab, sanitize, file-upload, web-links, goto-terminal)(2026-07-05c)'); // 版確認用
   const isMobile = window.EZ.view === 'mobile';
   const ACTIVE_KEY = 'ez_active_sid'; // 閲覧中タブ(このブラウザ限定の表示都合)
 
@@ -223,6 +223,17 @@
     sendResize(active);
   }
   window.EZ.fitActive = fitActive; // EZbrowser がモード復帰時に端末を再フィットするため公開
+  // EZbrowser から新規端末(sid)へ移動: 同期でタブを生成してアクティブ化する
+  window.EZ.gotoTerminal = async (sid) => {
+    if (!sid) return;
+    localStorage.setItem(ACTIVE_KEY, sid);
+    for (let i = 0; i < 6; i += 1) {
+      await poll(); // サーバのタブ一覧を取り込み、新規タブを生成
+      const tab = tabs.find((t) => t.sid === sid);
+      if (tab) { setActive(tab, { focus: false }); return; }
+      await new Promise((r) => setTimeout(r, 250));
+    }
+  };
 
   // クリップボードへコピー (Clipboard API優先、失敗時は execCommand フォールバック)
   function copyText(text) {

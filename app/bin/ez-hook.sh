@@ -1,10 +1,16 @@
 #!/bin/bash
-# Claude Code フック → EZeditor開発ハブへのハートビート
+# Claude Code フック → EZOS 開発ハブへのハートビート
 # 使い方: ez-hook.sh <state>   (state: idle|working|pretool|waiting_user|ended)
 # フックのstdinにイベントJSONが渡される
 set -u
 STATE="${1:-working}"
 EV=$(cat 2>/dev/null || echo '{}')
+
+# 送信先ポートは同梱の data/config.json から取得(インストール先ごとに異なるため)。
+# 取得できなければ 3100 にフォールバック。
+HOOK_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+PORT=$(jq -r '.port // 3100' "$HOOK_DIR/../data/config.json" 2>/dev/null)
+[ -z "$PORT" ] || [ "$PORT" = "null" ] && PORT=3100
 
 SID=$(echo "$EV" | jq -r '.session_id // ""' 2>/dev/null)
 CWD=$(echo "$EV" | jq -r '.cwd // ""' 2>/dev/null)
@@ -30,7 +36,7 @@ PAYLOAD=$(jq -n --arg id "$SID" --arg state "$STATE" --arg cwd "$CWD" --arg deta
   '{id:$id, state:$state, cwd:$cwd, detail:$detail}')
 
 # 非同期送信 (Claude Codeをブロックしない)
-curl -s -m 3 -X POST http://127.0.0.1:3100/api/beat \
+curl -s -m 3 -X POST "http://127.0.0.1:${PORT}/api/beat" \
   -H 'Content-Type: application/json' \
   -d "$PAYLOAD" > /dev/null 2>&1 &
 
