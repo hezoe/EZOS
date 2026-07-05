@@ -843,13 +843,13 @@ function renderPage({ authed, view, hasCreds }) {
 <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/assets/favicon.svg">
 <link rel="stylesheet" href="/assets/app.css">
-${authed ? '<link rel="stylesheet" href="/vendor/xterm.css">' : ''}
+${authed ? '<link rel="stylesheet" href="/assets/ezeditor.css"><link rel="stylesheet" href="/vendor/xterm.css">' : ''}
 </head>
 <body class="${esc(bodyClass)}">
 ${authed ? termHtml : loginHtml}
 <script>window.EZ = { authed: ${authed}, view: ${JSON.stringify(view)} };</script>
 ${authed
-    ? '<script src="/vendor/xterm.js"></script><script src="/vendor/addon-fit.js"></script><script src="/vendor/addon-clipboard.js"></script><script src="/vendor/addon-web-links.js"></script><script src="/assets/term.js"></script><script src="/assets/ezhl.js"></script><script src="/assets/ezbrowser.js"></script>'
+    ? '<script src="/vendor/xterm.js"></script><script src="/vendor/addon-fit.js"></script><script src="/vendor/addon-clipboard.js"></script><script src="/vendor/addon-web-links.js"></script><script src="/assets/term.js"></script><script src="/assets/ezhl.js"></script><script src="/assets/ezeditor.js"></script><script src="/assets/ezbrowser.js"></script>'
     : '<script src="/assets/app.js"></script>'}
 </body>
 </html>`;

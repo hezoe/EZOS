@@ -44,7 +44,9 @@ app/
   lib/filemgr.js   EZeditor(ファイル操作)のバックエンド
   lib/claude.js    claudeヘッドレス実行(旧チャットAPI用、現在UIなし)
   bin/ez-hook.sh   Claude Codeフック→ハートビート(送信先ポートはconfig.jsonから)
-  public/          app.css / term.js / ezbrowser.js / hub.js / app.js 等
+  public/          フロントエンド。EZterminal=term.js / EZbrowser=ezbrowser.js /
+                   EZeditor=ezeditor.js(+シンタックスハイライタ ezhl.js, ezeditor.css) /
+                   app.css / hub.js / app.js 等。EZeditorはEZbrowserからwindow.EZEditor経由で利用
 ```
 
 ## インストール / デプロイ

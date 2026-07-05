@@ -1,0 +1,41 @@
+/* EZeditor 専用スタイル(ezeditor.js が使用)。
+   #ez-editor 自体のモード表示レイアウトは3ビュー共通のため app.css 側にある。 */
+
+/* ツールバー */
+.eze-bar { flex: none; display: flex; align-items: center; gap: 6px; padding: 4px 8px; background: var(--panel); border-bottom: 1px solid var(--line); }
+.eze-menus { display: flex; gap: 2px; }
+.eze-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--dim); font-size: 13px; }
+.eze-close { flex: none; background: var(--card); border: 1px solid var(--line); color: var(--text); border-radius: 6px; width: 30px; height: 28px; cursor: pointer; }
+.eze-close:hover { background: var(--card-hover); }
+
+/* エディタ本体: 透明テキストの textarea の背後に色付き pre を重ねるオーバーレイ。
+   両者は padding/font/line-height/折り返し設定を完全に一致させて桁を揃える。 */
+.eze-wrap { position: relative; flex: 1; min-height: 0; overflow: hidden; }
+.eze-hl, .eze-text {
+  margin: 0; box-sizing: border-box; padding: 10px 12px;
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 14px; line-height: 1.5;
+  white-space: pre-wrap; overflow-wrap: break-word; word-break: break-word; tab-size: 2;
+}
+.eze-hl {
+  position: absolute; inset: 0; overflow: auto; pointer-events: none;
+  color: var(--text); background: var(--bg); z-index: 0;
+}
+.eze-text {
+  position: absolute; inset: 0; overflow: auto; resize: none; border: none; outline: none;
+  background: var(--bg); color: var(--text); caret-color: var(--text); z-index: 1;
+}
+/* ハイライト有効時のみ textarea のテキストを透明化して背後の色付き層を見せる */
+.eze-wrap.hl-on .eze-text { background: transparent; color: transparent; }
+.eze-wrap.hl-on .eze-text::selection { background: rgba(76, 141, 255, .35); color: transparent; }
+.eze-wrap:not(.hl-on) .eze-hl { display: none; }
+
+/* シンタックスハイライトのトークン配色(One Dark 系) */
+.tok-kw   { color: #c678dd; }
+.tok-str  { color: #98c379; }
+.tok-num  { color: #d19a66; }
+.tok-com  { color: #6a7386; font-style: italic; }
+.tok-fn   { color: #61afef; }
+.tok-tag  { color: #e06c75; }
+.tok-attr { color: #d19a66; }
+.tok-prop { color: #56b6c2; }
+.tok-punct{ color: #8b93a7; }

@@ -1,5 +1,6 @@
-/* EZbrowser: ファイルエクスプローラ + エディタのモード。端末と3状態サイクルで切替。
+/* EZbrowser: ファイルエクスプローラのモード。端末・エディタと3状態サイクルで切替。
    3ビュー(#terminals / #ez-browser / #ez-editor)は同時に存在し、表示だけを付け替える。
+   エディタ本体は ezeditor.js(window.EZEditor)に分離。ここはホストとして接続するのみ。
    全FS操作は /home/debian 配下に限定(サーバの safePath が保証)。 */
 'use strict';
 (() => {
@@ -12,7 +13,7 @@
   const cycleBtn = document.getElementById('mode-cycle');
   if (!browserEl || !editorEl || !cycleBtn) return;
 
-  console.info('[EZOS] ezbrowser.js build: mode-cycle+explorer+editor, rename, terminal-menu, syntax-highlight(2026-07-05d)');
+  console.info('[EZOS] ezbrowser.js build: mode-cycle+explorer, rename, terminal-menu, editor-extracted(2026-07-05e)');
 
   /* ---------- fetch ヘルパー(term.js とは別IIFEなので自前) ---------- */
   async function fapi(path, opts = {}) {
@@ -68,7 +69,8 @@
   /* ---------- モード(3状態サイクル) ---------- */
   const ROOT = '/home/debian';
   let mode = 'terminal';        // 'terminal' | 'browser' | 'editor'
-  let editorOpen = false;
+  let editorOpen = false;       // エディタ表示中か(EZEditorの onShow/onHide で更新)
+  let editor = null;            // EZEditor インスタンス(ezeditor.js)
   let loaded = false;
   const ICONS = {
     terminal: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="4" y1="12" x2="20" y2="12"/><line x1="6.3" y1="6.3" x2="17.7" y2="17.7"/><line x1="12" y1="4" x2="12" y2="20"/><line x1="17.7" y1="6.3" x2="6.3" y2="17.7"/><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/></svg>',
@@ -435,82 +437,19 @@
   }
 
   /* ---------- エディタ ---------- */
-  let edPath = null, edName = null, edDirty = false, edText, edNameEl;
-  let edWrap, edHL, edLang = null;
-  const HL_MAX = 400 * 1024; // これを超えるファイルはハイライトせず素のまま表示(重さ回避)
-
-  // ハイライト層を再描画。対応拡張子かつ小さいファイルのみ色分けする。
-  function edRender() {
-    if (!edWrap) return;
-    const on = edLang && window.EZHL && edText.value.length <= HL_MAX;
-    edWrap.classList.toggle('hl-on', !!on);
-    if (on) {
-      // textareaの末尾改行と高さを合わせるため末尾に改行を足す
-      edHL.innerHTML = window.EZHL.highlight(edText.value, edLang) + '\n';
-      edHL.scrollTop = edText.scrollTop; edHL.scrollLeft = edText.scrollLeft;
-    }
-  }
+  // 実体は ezeditor.js(window.EZEditor)に分離。ここはホストとしての接続のみ。
   function buildEditor() {
-    editorEl.innerHTML = '';
-    const bar = document.createElement('div'); bar.className = 'eze-bar';
-    const menus = document.createElement('div'); menus.className = 'eze-menus';
-    menus.appendChild(menuButton('ファイル', () => ([['保存', saveFile], ['別名で保存', saveAs]])));
-    menus.appendChild(menuButton('編集', () => ([['カット', edCut], ['コピー', edCopy], ['ペースト', edPaste]])));
-    edNameEl = document.createElement('span'); edNameEl.className = 'eze-name';
-    const closeb = document.createElement('button'); closeb.className = 'eze-close'; closeb.textContent = '✕'; closeb.title = '閉じる';
-    closeb.addEventListener('click', closeEditor);
-    bar.append(menus, edNameEl, closeb);
-    // オーバーレイ: 透明テキストの textarea の背後に色付き pre を重ねる
-    edWrap = document.createElement('div'); edWrap.className = 'eze-wrap';
-    edHL = document.createElement('pre'); edHL.className = 'eze-hl'; edHL.setAttribute('aria-hidden', 'true');
-    edText = document.createElement('textarea'); edText.className = 'eze-text'; edText.spellcheck = false;
-    edText.addEventListener('input', () => { edDirty = true; edRender(); });
-    edText.addEventListener('scroll', () => { edHL.scrollTop = edText.scrollTop; edHL.scrollLeft = edText.scrollLeft; });
-    edText.addEventListener('keydown', (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveFile(); }
+    if (!window.EZEditor) { console.warn('[EZOS] EZEditor 未読込'); return; }
+    editor = window.EZEditor.create({
+      mountEl: editorEl,
+      menuButton, flash, fjson, join,
+      getCwd: () => state.cwd,
+      reloadBrowser: () => { if (loaded) load(state.cwd); },
+      onShow: () => { editorOpen = true; setMode('editor'); },
+      onHide: () => { editorOpen = false; setMode('browser'); },
     });
-    edWrap.append(edHL, edText);
-    editorEl.append(bar, edWrap);
   }
-  async function openInEditor(e) {
-    try {
-      const j = await fjson('/api/fs/read?path=' + encodeURIComponent(join(state.cwd, e.name)));
-      if (edDirty && edPath && !confirm('未保存の変更があります。破棄して開きますか?')) return;
-      edPath = j.path; edName = j.name; edText.value = j.content; edDirty = false; edNameEl.textContent = j.name;
-      edLang = window.EZHL ? window.EZHL.langFor(j.name) : null; edText.scrollTop = 0; edRender();
-      editorOpen = true; setMode('editor'); setTimeout(() => edText.focus(), 0);
-    } catch (err) {
-      if (err.message === 'binary') alert('バイナリファイルは開けません');
-      else alert('開けません: ' + err.message);
-    }
-  }
-  async function saveFile() {
-    if (!edPath) return;
-    try { await fjson('/api/fs/write', { path: edPath, content: edText.value }); edDirty = false; flash('保存しました'); }
-    catch (e) { alert('保存失敗: ' + e.message); }
-  }
-  async function saveAs() {
-    const name = prompt('別名で保存 (現在のフォルダに作成):', edName || 'new.txt');
-    if (!name) return;
-    try {
-      const j = await fjson('/api/fs/create', { dir: state.cwd, name, content: edText.value });
-      edPath = j.path; edName = j.name; edNameEl.textContent = j.name; edDirty = false;
-      edLang = window.EZHL ? window.EZHL.langFor(j.name) : null; edRender();
-      if (loaded) load(state.cwd);
-      flash('保存しました: ' + j.name);
-    } catch (e) { alert('保存失敗: ' + e.message); }
-  }
-  function edSelText() { return edText.value.substring(edText.selectionStart, edText.selectionEnd); }
-  async function edCopy() { const s = edSelText(); try { await navigator.clipboard.writeText(s); } catch { edText.focus(); document.execCommand('copy'); } }
-  async function edCut() { await edCopy(); const a = edText.selectionStart, b = edText.selectionEnd; edText.setRangeText('', a, b, 'end'); edDirty = true; edRender(); edText.focus(); }
-  async function edPaste() {
-    try { const t = await navigator.clipboard.readText(); const a = edText.selectionStart, b = edText.selectionEnd; edText.setRangeText(t, a, b, 'end'); edDirty = true; edRender(); edText.focus(); }
-    catch { alert('貼り付けは Ctrl+V を使用してください'); }
-  }
-  function closeEditor() {
-    if (edDirty && !confirm('未保存の変更があります。閉じますか?')) return;
-    editorOpen = false; edDirty = false; setMode('browser');
-  }
+  function openInEditor(e) { if (editor) editor.open(e); }
 
   /* ---------- 初期化 ---------- */
   browserEl.removeAttribute('hidden'); editorEl.removeAttribute('hidden');
