@@ -1,13 +1,13 @@
 /* EZeditor 専用スタイル(ezeditor.js が使用)。
    #ez-editor 自体のモード表示レイアウトは3ビュー共通のため app.css 側にある。 */
 
-/* ツールバー */
-.eze-bar { flex: none; display: flex; align-items: center; gap: 6px; padding: 4px 8px; background: var(--panel); border-bottom: 1px solid var(--line); }
+/* ツールバー(上から: ファイルタブ一覧 → ファイルメニュー) */
+.eze-tabbar, .eze-bar { flex: none; display: flex; align-items: center; gap: 6px; padding: 4px 8px; background: var(--panel); border-bottom: 1px solid var(--line); }
 .eze-menus { flex: none; display: flex; gap: 2px; }
 .eze-close { flex: none; background: var(--card); border: 1px solid var(--line); color: var(--text); border-radius: 6px; width: 30px; height: 28px; cursor: pointer; }
 .eze-close:hover { background: var(--card-hover); }
 
-/* 開いているファイルのタブ(編集メニューの右)。多い時は横スクロール。 */
+/* 開いているファイルのタブ(1段目)。多い時は横スクロール。 */
 .eze-tabs { flex: 1; min-width: 0; display: flex; gap: 4px; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
 .eze-tab {
   flex: none; display: flex; align-items: center; gap: 6px; max-width: 200px;

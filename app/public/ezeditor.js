@@ -1,6 +1,7 @@
 /* EZeditor: 複数ファイルをタブで開けるテキストエディタ。EZbrowser から分離した独立モジュール。
    1つの textarea + ハイライト層を共有し、各タブが content/dirty/lang/scroll/選択位置を保持する。
-   タブは「編集」メニューの右に並ぶ。タブの✕(または右上✕=現在タブ)で閉じ、未保存時のみ確認を出す。
+   ツールバーは上から「ファイルタブ一覧」「ファイルメニュー(ファイル/編集)」の2段。
+   タブの✕(またはタブ段右端の✕=現在タブ)で閉じ、未保存時のみ確認を出す。
    ホスト(EZbrowser)とは EZEditor.create(ctx) の ctx 経由でのみやり取りする:
      ctx.mountEl        描画先の要素(#ez-editor)
      ctx.menuButton     ドロップダウン付きメニューボタン生成(ホストの共通UI)
@@ -172,14 +173,18 @@
     function build() {
       const el = ctx.mountEl;
       el.innerHTML = '';
+      // 1段目: 開いているファイルのタブ一覧(+現在タブを閉じる✕)
+      const tabbar = document.createElement('div'); tabbar.className = 'eze-tabbar';
+      tabsEl = document.createElement('div'); tabsEl.className = 'eze-tabs';
+      const closeb = document.createElement('button'); closeb.className = 'eze-close'; closeb.textContent = '✕'; closeb.title = '現在のタブを閉じる';
+      closeb.addEventListener('click', () => { if (activeId != null) closeTab(activeId); });
+      tabbar.append(tabsEl, closeb);
+      // 2段目: ファイルメニュー(ファイル / 編集)
       const bar = document.createElement('div'); bar.className = 'eze-bar';
       const menus = document.createElement('div'); menus.className = 'eze-menus';
       menus.appendChild(ctx.menuButton('ファイル', () => ([['保存', saveFile], ['別名で保存', saveAs]])));
       menus.appendChild(ctx.menuButton('編集', () => ([['カット', edCut], ['コピー', edCopy], ['ペースト', edPaste]])));
-      tabsEl = document.createElement('div'); tabsEl.className = 'eze-tabs'; // 編集メニューの右にタブを並べる
-      const closeb = document.createElement('button'); closeb.className = 'eze-close'; closeb.textContent = '✕'; closeb.title = '現在のタブを閉じる';
-      closeb.addEventListener('click', () => { if (activeId != null) closeTab(activeId); });
-      bar.append(menus, tabsEl, closeb);
+      bar.appendChild(menus);
       // オーバーレイ: 透明テキストの textarea の背後に色付き pre を重ねる
       edWrap = document.createElement('div'); edWrap.className = 'eze-wrap';
       edHL = document.createElement('pre'); edHL.className = 'eze-hl'; edHL.setAttribute('aria-hidden', 'true');
@@ -190,13 +195,13 @@
         if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) { e.preventDefault(); saveFile(); }
       });
       edWrap.append(edHL, edText);
-      el.append(bar, edWrap);
+      el.append(tabbar, bar, edWrap); // 上から: ファイルタブ / ファイルメニュー / 本文
     }
 
     build();
     return { open, hasOpen: () => tabs.length > 0 };
   }
 
-  console.info('[EZOS] ezeditor.js build: standalone editor, multi-tab, syntax-highlight(2026-07-05f)');
+  console.info('[EZOS] ezeditor.js build: standalone editor, multi-tab(2段: tabs/menu), syntax-highlight(2026-07-05g)');
   window.EZEditor = { create };
 })();
