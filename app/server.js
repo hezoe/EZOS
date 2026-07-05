@@ -861,9 +861,19 @@ const handleUpgrade = createTermServer({ isAuthed, origin: cfg.origin });
 // Caddy(Dockerコンテナ)から host.docker.internal 経由で届くよう docker0 側にもバインドする
 const PORT = cfg.port || 3100;
 const HOSTS = cfg.hosts || ['127.0.0.1', '172.17.0.1'];
-for (const host of HOSTS) {
-  const s = host === HOSTS[0] ? server : http.createServer(server.listeners('request')[0]);
+// docker0(172.17.0.1)は Docker デーモン起動後に現れるため、起動順によっては
+// bind 時点でアドレス未存在(EADDRNOTAVAIL)になりうる。その場合は現れるまでリトライする。
+function bindHost(host, isPrimary) {
+  const s = isPrimary ? server : http.createServer(server.listeners('request')[0]);
   s.on('upgrade', handleUpgrade);
+  s.on('error', (e) => {
+    if (e.code === 'EADDRNOTAVAIL') {
+      console.error(`listen ${host}:${PORT} failed: ${e.message}; retrying in 3s`);
+      setTimeout(() => s.listen(PORT, host), 3000);
+    } else {
+      console.error(`listen ${host}:${PORT} failed: ${e.message}`);
+    }
+  });
   s.listen(PORT, host, () => console.log(`EZOS listening on ${host}:${PORT}`));
-  s.on('error', (e) => console.error(`listen ${host}:${PORT} failed: ${e.message}`));
 }
+HOSTS.forEach((host, i) => bindHost(host, i === 0));

@@ -1,6 +1,10 @@
 [Unit]
 Description=EZOS - Claude web UI
-After=network.target
+# docker0(172.17.0.1)は dockerd 起動後に現れるため、その後に起動させる。
+# Docker未導入の機でも起動できるよう依存はWants(弱依存)で表現し、順序のみAfterで固定。
+# なお万一先に起動しても server.js が EADDRNOTAVAIL をリトライ吸収する(二重の保険)。
+After=network-online.target docker.service
+Wants=network-online.target docker.service
 
 [Service]
 Type=simple

@@ -118,11 +118,18 @@ EZOS_ORIGIN="$ORIGIN" EZOS_RPID="$RPID" EZOS_PORT="$PORT" \
 `app/ezos.service` は基準機向けの参考ファイル。**下のテンプレで実値を埋めて生成**する。
 `KillMode=process` は node だけ止めて node-pty が起こした tmux(=永続ターミナル)を再起動で生かし続けるため。
 
+**起動順の注意**: server.js は `172.17.0.1`(docker0) にも待受する(Caddyコンテナから `host.docker.internal` 経由で届くため)。
+この docker0 アドレスは **dockerd 起動後に初めて現れる**ので、EZOSが Docker より先に起動すると bind が `EADDRNOTAVAIL` で失敗する。
+そのため unit を **`After=docker.service`(+`Wants=`)** で Docker の後に起動させる。
+併せて server.js 側でも `EADDRNOTAVAIL` を検知したら3秒後にリトライして待受を確立する(順序制御と二重の保険)。
+
 ```bash
 sudo tee /etc/systemd/system/${SERVICE}.service >/dev/null <<UNIT
 [Unit]
 Description=EZOS (${HOST}) - Claude web cockpit
-After=network.target
+# docker0(172.17.0.1)への待受のため Docker 起動後に立ち上げる(未導入機でも起動できるようWantsは弱依存)
+After=network-online.target docker.service
+Wants=network-online.target docker.service
 
 [Service]
 Type=simple
@@ -215,6 +222,7 @@ curl -sS -o /dev/null -w "%{http_code} ssl=%{ssl_verify_result}\n" "$ORIGIN/"   
 | 証明書が出ない | `getent hosts ${HOST}` がサーバIPを返すか(DNS未反映)。Caddy ログ `docker logs saas-caddy` |
 | パスキー登録できない | `config.json` の `origin` がアクセスURLと**完全一致**か、`rpID` がホストの親ドメインか |
 | セッションが管制塔に出ない | フックのパス、`ez-hook.sh` が読む `data/config.json` のポート、`/api/beat` 到達性 |
+| 再起動後に `172.17.0.1` で待受しない / `EADDRNOTAVAIL` | EZOSが Docker より先に起動し docker0 が未生成。unit の `After=/Wants=docker.service` を確認(`systemctl cat ${SERVICE}`)。server.js は自動リトライするので `journalctl -u ${SERVICE}` に `retrying in 3s` が出ていれば数秒後に回復 |
 
 ## ロールバック
 
