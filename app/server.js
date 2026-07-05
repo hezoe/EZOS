@@ -383,6 +383,34 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    /* --- EZeditor で開いているファイル一覧(全デバイス共有・永続) --- */
+    // 端末タブと同じく「サーバーが正本」。どの端末で開いても同じ開き状態を引き継げる。
+    if (p === '/api/editor/state' && req.method === 'GET') {
+      const st = readJson('editor.json', { open: [], active: null });
+      sendJson(res, 200, { open: Array.isArray(st.open) ? st.open : [], active: st.active || null });
+      return;
+    }
+    if (p === '/api/editor/state' && req.method === 'POST') {
+      const body = await readBody(req, 256 * 1024);
+      try {
+        // 実在＆REAL_ROOT配下のファイルだけ残す(削除済み/範囲外/重複は捨てる)
+        const wanted = Array.isArray(body.open) ? body.open.slice(0, 100) : [];
+        const open = [];
+        for (const pth of wanted) {
+          try {
+            const abs = await safePath(pth); // mustExist=true。実在＆境界内のみ通過
+            const st = await fs.promises.stat(abs);
+            if (st.isFile() && !open.includes(abs)) open.push(abs);
+          } catch { /* 無効なパスはスキップ */ }
+        }
+        let active = null;
+        if (body.active) { try { const a = await safePath(body.active); if (open.includes(a)) active = a; } catch { /* skip */ } }
+        writeJson('editor.json', { open, active, updatedAt: Date.now() });
+        sendJson(res, 200, { ok: true, open, active });
+      } catch (e) { sendJson(res, e.status || 500, { error: e.message }); }
+      return;
+    }
+
     /* --- ターミナル一覧(全ブラウザ共有) + Claude状態 --- */
 
     // タブ構成 + 各ターミナルの状態をまとめて返す (全デバイスで同一)

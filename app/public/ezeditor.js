@@ -12,6 +12,7 @@
      ctx.reloadBrowser()一覧の再読込(新規/別名保存後)
      ctx.onShow()       エディタ表示を要求(1つ目のタブを開いた時)
      ctx.onHide()       エディタ非表示を要求(最後のタブを閉じた時)
+     ctx.setEditorAvailable(bool) 復元時: 現在の表示を保ったままエディタを選択可能/不可にする
      ctx.confirmClose(name) -> Promise<'save'|'discard'|'cancel'> 未保存タブを閉じる際の確認
    返り値: { open(entry), hasOpen() }
    ハイライトは window.EZHL(ezhl.js)を利用する。 */
@@ -28,6 +29,17 @@
 
     const active = () => tabs.find((t) => t.id === activeId) || null;
     const langFor = (name) => (window.EZHL ? window.EZHL.langFor(name) : null);
+
+    // 開いているファイル一覧をサーバーへ保存(全デバイス共有・永続)。連続変更をまとめる。
+    let persistTimer = null;
+    function persist() {
+      clearTimeout(persistTimer);
+      persistTimer = setTimeout(() => {
+        const open = tabs.map((t) => t.path);
+        const activePath = active() ? active().path : null;
+        ctx.fjson('/api/editor/state', { open, active: activePath }).catch(() => { /* 保存失敗は無視 */ });
+      }, 400);
+    }
 
     /* ---------- 描画 ---------- */
     // ハイライト層をアクティブタブの内容で再描画。対応拡張子かつ小さいファイルのみ色分け。
@@ -82,32 +94,60 @@
       activeId = id;
       loadActive();
       renderTabs();
+      persist(); // アクティブタブの変更も保存(復元時に同じタブを選ぶ)
       setTimeout(() => edText.focus(), 0);
     }
 
     /* ---------- 開く ---------- */
+    // パスからタブ実体を生成(内容をサーバーから読み込む)。重複判定は呼び出し側で行う。
+    async function loadTab(full) {
+      const j = await ctx.fjson('/api/fs/read?path=' + encodeURIComponent(full));
+      return { id: ++seq, path: j.path, name: j.name, content: j.content, dirty: false, lang: langFor(j.name), scrollTop: 0, selStart: 0, selEnd: 0 };
+    }
     // EZbrowser の一覧から: 現在フォルダ + ファイル名で開く
     function open(entry) { return openPath(ctx.join(ctx.getCwd(), entry.name)); }
-    // 絶対パス指定で開く(ターミナルのファイルクリック等)
+    // 絶対パス指定で開く(ターミナルのファイルクリック等)。ユーザー操作なのでエディタを前面に。
     async function openPath(full) {
       const exist = tabs.find((t) => t.path === full); // 既に開いていれば読み直さずそのタブへ
       if (exist) { ctx.onShow(); activate(exist.id); return; }
       try {
-        const j = await ctx.fjson('/api/fs/read?path=' + encodeURIComponent(full));
-        const dup = tabs.find((t) => t.path === j.path); // 正規化後のパスでも重複チェック
-        if (dup) { ctx.onShow(); activate(dup.id); return; }
         syncActive();
-        const tab = { id: ++seq, path: j.path, name: j.name, content: j.content, dirty: false, lang: langFor(j.name), scrollTop: 0, selStart: 0, selEnd: 0 };
+        const tab = await loadTab(full);
+        const dup = tabs.find((t) => t.path === tab.path); // 正規化後のパスでも重複チェック
+        if (dup) { ctx.onShow(); activate(dup.id); return; }
         tabs.push(tab);
         activeId = tab.id;
         loadActive();
         renderTabs();
         ctx.onShow();
+        persist(); // 開き状態を保存(全デバイスへ引き継ぐ)
         setTimeout(() => edText.focus(), 0);
       } catch (err) {
         if (err.message === 'binary') alert('バイナリファイルは開けません');
         else alert('開けません: ' + err.message);
       }
+    }
+    // 起動時: サーバーに保存された開き状態を復元する。モードは切り替えず(現在の表示を保つ)、
+    // タブだけ用意して「エディタを選べる」状態にする。別デバイスの開き状態もこれで引き継ぐ。
+    async function restore() {
+      let st;
+      try { st = await ctx.fjson('/api/editor/state'); } catch { return; }
+      const paths = Array.isArray(st.open) ? st.open : [];
+      let dropped = false;
+      for (const pth of paths) {
+        if (tabs.find((t) => t.path === pth)) continue;
+        try {
+          const tab = await loadTab(pth);
+          if (!tabs.find((t) => t.path === tab.path)) tabs.push(tab);
+        } catch { dropped = true; /* 削除された等は黙ってスキップ */ }
+      }
+      if (!tabs.length) return;
+      const act = tabs.find((t) => t.path === st.active) || tabs[0];
+      activeId = act.id;
+      loadActive();
+      renderTabs();
+      if (ctx.setEditorAvailable) ctx.setEditorAvailable(true);
+      if (dropped) persist(); // 存在しないファイルを除いた最新状態に整える
     }
 
     /* ---------- 保存 ---------- */
@@ -129,6 +169,7 @@
         const j = await ctx.fjson('/api/fs/create', { dir: ctx.getCwd(), name, content: t.content });
         t.path = j.path; t.name = j.name; t.lang = langFor(j.name); t.dirty = false;
         render(); renderTabs();
+        persist(); // パスが変わったので保存し直す
         ctx.reloadBrowser();
         ctx.flash('保存しました: ' + j.name);
       } catch (e) { alert('保存失敗: ' + e.message); }
@@ -141,9 +182,10 @@
       if (i < 0) return;
       const wasActive = tabs[i].id === activeId;
       tabs.splice(i, 1);
-      if (!tabs.length) { activeId = null; edText.value = ''; render(); renderTabs(); ctx.onHide(); return; }
+      if (!tabs.length) { activeId = null; edText.value = ''; render(); renderTabs(); persist(); ctx.onHide(); return; }
       if (wasActive) { activeId = tabs[Math.max(0, i - 1)].id; loadActive(); }
       renderTabs();
+      persist(); // 閉じた結果を保存
     }
     async function closeTab(id) {
       const t = tabs.find((x) => x.id === id); if (!t) return;
@@ -201,9 +243,10 @@
     }
 
     build();
+    restore(); // 保存済みの開き状態を復元(別デバイスの状態も引き継ぐ)。非同期・失敗は無視。
     return { open, openPath, hasOpen: () => tabs.length > 0 };
   }
 
-  console.info('[EZOS] ezeditor.js build: standalone editor, multi-tab(2段: tabs/menu), syntax-highlight(2026-07-05g)');
+  console.info('[EZOS] ezeditor.js build: standalone editor, multi-tab(2段: tabs/menu), syntax-highlight, persist-open-tabs(cross-device)(2026-07-05h)');
   window.EZEditor = { create };
 })();

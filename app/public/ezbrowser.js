@@ -467,6 +467,13 @@
       reloadBrowser: () => { if (loaded) load(state.cwd); },
       onShow: () => { editorOpen = true; setMode('editor'); },
       onHide: () => { editorOpen = false; setMode('browser'); },
+      // 復元時: モードは切り替えずにエディタを「選べる」状態にするだけ(現在の表示は保つ)。
+      // これで別デバイスの開き状態を引き継いでも、いきなりエディタ画面に飛ばされない。
+      setEditorAvailable: (avail) => {
+        editorOpen = avail;
+        const next = modeOrder(); const nm = next[(next.indexOf(mode) + 1) % next.length];
+        cycleBtn.title = `${MODE_NAME[mode]}（クリックで${MODE_NAME[nm]}へ）`;
+      },
     });
   }
   function openInEditor(e) { if (editor) editor.open(e); }

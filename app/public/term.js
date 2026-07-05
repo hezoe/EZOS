@@ -6,7 +6,7 @@
 'use strict';
 
 (() => {
-  console.info('[EZOS] term.js build: tabs(dynamic+, state-dot, pulldown, touch-scroll-fix, vv-pin, keyrow-reorder+wrap, switch-next-to-esc, ctrl-end, actions-stack-when-wrapped, ctrl-keys-no-focus, mobile-no-brand, wrap-hysteresis, git-buttons-submit, send-after-down, shift-tab, sanitize, file-upload, web-links, goto-terminal, file-links-to-editor, local-selection, mic-next-to-switch, prompt-btns-no-kbd, keyrow-no-kbd, mic-to-terminal-when-off, resilient-net, mic-stream-to-terminal)(2026-07-05i)'); // 版確認用
+  console.info('[EZOS] term.js build: tabs(dynamic+, state-dot, pulldown, touch-scroll-fix, vv-pin, keyrow-reorder+wrap, switch-next-to-esc, ctrl-end, actions-stack-when-wrapped, ctrl-keys-no-focus, mobile-no-brand, wrap-hysteresis, git-buttons-submit, send-after-down, shift-tab, sanitize, file-upload, web-links, goto-terminal, file-links-to-editor, local-selection, mic-next-to-switch, prompt-btns-no-kbd, keyrow-no-kbd, mic-to-terminal-when-off, resilient-net, mic-stream-to-terminal, confirm-alarm-pon)(2026-07-05j)'); // 版確認用
   const isMobile = window.EZ.view === 'mobile';
   const ACTIVE_KEY = 'ez_active_sid'; // 閲覧中タブ(このブラウザ限定の表示都合)
 
@@ -27,6 +27,39 @@
   const termsEl = document.getElementById('terminals');
   const dot = document.getElementById('conn-state');
   const reconnectBtn = document.getElementById('btn-reconnect');
+
+  /* ---- 確認待ちアラーム音「ポン」。タブが選択確認(confirm)状態になった瞬間に鳴らす ----
+     音声ファイルは使わず Web Audio でその場生成(CSP安全)。ブラウザは最初のユーザー操作まで
+     音を出せないため、初回操作で AudioContext を有効化しておく。 */
+  let audioCtx = null;
+  function ensureAudio() {
+    if (!audioCtx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      try { audioCtx = new AC(); } catch { return null; }
+    }
+    if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => { /* noop */ });
+    return audioCtx;
+  }
+  // 最初のユーザー操作で音声を解禁(自動再生ブロック対策)
+  ['pointerdown', 'keydown', 'touchstart'].forEach((ev) =>
+    window.addEventListener(ev, ensureAudio, { once: true, passive: true, capture: true }));
+  function playPon() {
+    const ac = ensureAudio();
+    if (!ac || ac.state !== 'running') return; // 未解禁なら鳴らさない
+    const now = ac.currentTime;
+    const osc = ac.createOscillator();
+    const gain = ac.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(880, now); // 少し下降させて「ぽーーん」らしく
+    osc.frequency.exponentialRampToValueAtTime(440, now + 0.14);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.30, now + 0.012); // 立ち上がり
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.0); // 長めに減衰(余韻)
+    osc.connect(gain).connect(ac.destination);
+    osc.start(now);
+    osc.stop(now + 1.05);
+  }
 
   // 各ターミナルに一体化した入力欄・制御キー行の共通定義
   const KEYROW = [
@@ -903,6 +936,10 @@
         tab.dotEl.className = 'dot st-' + st;
         tab.tabBtn.classList.toggle('confirm', item.state === 'confirm');
         tab.confirmItem = item.state === 'confirm' ? item : null;
+        // 「確認待ちに変わった瞬間」だけ鳴らす。初回観測時(prevState未定義)や
+        // すでに確認中の間は鳴らさない(ページ読込直後の連続鳴動を防ぐ)。
+        if (st === 'confirm' && tab.prevState !== undefined && tab.prevState !== 'confirm') playPon();
+        tab.prevState = st;
       }
     });
 
