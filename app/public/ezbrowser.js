@@ -50,14 +50,37 @@
     const r = (b, ch) => ((m & b) ? ch : '-');
     return r(0o400, 'r') + r(0o200, 'w') + r(0o100, 'x') + r(0o40, 'r') + r(0o20, 'w') + r(0o10, 'x') + r(0o4, 'r') + r(0o2, 'w') + r(0o1, 'x');
   }
+  const IMG_EXT = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'ico'];
+  function isImage(e) {
+    if (e.type !== 'file') return false;
+    return IMG_EXT.includes((e.name.split('.').pop() || '').toLowerCase());
+  }
   function iconFor(e) {
     if (e.type === 'updir') return '⬆️';
     if (e.type === 'dir') return '📁';
     if (e.isSymlink) return '🔗';
+    if (isImage(e)) return '🖼️';
     const ext = (e.name.split('.').pop() || '').toLowerCase();
-    if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'ico'].includes(ext)) return '🖼️';
     if (['zip', 'gz', 'tar', 'tgz', 'xz', '7z'].includes(ext)) return '🗜️';
     return '📄';
+  }
+  // 画像プレビュー用の <img> マークアップ(読み込み失敗時は JS で 🖼️ にフォールバック)。
+  function thumbHtml(e) {
+    const src = '/api/fs/raw?dir=' + encodeURIComponent(state.cwd) + '&name=' + encodeURIComponent(e.name);
+    return `<img class="ezb-thumb" src="${esc(src)}" alt="" loading="lazy" decoding="async" draggable="false">`;
+  }
+  // クリップボードへコピー(Clipboard API優先、失敗時は textarea+execCommand フォールバック)
+  function copyText(text) {
+    if (!text) return;
+    if (navigator.clipboard?.writeText) { navigator.clipboard.writeText(text).catch(() => fallbackCopy(text)); }
+    else fallbackCopy(text);
+  }
+  function fallbackCopy(text) {
+    try {
+      const ta = document.createElement('textarea'); ta.value = text;
+      ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;pointer-events:none';
+      document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
+    } catch { /* noop */ }
   }
   let toastEl = null;
   function flash(msg) {
@@ -140,6 +163,7 @@
       b.addEventListener('click', () => { closeContext(); fn(); }); menu.appendChild(b);
     };
     add('名前の変更 / 権限', () => { const e = state.entries.find((x) => x.name === names[0]); if (e) renameDialog(e); }, names.length !== 1);
+    add('パスをコピー', doCopyPath, !names.length);
     add('ダウンロード', doDownload, !names.length);
     add('削除', doDelete, !names.length);
     menu.style.left = Math.min(x, window.innerWidth - 180) + 'px';
@@ -232,6 +256,63 @@
     browserEl.appendChild(uploadInput);
     buildMenubar();
     bindListEvents();
+    bindDnD();
+  }
+
+  /* ---------- ドラッグ&ドロップ(デスクトップ / ファイルエクスプローラ風) ---------- */
+  function bindDnD() {
+    if (isMobile) return;
+    const hasFiles = (e) => Array.from(e.dataTransfer?.types || []).includes('Files');
+    let overDepth = 0, dropDir = null;
+    const setDropDir = (el) => {
+      if (dropDir === el) return;
+      if (dropDir) dropDir.classList.remove('ezb-drop-into');
+      dropDir = el; if (dropDir) dropDir.classList.add('ezb-drop-into');
+    };
+    const clearDrop = () => { overDepth = 0; browserEl.classList.remove('ezb-drop'); setDropDir(null); };
+
+    // (A) OSからファイルをドロップ → 現在フォルダ(またはドロップ先フォルダ)へアップロード
+    browserEl.addEventListener('dragenter', (e) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault(); overDepth += 1; browserEl.classList.add('ezb-drop');
+    });
+    browserEl.addEventListener('dragover', (e) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault(); e.dataTransfer.dropEffect = 'copy';
+      const item = e.target.closest && e.target.closest('.ezb-item');
+      setDropDir(item && !item.classList.contains('ezb-up') && item.dataset.type === 'dir' ? item : null);
+    });
+    browserEl.addEventListener('dragleave', (e) => {
+      if (!hasFiles(e)) return;
+      overDepth -= 1; if (overDepth <= 0) clearDrop();
+    });
+    browserEl.addEventListener('drop', async (e) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      const target = dropDir ? join(state.cwd, dropDir.dataset.name) : state.cwd;
+      const label = dropDir ? dropDir.dataset.name : null;
+      clearDrop();
+      const files = e.dataTransfer.files;
+      if (!files || !files.length) return;
+      try {
+        await uploadTo(target, files);
+        if (target === state.cwd) await load(state.cwd);
+        flash(`${files.length}件をアップロード` + (label ? `（→ ${label}）` : ''));
+      } catch (err) { alert(err.message); }
+    });
+
+    // (B) 一覧のファイルをOSへドラッグ → ダウンロード(Chromium系の DownloadURL)
+    listEl.addEventListener('dragstart', (e) => {
+      const item = e.target.closest('.ezb-item');
+      if (!item || item.classList.contains('ezb-up')) return;
+      const name = item.dataset.name;
+      const entry = state.entries.find((x) => x.name === name);
+      if (!entry || entry.type !== 'file') { e.preventDefault(); return; } // フォルダはドラッグDL非対応
+      if (!state.sel.has(name)) { state.sel = new Set([name]); state.anchor = selectableIndex(name); applySelection(); }
+      const url = location.origin + '/api/fs/download?dir=' + encodeURIComponent(state.cwd) + '&name=' + encodeURIComponent(name);
+      try { e.dataTransfer.setData('DownloadURL', `application/octet-stream:${name}:${url}`); } catch { /* 非対応ブラウザ */ }
+      e.dataTransfer.effectAllowed = 'copy';
+    });
   }
   function buildMenubar() {
     menubarEl.innerHTML = '';
@@ -269,7 +350,7 @@
     for (const part of parts) { acc += '/' + part; crumbsEl.appendChild(document.createTextNode('/')); crumbsEl.appendChild(mk(part, acc)); }
   }
   function itemInner(e) {
-    const ic = iconFor(e); const nm = esc(e.name);
+    const ic = isImage(e) ? thumbHtml(e) : iconFor(e); const nm = esc(e.name);
     if (e.type === 'updir') {
       return `<span class="ezb-ic">${ic}</span><span class="ezb-nm">.. (上へ)</span>` + (state.view === 'detail' ? '<span></span><span></span><span></span>' : '');
     }
@@ -294,7 +375,12 @@
     }
     for (const e of state.entries) {
       const el = document.createElement('div'); el.className = 'ezb-item'; el.dataset.name = e.name; el.dataset.type = e.type;
+      if (!isMobile && e.type === 'file') el.draggable = true; // OSへドラッグ→ダウンロード
       el.innerHTML = itemInner(e);
+      if (isImage(e)) {
+        const img = el.querySelector('.ezb-thumb');
+        if (img) img.addEventListener('error', () => { img.parentElement.textContent = '🖼️'; }, { once: true });
+      }
       listEl.appendChild(el);
     }
     applySelection();
@@ -422,6 +508,13 @@
     if (!names.length) { alert('削除対象を選択してください'); return; }
     if (!confirm(`${names.length}件を削除します(フォルダは中身ごと)。よろしいですか?\n\n` + names.join('\n'))) return;
     fjson('/api/fs/delete', { dir: state.cwd, names }).then(() => { load(state.cwd); flash('削除しました'); }).catch((e) => alert(e.message));
+  }
+  function doCopyPath() {
+    const names = [...state.sel];
+    if (!names.length) { alert('対象を選択してください'); return; }
+    const paths = names.map((n) => join(state.cwd, n)).join('\n');
+    copyText(paths);
+    flash(names.length === 1 ? 'パスをコピーしました' : `${names.length}件のパスをコピーしました`);
   }
   function doDownload() {
     const names = [...state.sel];

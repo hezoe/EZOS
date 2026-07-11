@@ -128,14 +128,24 @@ code { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-siz
 #term-bar > .spacer { flex: none; }
 /* 右端の操作ボタン(再読込/表示切替)。通常は横並び。 */
 .tb-actions { display: flex; align-items: center; gap: 8px; flex: none; }
+/* Claude 使用量ウィジェット (5h/週の使用率バー + リセット時刻) */
+#usage-widget { display: flex; align-items: center; gap: 10px; flex: none; font-size: 11px; color: var(--dim); }
+#usage-widget.stale { opacity: .45; }
+.uw-item { display: inline-flex; align-items: center; gap: 4px; }
+.uw-bar { width: 44px; height: 6px; border-radius: 3px; background: var(--card); overflow: hidden; }
+.uw-bar i { display: block; height: 100%; border-radius: 3px; }
+.uw-bar i.ok { background: var(--green); }
+.uw-bar i.warn { background: #e8a33d; }
+.uw-bar i.crit { background: var(--red); }
+.uw-pct { color: var(--text); }
 .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex: none; background: var(--dim); }
 .dot.on { background: var(--green); }
 .dot.off { background: var(--red); }
 /* タブの●: Claude状態で色分け(待機=緑/作業中=青/確認待ち=赤/不明=灰) */
-.dot.st-idle { background: var(--green); }
-.dot.st-running { background: var(--accent); }
-.dot.st-confirm { background: var(--red); }
-.dot.st-unknown { background: var(--dim); }
+.dot.st-idle { background: var(--accent); }   /* 入力待ち(次のプロンプト可)=青 */
+.dot.st-running { background: var(--dim); }    /* 作業中=グレー */
+.dot.st-confirm { background: var(--red); }    /* 選択確認待ち=赤 */
+.dot.st-unknown { background: var(--dim); }    /* 不明=グレー */
 
 /* タブバー(＋ボタンを内包し、常に最後のタブの右に置く=左右位置は動的)。
    画面幅に入りきらない場合は横スクロールせず複数段に折り返す(flex-wrap)。
@@ -275,6 +285,10 @@ body.view-mobile .tb-actions .btn.small { padding: 4px 8px; }
    2列目以降にターミナルタブを全幅で並べる。order とタブ列の flex-basis:100% で改行させる。 */
 body.view-mobile #mode-cycle { order: 1; }
 body.view-mobile #term-bar > .spacer { order: 2; flex: 1; }
+/* usage-widget は conn-state と同じ order 3 でも DOM 順で手前に並ぶ。
+   スマホでは更新時刻を省略して幅を節約 */
+body.view-mobile #usage-widget { order: 3; }
+body.view-mobile .uw-reset { display: none; }
 body.view-mobile #conn-state { order: 3; }
 body.view-mobile .tb-actions { order: 4; flex-direction: row; gap: 8px; }
 body.view-mobile #term-tabs { order: 5; flex-basis: 100%; width: 100%; }
@@ -354,8 +368,15 @@ body[data-mode="editor"] #terminals { visibility: hidden; pointer-events: none; 
 .ezb-item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; cursor: default; user-select: none; }
 .ezb-item:hover { background: var(--card); }
 .ezb-item.selected { background: var(--card-hover); outline: 1px solid var(--accent); }
+.ezb-item[draggable="true"] { cursor: grab; }
+/* ドラッグ&ドロップ: アップロード先のハイライト */
+#ez-browser.ezb-drop { outline: 2px dashed var(--accent); outline-offset: -4px; border-radius: 8px; }
+.ezb-item.ezb-drop-into { background: var(--card-hover); outline: 1px dashed var(--accent); }
 .ezb-up { color: var(--accent); }
-.ezb-ic { flex: none; }
+.ezb-ic { flex: none; display: inline-flex; align-items: center; justify-content: center; }
+/* 画像サムネイル: 一覧/リスト/詳細では小さく、アイコン表示では大きく */
+.ezb-thumb { width: 22px; height: 22px; object-fit: cover; border-radius: 3px; background: var(--card); vertical-align: middle; }
+.ezb-list[data-view="icon"] .ezb-thumb { width: 48px; height: 48px; border-radius: 5px; }
 .ezb-nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ezb-sz, .ezb-dt, .ezb-md { font-size: 12px; color: var(--dim); white-space: nowrap; }
 .ezb-md { font-family: ui-monospace, monospace; }

@@ -6,7 +6,7 @@
 'use strict';
 
 (() => {
-  console.info('[EZOS] term.js build: tabs(dynamic+, state-dot, pulldown, touch-scroll-fix, vv-pin, keyrow-reorder+wrap, switch-next-to-esc, ctrl-end, actions-stack-when-wrapped, ctrl-keys-no-focus, mobile-no-brand, wrap-hysteresis, git-buttons-submit, send-after-down, shift-tab, sanitize, file-upload, web-links, goto-terminal, file-links-to-editor, local-selection, mic-next-to-switch, prompt-btns-no-kbd, keyrow-no-kbd, mic-to-terminal-when-off, resilient-net, mic-stream-to-terminal, confirm-alarm-pon)(2026-07-05j)'); // 版確認用
+  console.info('[EZOS] term.js build: tabs(dynamic+, state-dot, pulldown, touch-scroll-fix, vv-pin, keyrow-reorder+wrap, switch-next-to-esc, ctrl-end, actions-stack-when-wrapped, ctrl-keys-no-focus, mobile-no-brand, wrap-hysteresis, git-buttons-submit, send-after-down, shift-tab, sanitize, file-upload, web-links, goto-terminal, file-links-to-editor, local-selection, mic-next-to-switch, prompt-btns-no-kbd, keyrow-no-kbd, mic-to-terminal-when-off, resilient-net, mic-stream-to-terminal, confirm-alarm-pon, idle-alarm+blue-dot, freeform-letter-choices, dynamic-favicon, idle-pop-sound, robust-running+idle-debounce, dot-spinner-fix)(2026-07-11c)'); // 版確認用
   const isMobile = window.EZ.view === 'mobile';
   const ACTIVE_KEY = 'ez_active_sid'; // 閲覧中タブ(このブラウザ限定の表示都合)
 
@@ -61,15 +61,34 @@
   // 最初のユーザー操作で音声を解禁(自動再生ブロック対策)
   ['pointerdown', 'keydown', 'touchstart'].forEach((ev) =>
     window.addEventListener(ev, ensureAudio, { once: true, passive: true, capture: true }));
+  // 確認待ち(confirm)の通知音: 同梱WAV(リミットブレイク音)を再生
   function playPon() {
     const ac = ensureAudio();
     if (!ac || ac.state !== 'running' || !meowBuf) return; // 未解禁/未デコードなら鳴らさない
     const src = ac.createBufferSource();
     src.buffer = meowBuf;
     const g = ac.createGain();
-    g.gain.value = 0.9;
+    g.gain.value = 0.45; // 音量控えめ(シャキーン音が大きすぎたため半減)
     src.connect(g).connect(ac.destination);
     src.start();
+  }
+  // 作業終了(idle=次のプロンプト入力可)の通知音: 「ポンッ!」という短い電子音を
+  // その場で合成(WAV不要・CSP安全)。confirm音と明確に区別するため別の音色にする。
+  function playPop() {
+    const ac = ensureAudio();
+    if (!ac || ac.state !== 'running') return; // 未解禁なら鳴らさない
+    const t = ac.currentTime;
+    const osc = ac.createOscillator();
+    const g = ac.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(660, t);                 // 立ち上がりは高め
+    osc.frequency.exponentialRampToValueAtTime(300, t + 0.09); // 「ポンッ」と下がる
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.6, t + 0.008);  // 速いアタック
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.55); // 余韻を長めに(ポーンッ)
+    osc.connect(g).connect(ac.destination);
+    osc.start(t);
+    osc.stop(t + 0.6);
   }
 
   // 各ターミナルに一体化した入力欄・制御キー行の共通定義
@@ -940,18 +959,59 @@
   /* ---- タブのステータス反映(●の色分け + 確認情報の保持) ---- */
   const OPT_LABEL = { accept: '実行', accept_all: 'すべて実行', reject: '中止' };
 
+  /* ---- ブラウザのタブアイコン(favicon)をClaude状態で色分け ----
+     裏タブでも気づけるよう、全ターミナルの状態を集約してアスタリスク章を色付けする。
+     確認待ち(confirm)=赤 > 入力待ち(idle=プロンプト待ち)=青 > それ以外(作業中/不明)=既定(オレンジ)。 */
+  const FAV_DEFAULT = '#D97757'; // 既定(作業中/不明/端末なし)
+  const FAV_IDLE = '#4c8dff';    // プロンプト待ち=青 (--accent)
+  const FAV_CONFIRM = '#e5534b'; // 確認待ち=赤 (--red)
+  function faviconSvg(color) {
+    return 'data:image/svg+xml,' + encodeURIComponent(
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">`
+      + `<rect width="100" height="100" rx="22" fill="#F0EEE6"/>`
+      + `<g stroke="${color}" stroke-width="7" stroke-linecap="round">`
+      + `<line x1="18" y1="50" x2="82" y2="50"/><line x1="22.3" y1="34" x2="77.7" y2="66"/>`
+      + `<line x1="34" y1="22.3" x2="66" y2="77.7"/><line x1="50" y1="18" x2="50" y2="82"/>`
+      + `<line x1="66" y1="22.3" x2="34" y2="77.7"/><line x1="77.7" y1="34" x2="22.3" y2="66"/></g>`
+      + `<circle cx="50" cy="50" r="6" fill="${color}"/></svg>`);
+  }
+  let curFavColor = null;
+  function updateFavicon(list) {
+    let color = FAV_DEFAULT;
+    if (list.some((it) => it.state === 'confirm')) color = FAV_CONFIRM;
+    else if (list.some((it) => it.state === 'idle')) color = FAV_IDLE;
+    if (color === curFavColor) return; // 変化時のみ差し替え(点滅防止)
+    curFavColor = color;
+    document.querySelectorAll('link[rel="icon"]').forEach((l) => l.remove());
+    const link = document.createElement('link');
+    link.rel = 'icon'; link.type = 'image/svg+xml'; link.href = faviconSvg(color);
+    document.head.appendChild(link);
+  }
+
   function renderConfirm(list) {
     list.forEach((item) => {
-      // タブの●をClaude状態で色分け(待機=緑/作業中=青/確認待ち=赤)、確認情報を保持
+      // タブの●をClaude状態で色分け(入力待ち=青/作業中=グレー/確認待ち=赤/不明=グレー)、確認情報を保持
       const tab = tabs.find((t) => t.sid === item.sid);
       if (tab) {
         const st = (item.state === 'idle' || item.state === 'running' || item.state === 'confirm') ? item.state : 'unknown';
         tab.dotEl.className = 'dot st-' + st;
         tab.tabBtn.classList.toggle('confirm', item.state === 'confirm');
         tab.confirmItem = item.state === 'confirm' ? item : null;
-        // 「確認待ちに変わった瞬間」だけ鳴らす。初回観測時(prevState未定義)や
-        // すでに確認中の間は鳴らさない(ページ読込直後の連続鳴動を防ぐ)。
-        if (st === 'confirm' && tab.prevState !== undefined && tab.prevState !== 'confirm') playPon();
+        // 確認待ち(confirm)に変わった瞬間: WAV音(即時)。確認メニューは安定しているのでデバウンス不要。
+        if (tab.prevState !== undefined && st === 'confirm' && tab.prevState !== 'confirm') playPon();
+
+        // 作業終了(idle)の「ポンッ!」音は誤爆を防ぐためデバウンスする:
+        //  - idle が3ポーリング連続(約4.5秒)安定してから鳴らす。作業の「息継ぎ」の一瞬の
+        //    idle誤判定では鳴らさない(本当に完了すればidleが続くので少し遅れて鳴るだけ)。
+        //  - 直前に非idle(作業中/確認等)を観測している場合のみ(ページ読込直後の即鳴りを防ぐ)
+        //  - 一度鳴らしたら、次に作業を始める(非idleを観測する)まで再鳴動しない
+        if (st === 'idle') {
+          tab.idleStreak = (tab.idleStreak || 0) + 1;
+          if (tab.idleStreak >= 3 && tab.armPop) { playPop(); tab.armPop = false; }
+        } else {
+          tab.idleStreak = 0;
+          if (tab.prevState !== undefined) tab.armPop = true; // 作業中→次のidle安定でポンを許可
+        }
         tab.prevState = st;
       }
     });
@@ -961,6 +1021,8 @@
       const t = tabs.find((x) => x.sid === tabMenuSid);
       if (!t || !t.confirmItem) closeTabMenu();
     }
+
+    updateFavicon(list); // ブラウザのタブアイコンを状態で色分け
   }
 
   /* ---- タブのプルダウン(確認待ちタブの選択肢) ---- */
@@ -981,8 +1043,12 @@
     tabMenuSid = tab.sid;
     const q = item.question ? `<div class="tm-q">${escHtml(item.question)}</div>` : '';
     const opts = item.options.map((o) => {
-      const label = OPT_LABEL[o.kind] || escHtml(o.text);
-      return `<button class="tm-opt ${o.kind}" data-sid="${escHtml(tab.sid)}" data-key="${o.n}"><b>${o.n}.</b> ${label}</button>`;
+      // freeform(本文のA/B選択): 見出しは英字、ラベルは本文そのまま、送信は ans<英字>。
+      // TUI連番メニュー: 見出しは番号、ラベルは種別の定型語(はい/中止など)、送信は番号。
+      const head = o.letter ? o.letter : o.n;
+      const dkey = o.letter ? ('ans' + o.letter) : o.n;
+      const label = o.letter ? escHtml(o.text) : (OPT_LABEL[o.kind] || escHtml(o.text));
+      return `<button class="tm-opt ${o.kind}" data-sid="${escHtml(tab.sid)}" data-key="${dkey}"><b>${head}.</b> ${label}</button>`;
     }).join('');
     tabMenu.innerHTML = q + opts;
     tabMenu.hidden = false;
@@ -992,7 +1058,9 @@
     tabMenu.querySelectorAll('.tm-opt').forEach((b) => {
       b.addEventListener('click', async () => {
         b.disabled = true;
-        await api('/api/term/send', { sid: b.dataset.sid, key: Number(b.dataset.key) });
+        const raw = b.dataset.key;
+        const key = /^ans/.test(raw) ? raw : Number(raw); // freeformは文字列キー、連番は数値
+        await api('/api/term/send', { sid: b.dataset.sid, key });
         closeTabMenu();
         poll();
       });
@@ -1019,6 +1087,42 @@
   }
   setInterval(() => { if (!document.hidden) poll(); }, 1500);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) poll(); });
+
+  /* ---- Claude 使用量ウィジェット (60秒ポーリング) ---- */
+  const usageEl = document.getElementById('usage-widget');
+  function fmtReset(epoch) {
+    if (!epoch) return '?';
+    const d = new Date(epoch * 1000), now = new Date();
+    const hm = d.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Tokyo' });
+    return d.toDateString() === now.toDateString() ? hm
+      : `${d.getMonth() + 1}/${d.getDate()} ${hm}`;
+  }
+  function usageRow(label, w, now) {
+    if (!w) return '';
+    const reset = (w.resets_at && w.resets_at < now); // 更新時刻を過ぎている
+    const pct = reset ? 0 : Math.min(100, Math.round(w.used_percentage ?? 0));
+    const lv = pct >= 90 ? 'crit' : pct >= 70 ? 'warn' : 'ok';
+    return `<span class="uw-item" title="${label} 使用量 / 更新予定 ${fmtReset(w.resets_at)}">
+      <span class="uw-label">${label}</span>
+      <span class="uw-bar"><i class="${lv}" style="width:${pct}%"></i></span>
+      <span class="uw-pct">${pct}%</span>
+      <span class="uw-reset">→${fmtReset(w.resets_at)}</span></span>`;
+  }
+  async function pollUsage() {
+    try {
+      const { usage, now } = await api('/api/usage');
+      if (!usage || !usage.rate_limits) { usageEl.hidden = true; return; }
+      const rl = usage.rate_limits;
+      usageEl.innerHTML = usageRow('5h', rl.five_hour, now) + usageRow('週', rl.seven_day, now);
+      usageEl.hidden = !usageEl.innerHTML;
+      const ageMin = Math.floor((now - (usage.collected_at || 0)) / 60);
+      usageEl.classList.toggle('stale', ageMin > 30); // 30分以上更新なし=グレー表示
+      usageEl.title = `最終更新: ${ageMin < 1 ? 'たった今' : ageMin + '分前'} (Claude稼働中のみ更新)`;
+    } catch { /* 次回リトライ */ }
+  }
+  setInterval(() => { if (!document.hidden) pollUsage(); }, 60000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) pollUsage(); });
+  pollUsage();
 
   poll(); // 初回同期
 })();

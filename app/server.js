@@ -410,6 +410,13 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    /* --- Claude 使用量 (statusLine フックが data/usage.json へ書き込む) --- */
+    if (p === '/api/usage' && req.method === 'GET') {
+      const u = readJson('usage.json', null);
+      sendJson(res, 200, { usage: u, now: Math.floor(Date.now() / 1000) });
+      return;
+    }
+
     /* --- EZeditor で開いているファイル一覧(全デバイス共有・永続) --- */
     // 端末タブと同じく「サーバーが正本」。どの端末で開いても同じ開き状態を引き継げる。
     if (p === '/api/editor/state' && req.method === 'GET') {
@@ -687,6 +694,31 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // 画像プレビュー用: 画像ファイルを inline で(正しい Content-Type で)返す。
+    if (p === '/api/fs/raw' && req.method === 'GET') {
+      try {
+        const dir = await safePath(url.searchParams.get('dir'));
+        const target = await childPath(dir, url.searchParams.get('name') || '');
+        const st = await fs.promises.stat(target);
+        if (!st.isFile()) throw new HttpError(400, 'ファイルではありません');
+        const IMG_TYPES = {
+          '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif',
+          '.webp': 'image/webp', '.svg': 'image/svg+xml', '.bmp': 'image/bmp', '.ico': 'image/x-icon',
+        };
+        const type = IMG_TYPES[path.extname(target).toLowerCase()];
+        if (!type) throw new HttpError(415, '画像ではありません');
+        if (st.size > 20 * 1024 * 1024) throw new HttpError(413, '画像が大きすぎます (20MB上限)');
+        res.writeHead(200, {
+          'Content-Type': type,
+          'Content-Length': st.size,
+          'Cache-Control': 'private, max-age=60',
+          'X-Content-Type-Options': 'nosniff',
+        });
+        fs.createReadStream(target).pipe(res);
+      } catch (e) { sendJson(res, e.status || 500, { error: e.message }); }
+      return;
+    }
+
     if (p === '/api/fs/archive' && req.method === 'POST') {
       const body = await readBody(req);
       try {
@@ -879,6 +911,7 @@ function renderPage({ authed, view, hasCreds }) {
       <button id="mode-cycle" class="mode-cycle" title="EZterminal / EZbrowser / EZeditor 切替" aria-label="モード切替"></button>
       <div id="term-tabs"><button id="btn-add-tab" title="新しいターミナル">＋</button></div>
       <span class="spacer"></span>
+      <div id="usage-widget" hidden></div>
       <span id="conn-state" class="dot off" title="ターミナル接続状態"></span>
       <div class="tb-actions">
         <button id="btn-reconnect" class="btn small" title="ページを再読込" aria-label="再読込" hidden>🔄</button>
