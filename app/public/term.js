@@ -872,6 +872,12 @@
 
   reconnectBtn.addEventListener('click', () => { location.reload(); }); // ページを再読み込み
 
+  document.getElementById('btn-logout').addEventListener('click', async () => {
+    if (!confirm('ログオフしますか？(ターミナルのtmuxセッションは保持されます)')) return;
+    await api('/api/logout', {}).catch(() => {});
+    location.reload(); // Cookie失効後はログイン画面へ
+  });
+
   // iOS: ソフトキーボードを出すとSafariはビジュアルビューポートを上へずらす(スクロールさせる)。
   // CSSの height:100dvh はレイアウトビューポート基準で追随できず、上部バーがノッチ/時計に潜り込む。
   // そこで visualViewport に合わせてアプリ本体の高さを縮め、ずれた分を transform で打ち消して

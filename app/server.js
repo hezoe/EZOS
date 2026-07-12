@@ -916,6 +916,7 @@ function renderPage({ authed, view, hasCreds }) {
       <div class="tb-actions">
         <button id="btn-reconnect" class="btn small" title="ページを再読込" aria-label="再読込" hidden>🔄</button>
         <a class="btn small" href="?view=${view === 'mobile' ? 'desktop' : 'mobile'}">${view === 'mobile' ? '🖥' : '📱'}</a>
+        <button id="btn-logout" class="btn small" title="ログオフ" aria-label="ログオフ">⏻</button>
       </div>
     </header>
 

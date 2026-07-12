@@ -6,6 +6,7 @@ import { execFile } from 'node:child_process';
 import { WebSocketServer } from 'ws';
 import pty from 'node-pty';
 import { txa } from './tmux.js';
+import { removeTerminal } from './terminals.js';
 
 const HOME = process.env.HOME || '/home/debian';
 const HAS_TMUX = fs.existsSync('/usr/bin/tmux');
@@ -66,6 +67,17 @@ export function createTermServer({ isAuthed, origin }) {
       if (ws.readyState === ws.OPEN) {
         ws.send(JSON.stringify({ t: 'exit', code: exitCode }));
         ws.close();
+      }
+      // シェルを `exit` してtmuxセッションごと終了した場合は、タブ(レジストリ)自体も削除する。
+      // ただし p.onExit は「別デバイス接続による -D デタッチ」でも発火し、その場合はセッションが
+      // 生存しているので削除してはいけない。has-session でセッションの生死を確認して切り分ける
+      // (消滅=本当に終了 → タブ削除。次の poll で syncTerminals がタブUIを消す)。
+      if (HAS_TMUX) {
+        execFile('tmux', txa(['has-session', '-t', `ez_${name}`]), (err) => {
+          if (err) removeTerminal(name).catch(() => {});
+        });
+      } else {
+        removeTerminal(name).catch(() => {}); // 素のbash: プロセス終了=タブ終了
       }
     });
 
