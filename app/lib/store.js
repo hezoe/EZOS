@@ -26,6 +26,10 @@ export function writeJson(name, data) {
   fs.renameSync(tmp, file);
 }
 
+export function removeJson(name) {
+  try { fs.unlinkSync(path.join(DATA_DIR, name)); } catch { /* 既に無い */ }
+}
+
 export function loadConfig() {
   const cfg = readJson('config.json', null);
   if (!cfg) {

@@ -10,7 +10,7 @@ import {
   generateAuthenticationOptions,
   verifyAuthenticationResponse,
 } from '@simplewebauthn/server';
-import { ROOT, readJson, writeJson, loadConfig } from './lib/store.js';
+import { ROOT, readJson, writeJson, removeJson, loadConfig } from './lib/store.js';
 import { runClaude } from './lib/claude.js';
 import { createTermServer } from './lib/term.js';
 import { getStates, sendKey, getTitles, getCwd, createSession } from './lib/termstate.js';
@@ -263,9 +263,15 @@ const server = http.createServer(async (req, res) => {
     if (p === '/api/reg-options' && req.method === 'POST') {
       const body = await readBody(req);
       if (!isAuthed(req)) {
-        if (body.setupKey !== cfg.setupKey) {
+        // 未認証での新規登録は、SSHで開いた「登録ウィンドウ」(data/reg-window.json)が
+        // 有効な間だけ許可する。ウィンドウは bin/open-register.js が時限・使い捨ての
+        // ワンタイムキー付きで発行し、登録成功時(reg-verify)に消費される。ファイルは
+        // 毎回ディスクから読むので、稼働中サーバーを再起動せずに解錠が反映される。
+        const w = readJson('reg-window.json', null);
+        const open = w && typeof w.expires === 'number' && w.expires > Date.now();
+        if (!open || !w.key || body.setupKey !== w.key) {
           await new Promise((r) => setTimeout(r, 1500));
-          sendJson(res, 403, { error: 'セットアップキーが違います' });
+          sendJson(res, 403, { error: '登録は現在受け付けていません(サーバーで open-register を実行してください)' });
           return;
         }
       }
@@ -321,6 +327,9 @@ const server = http.createServer(async (req, res) => {
         createdAt: Date.now(),
       });
       writeJson('credentials.json', creds);
+      // 未認証(=登録ウィンドウ経由)の登録が成立したら、ウィンドウを単回消費して閉じる。
+      // 認証済みユーザーの端末追加時はウィンドウを使っていないので触らない。
+      if (!isAuthed(req)) removeJson('reg-window.json');
       const token = issueAuthToken();
       res.setHeader('Set-Cookie',
         `ezsess=${token}; Path=/; Max-Age=${AUTH_TTL_MS / 1000}; HttpOnly; Secure; SameSite=Lax`);
