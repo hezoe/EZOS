@@ -74,7 +74,6 @@ code { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-siz
   display: flex; align-items: center; gap: 10px; padding: 10px 16px;
   border-bottom: 1px solid var(--line); background: var(--panel);
 }
-#btn-menu { display: none; }
 #chat-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #chat-status { color: var(--dim); font-size: 12px; margin-left: auto; white-space: nowrap; }
 
