@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EZOS 取扱説明書</title>
+<style>
+  :root{--bg:#f7f8fb;--ink:#1c2029;--muted:#5c6577;--line:#e2e6ee;--card:#fff;--accent:#4c8dff;--accent2:#D97757;--code:#eef1f7;}
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Hiragino Kaku Gothic ProN","Noto Sans JP",Meiryo,sans-serif;line-height:1.75;}
+  .wrap{max-width:960px;margin:0 auto;padding:0 20px 100px;}
+  header.top{position:sticky;top:0;background:rgba(247,248,251,.92);backdrop-filter:blur(6px);border-bottom:1px solid var(--line);padding:14px 20px;display:flex;align-items:center;gap:14px;z-index:10;}
+  header.top h1{font-size:18px;margin:0;flex:1;}
+  header.top .brand{color:var(--accent2);font-weight:700;}
+  .langsw a{font-size:13px;color:var(--muted);text-decoration:none;border:1px solid var(--line);padding:4px 10px;border-radius:20px;margin-left:6px;background:var(--card);}
+  .langsw a.on{color:#fff;background:var(--accent);border-color:var(--accent);}
+  h2{font-size:24px;margin:48px 0 12px;padding-top:12px;border-top:2px solid var(--line);}
+  h3{font-size:18px;margin:30px 0 8px;color:#2a3143;}
+  h4{font-size:15px;margin:20px 0 4px;color:var(--accent2);}
+  p,li{color:#28303f;}
+  code{background:var(--code);padding:2px 6px;border-radius:5px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.9em;}
+  pre{background:#0f1420;color:#e6e9f0;padding:14px 16px;border-radius:10px;overflow:auto;font-size:13px;line-height:1.6;}
+  pre code{background:none;padding:0;color:inherit;}
+  .lead{font-size:17px;color:var(--muted);}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 22px;margin:18px 0;}
+  .toc{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 22px;margin:22px 0;}
+  .toc ol{margin:6px 0;padding-left:22px;}
+  .toc a{color:var(--accent);text-decoration:none;}
+  .toc a:hover{text-decoration:underline;}
+  table{border-collapse:collapse;width:100%;margin:14px 0;font-size:14px;}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top;}
+  th{background:#eef2fa;}
+  .key{display:inline-block;background:#fff;border:1px solid #c9d0de;border-bottom-width:2px;border-radius:6px;padding:1px 7px;font-size:.85em;font-family:ui-monospace,monospace;}
+  .tag{display:inline-block;font-size:12px;padding:1px 8px;border-radius:20px;background:#eef2fa;color:#41506b;margin-right:4px;}
+  .diagram{overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin:18px 0;}
+  .note{border-left:4px solid var(--accent);background:#eff4ff;padding:10px 16px;border-radius:0 10px 10px 0;margin:14px 0;}
+  .why{border-left:4px solid var(--accent2);background:#fdf1ec;padding:12px 18px;border-radius:0 10px 10px 0;margin:14px 0;}
+  footer{color:var(--muted);font-size:13px;border-top:1px solid var(--line);margin-top:60px;padding-top:20px;}
+  a{color:var(--accent);}
+  .emoji{font-style:normal}
+</style>
+</head>
+<body>
+<header class="top">
+  <h1><span class="brand">EZOS</span> 取扱説明書</h1>
+  <span class="langsw" id="langsw"></span>
+</header>
+<div class="wrap">
+
+<p class="lead">EZOS は、<strong>ブラウザから Claude Code を使い込むための自分専用コックピット</strong>です。パスキー認証付きで、PC でもスマホでも、どの端末のブラウザからでも VPS 上の <code>claude</code> を対話実行できます。</p>
+
+<div class="toc">
+<strong>目次</strong>
+<ol>
+  <li><a href="#why">なぜ EZOS が必要なのか</a></li>
+  <li><a href="#arch">システム構成図</a></li>
+  <li><a href="#login">ログインとパスキー</a></li>
+  <li><a href="#header">画面全体とヘッダー</a></li>
+  <li><a href="#menu">ハンバーガーメニュー</a></li>
+  <li><a href="#terminal">EZterminal（ターミナル）</a></li>
+  <li><a href="#browser">EZbrowser（ファイル管理）</a></li>
+  <li><a href="#editor">EZeditor（エディタ）</a></li>
+  <li><a href="#settings">設定</a></li>
+  <li><a href="#install">インストール概要</a></li>
+</ol>
+</div>
+
+<h2 id="why">1. なぜ EZOS が必要なのか</h2>
+
+<p>EZOS は「Claude Code を徹底的に使い込むための環境」を提供したい、という動機から生まれました。ふつうにターミナルで <code>claude</code> を叩くだけでは越えられない、いくつかの壁を解消するために作られています。</p>
+
+<div class="why">
+<h4>① 並列で走る複数の Claude を、止めずに回す</h4>
+<p>複数のプロジェクトで Claude を<strong>並列に起動</strong>すると、あるプロセスが「この操作を実行してよいですか？」と<strong>確認待ち（判断留め）</strong>で止まっていることに気づけず、そこで仕事全体が停滞してしまいます。EZOS は、別プロセスの Claude からの確認を<strong>即座に知らせ</strong>、ワンクリックで応答できるようにすることで、判断留めで手が止まらないようにしました。確認待ちには通知音（リミットブレイク音など）も鳴ります。</p>
+</div>
+
+<div class="why">
+<h4>② サーバー上で動く／スマホから移動中でも確認できる</h4>
+<p>ブラウザ表示型にしたことで、<strong>プロセスはすべて VPS（サーバー）上で動作</strong>します。ローカル PC を閉じても処理は止まりません。そして<strong>スマホなどからも、移動中に</strong>状況を確認し、確認待ちに応答できます。tmux でセッションが永続するため、PC で始めた作業の続きをスマホの同じ画面で見られます。</p>
+</div>
+
+<div class="why">
+<h4>③ 入力画面で、IME とリモートコンソールのズレを解消</h4>
+<p>多言語（日本語など IME を使う言語）で入力する場合、通信が遅いと<strong>IME の変換動作とリモートコンソールの同期が取れず</strong>、入力が非常にストレスでした。EZOS は各ターミナルに<strong>専用の入力画面</strong>を用意し、手元で確定した文字だけをまとめて送れるようにして、この入力ストレスを改善しています（<a href="#terminal">入力切替スイッチ</a>）。</p>
+</div>
+
+<div class="why">
+<h4>④ ファイルのやり取りのために EZbrowser を追加</h4>
+<p>ファイルを編集する <strong>EZeditor</strong> に加えて、ファイルのやり取り（アップロード／ダウンロード／コピー／削除など）のために <strong>EZbrowser</strong>（内蔵ファイルマネージャ）を追加しました。ブラウザ上で完結してサーバーのファイルを扱えます。</p>
+</div>
+
+<h2 id="arch">2. システム構成図</h2>
+<p>各インストールは <strong>1 つの Node アプリ + systemd サービス + Caddy のサイト定義</strong> で成り立ちます。ブラウザは Caddy（TLS 終端・リバースプロキシ）を経由して、localhost で待ち受ける Node アプリに繋がります。</p>
+
+<div class="diagram">
+<svg viewBox="0 0 900 470" width="900" role="img" aria-label="EZOS システム構成図" xmlns="http://www.w3.org/2000/svg" style="max-width:100%;height:auto;font-family:sans-serif;">
+  <defs>
+    <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#5c6577"/></marker>
+    <style>
+      .box{fill:#fff;stroke:#c9d0de;stroke-width:1.5;rx:10;}
+      .lbl{font-size:13px;fill:#1c2029;font-weight:600;}
+      .sub{font-size:11px;fill:#5c6577;}
+      .grp{fill:#f2f5fb;stroke:#d5dcea;stroke-width:1.2;stroke-dasharray:5 4;}
+      .grpt{font-size:12px;fill:#8590a5;font-weight:700;}
+      .edge{stroke:#5c6577;stroke-width:1.6;fill:none;marker-end:url(#ar);}
+      .elbl{font-size:10.5px;fill:#41506b;}
+    </style>
+  </defs>
+
+  <!-- clients -->
+  <rect class="box" x="20" y="60" width="150" height="56" rx="10"/>
+  <text class="lbl" x="95" y="84" text-anchor="middle">PC ブラウザ</text>
+  <text class="sub" x="95" y="102" text-anchor="middle">Chrome / Safari …</text>
+  <rect class="box" x="20" y="150" width="150" height="56" rx="10"/>
+  <text class="lbl" x="95" y="174" text-anchor="middle">スマホ ブラウザ</text>
+  <text class="sub" x="95" y="192" text-anchor="middle">移動中でも確認</text>
+
+  <!-- caddy -->
+  <rect class="box" x="255" y="100" width="150" height="72" rx="10"/>
+  <text class="lbl" x="330" y="130" text-anchor="middle">Caddy</text>
+  <text class="sub" x="330" y="148" text-anchor="middle">TLS / リバースプロキシ</text>
+  <text class="sub" x="330" y="162" text-anchor="middle">ezos.ezoe.net</text>
+
+  <!-- server group -->
+  <rect class="grp" x="470" y="30" width="410" height="250" rx="12"/>
+  <text class="grpt" x="490" y="52" fill="#8590a5" font-weight="700" font-size="12">VPS（サーバー） / systemd: ezos</text>
+
+  <rect class="box" x="495" y="70" width="165" height="72" rx="10"/>
+  <text class="lbl" x="577" y="98" text-anchor="middle">EZOS Node アプリ</text>
+  <text class="sub" x="577" y="115" text-anchor="middle">server.js</text>
+  <text class="sub" x="577" y="130" text-anchor="middle">127.0.0.1:3101</text>
+
+  <rect class="box" x="495" y="175" width="165" height="80" rx="10"/>
+  <text class="lbl" x="577" y="200" text-anchor="middle">node-pty + tmux</text>
+  <text class="sub" x="577" y="217" text-anchor="middle">ez_&lt;sid&gt; セッション</text>
+  <text class="sub" x="577" y="233" text-anchor="middle">切断しても永続</text>
+
+  <rect class="box" x="700" y="175" width="150" height="80" rx="10"/>
+  <text class="lbl" x="775" y="205" text-anchor="middle">claude CLI</text>
+  <text class="sub" x="775" y="223" text-anchor="middle">Claude Code</text>
+  <text class="sub" x="775" y="239" text-anchor="middle">Pro / Max 認証</text>
+
+  <rect class="box" x="700" y="70" width="150" height="72" rx="10"/>
+  <text class="lbl" x="775" y="98" text-anchor="middle">app/data/*.json</text>
+  <text class="sub" x="775" y="115" text-anchor="middle">パスキー・設定</text>
+  <text class="sub" x="775" y="130" text-anchor="middle">（DB不使用）</text>
+
+  <!-- hooks -->
+  <rect class="box" x="255" y="330" width="205" height="70" rx="10"/>
+  <text class="lbl" x="357" y="358" text-anchor="middle">Claude Code フック</text>
+  <text class="sub" x="357" y="376" text-anchor="middle">ez-hook.sh → /api/beat</text>
+  <text class="sub" x="357" y="390" text-anchor="middle">セッション状態を通知</text>
+
+  <!-- edges -->
+  <path class="edge" d="M170,88 L250,130"/>
+  <path class="edge" d="M170,178 L250,145"/>
+  <text class="elbl" x="185" y="150">HTTPS / WSS</text>
+  <path class="edge" d="M405,136 L490,110"/>
+  <text class="elbl" x="410" y="112">localhost</text>
+  <path class="edge" d="M577,142 L577,173"/>
+  <path class="edge" d="M660,215 L698,215"/>
+  <text class="elbl" x="637" y="208">対話</text>
+  <path class="edge" d="M660,105 L698,105"/>
+  <path class="edge" d="M460,360 Q560,360 576,258"/>
+  <text class="elbl" x="470" y="330">POST /api/beat</text>
+</svg>
+</div>
+
+<table>
+<tr><th>要素</th><th>役割</th></tr>
+<tr><td><strong>ブラウザ（PC / スマホ）</strong></td><td>EZOS の画面。xterm.js でターミナルを描画し、WebSocket でサーバーと双方向通信。</td></tr>
+<tr><td><strong>Caddy</strong></td><td>公開ドメイン（例 <code>ezos.ezoe.net</code>）で待ち受け、TLS 証明書を自動取得し、localhost の Node アプリへリバースプロキシ。</td></tr>
+<tr><td><strong>EZOS Node アプリ</strong></td><td><code>server.js</code>。HTTP/WebSocket サーバー、パスキー認証、UI 配信、ファイル API。<code>127.0.0.1</code> で待受（例: ポート 3101）。</td></tr>
+<tr><td><strong>node-pty + tmux</strong></td><td>WebSocket と擬似端末（pty）を橋渡し。各タブは tmux セッション <code>ez_&lt;sid&gt;</code> に attach するため、切断・別端末でも同じ画面が続く。</td></tr>
+<tr><td><strong>claude CLI</strong></td><td>tmux 内で対話実行される Claude Code 本体。Pro/Max アカウント認証が前提。</td></tr>
+<tr><td><strong>フック → /api/beat</strong></td><td>Claude Code のフックが <code>ez-hook.sh</code> を叩き、セッション状態（確認待ち／作業中など）をサーバーへ通知。</td></tr>
+<tr><td><strong>app/data/*.json</strong></td><td>パスキー・トークン・設定などの実行時データ（DB 不使用、<code>.gitignore</code> 対象）。</td></tr>
+</table>
+
+<h2 id="login">3. ログインとパスキー</h2>
+<p>EZOS は <strong>WebAuthn パスキー</strong>で認証します（1Password などに保存可）。</p>
+<ul>
+  <li><strong>ログイン</strong>: 「🔑 パスキーでログイン」を押し、端末の生体認証などでパスキーを提示します。</li>
+  <li><strong>初回セットアップ</strong>: 最初のパスキーは、サーバーで登録ウィンドウを開いてから登録します。</li>
+  <li><strong>新しい端末の追加</strong>: すでにログイン済みの端末からは、<a href="#settings">設定 → パスキー端末管理</a>でそのまま追加できます。ログインできる端末が一つも無い場合は、サーバー上で <code>node bin/open-register.js</code> を実行して 15 分だけ登録を解錠します（break-glass）。</li>
+</ul>
+<div class="note">セキュリティのため、未認証からの新規パスキー登録は常時は受け付けません。締め出し（全端末喪失）に備え、SSH でサーバーに入れる人だけが登録を一時解錠できる仕組みです。</div>
+
+<h2 id="header">4. 画面全体とヘッダー</h2>
+<p>ログインすると 1 枚の画面が表示され、上部のヘッダーで操作します。本体は 3 つのモードを切り替えて使います。</p>
+<table>
+<tr><th>ヘッダー要素</th><th>説明</th></tr>
+<tr><td><span class="tag">モード切替</span> 左端のアイコン</td><td>クリックするたび <strong>EZterminal →<span class="emoji">🖥</span> EZbrowser →<span class="emoji">🗂</span> EZeditor</strong> を巡回。色でも現在のモードが分かります（青=ブラウザ / 橙=エディタ）。</td></tr>
+<tr><td><span class="tag">タブ</span> ＋ボタン</td><td>ターミナルのタブ一覧。<span class="key">＋</span> で新しいターミナル（tmux セッション）を追加。タブはサーバー側が正本で、全端末で共有されます。</td></tr>
+<tr><td><span class="tag">使用量</span> ウィジェット</td><td>Claude の利用量（5 時間枠・週枠）をバー表示（Claude 稼働中のみ更新）。</td></tr>
+<tr><td><span class="tag">接続状態</span> ●</td><td>ターミナルの WebSocket 接続状態を色で表示。</td></tr>
+<tr><td><span class="tag">☰</span> メニュー</td><td>ヘルプ・言語・設定・ログオフをまとめたハンバーガーメニュー（次章）。</td></tr>
+</table>
+
+<h2 id="menu">5. ハンバーガーメニュー（☰）</h2>
+<p>ヘッダー右端の <span class="key">☰</span> を押すと開きます。</p>
+<table>
+<tr><th>項目</th><th>内容</th></tr>
+<tr><td><span class="emoji">❓</span> <strong>ヘルプ・マニュアル</strong></td><td>この取扱説明書を、選択中の言語で画面内に表示します（右上の <span class="key">⤢</span> で新しいタブでも開けます）。</td></tr>
+<tr><td><span class="emoji">🌐</span> <strong>言語</strong></td><td>表示言語を <strong>日本語 / English</strong> で切り替えます。UI 全体とマニュアルが選択言語になります。</td></tr>
+<tr><td><span class="emoji">⚙️</span> <strong>設定</strong></td><td>設定ビューを開きます（言語・表示モード・通知音・パスキー端末管理）。<a href="#settings">第 9 章</a>。</td></tr>
+<tr><td><span class="emoji">⏻</span> <strong>ログオフ</strong></td><td>ログアウトします。ターミナルの tmux セッションは保持され、次回ログイン時に続きから使えます。</td></tr>
+</table>
+
+<h2 id="terminal">6. EZterminal（ターミナル）</h2>
+<p>ブラウザが VPS のターミナルそのものになり、<code>claude</code> を対話実行できます。xterm.js + WebSocket + node-pty + tmux で構成され、<strong>切断してもセッションは永続</strong>、PC/スマホから同一セッションに接続できます。</p>
+
+<h3>入力欄と入力切替スイッチ</h3>
+<p>各ターミナルには専用の<strong>入力欄</strong>と、その右上に<strong>「入力」スイッチ</strong>があります。</p>
+<ul>
+  <li><strong>ON（入力欄で編集）</strong>: 手元の入力欄で編集し、確定してから送信します。ターミナルへの直接入力はロックされ、<strong>IME が安定</strong>します。通信が遅い環境でも入力がズレません。</li>
+  <li><strong>OFF（直接入力）</strong>: ターミナルに直接キー入力します。</li>
+  <li>入力欄では <span class="key">Enter</span>＝改行 / <span class="key">Ctrl+Enter</span>＝送信。<span class="key">送信 ⏎</span> ボタンでも送れます。</li>
+</ul>
+
+<h3>制御キー行・各種ボタン</h3>
+<table>
+<tr><th>ボタン</th><th>説明</th></tr>
+<tr><td><span class="key">⏎</span><span class="key">Tab</span><span class="key">↑↓←→</span><span class="key">^C</span><span class="key">^D</span><span class="key">Esc</span> ほか</td><td>ターミナルへ制御キーを送るキー行。</td></tr>
+<tr><td><span class="key">G↓</span> / <span class="key">G↑</span></td><td>Git 操作。<strong>G↓</strong>=GitHub から pull、<strong>G↑</strong>=コミットして push。</td></tr>
+<tr><td><span class="emoji">🎤</span> マイク</td><td>音声入力。認識結果を入力欄（ON 時）またはターミナル（OFF 時）へ入れます。</td></tr>
+<tr><td><span class="emoji">📎</span> 添付</td><td>画像などのファイルをカレントディレクトリへアップロードし、パスを入力欄へ挿入。ドラッグ＆ドロップや貼り付けでも可。</td></tr>
+<tr><td><span class="key">⇧</span> / <span class="key">⇩</span></td><td>入力履歴を前／次へ。</td></tr>
+</table>
+
+<h3>ファイルパスのクリックと選択コピー</h3>
+<ul>
+  <li>ターミナルや Claude の出力中に現れた<strong>ファイルパスをクリックすると、EZeditor で直接開きます</strong>（入力切替 ON/OFF どちらでも動作）。</li>
+  <li>テキストを<strong>マウスで選択するとコピー</strong>されます。アプリ側へマウス操作を報告したいときは <span class="key">Alt</span>＋操作。</li>
+</ul>
+
+<h3>接続と再接続</h3>
+<ul>
+  <li>接続が切れても<strong>自動的に再接続</strong>します（機内 Wi-Fi 等でも復帰）。</li>
+  <li>別のデバイスで同じタブを開くと、そちらへ表示が移ります。元の端末では再接続ボタン／Enter／タブのタップで復帰できます。</li>
+</ul>
+
+<h2 id="browser">7. EZbrowser（ファイル管理）</h2>
+<p>サーバー上のファイルをブラウザで扱う内蔵ファイルマネージャです。ファイルのやり取りのために用意されました。</p>
+<table>
+<tr><th>メニュー / 操作</th><th>説明</th></tr>
+<tr><td><strong>ファイル</strong>メニュー</td><td>新規フォルダ・新規テキスト・アップロード。</td></tr>
+<tr><td><strong>編集</strong>メニュー</td><td>選択項目の編集・削除など。</td></tr>
+<tr><td><strong>表示</strong>メニュー</td><td>アイコン / リスト / 詳細の表示切替、隠しファイルの表示切替。</td></tr>
+<tr><td><strong>ターミナル</strong>メニュー</td><td>現在のフォルダをターミナル側へ反映。</td></tr>
+<tr><td>右クリック / 長押し</td><td>名前の変更・権限（読/書/実行）・パスのコピー・ダウンロード・削除。</td></tr>
+<tr><td>ファイルを開く</td><td>テキストは <strong>EZeditor</strong> で開きます。画像はサムネイル表示。</td></tr>
+<tr><td>アップロード</td><td>ドラッグ＆ドロップやアップロードボタンで、現在のフォルダへ転送。</td></tr>
+</table>
+
+<h2 id="editor">8. EZeditor（エディタ）</h2>
+<p>サーバー上のテキストファイルをブラウザ内で編集します。EZbrowser やターミナルのファイルパスから開かれます。</p>
+<ul>
+  <li><strong>ファイル</strong>メニュー: 保存（<span class="key">Ctrl+S</span> 相当）・別名で保存。</li>
+  <li><strong>編集</strong>メニュー: カット / コピー / ペースト。</li>
+  <li>複数ファイルをタブで開けます。未保存のまま閉じようとすると確認が出ます。</li>
+  <li>簡易シンタックスハイライト付き。</li>
+</ul>
+
+<h2 id="settings">9. 設定</h2>
+<p>ハンバーガーメニュー → <span class="emoji">⚙️</span> 設定 で開きます。</p>
+<table>
+<tr><th>設定</th><th>内容</th></tr>
+<tr><td><strong>言語</strong></td><td>日本語 / English。選ぶと UI 全体とマニュアルが切り替わります（ページを再読み込み）。</td></tr>
+<tr><td><strong>表示モード</strong></td><td><strong>自動</strong>（端末で判定）／<strong>デスクトップ</strong>／<strong>モバイル</strong>。スマホ最適化レイアウトに固定したいときに使います。</td></tr>
+<tr><td><strong>通知音</strong></td><td><em>確認待ちの通知音</em>（リミットブレイク／猫の鳴き声／なし）と、<em>作業終了の通知音</em>（鳴らす／なし）。確認音は選ぶと試聴されます。</td></tr>
+<tr><td><strong>パスキー端末管理</strong></td><td>この EZOS にログインできる登録済みパスキーの一覧。端末ごとに削除でき、この端末に新しいパスキーを追加できます（締め出し防止のため最後の 1 件は削除不可）。</td></tr>
+</table>
+
+<h2 id="install">10. インストール概要</h2>
+<p>EZOS は GitHub で公開されており、誰でも自分の環境に構築できます。<a href="https://github.com/hezoe/EZOS">github.com/hezoe/EZOS</a></p>
+<p>大まかな流れは次の通りです。</p>
+<pre><code>git clone https://github.com/hezoe/EZOS.git
+cd EZOS/app
+npm install --omit=dev
+node setup.js          # config.json を生成（rpID / origin / port など）
+node server.js         # 起動（通常は systemd サービスとして常駐）</code></pre>
+<p>公開ドメインでの TLS 終端・リバースプロキシには Caddy を使い、<code>ezos.ezoe.net</code> のような公開ホスト名を localhost の待受ポートへ繋ぎます。</p>
+<div class="note"><strong>詳しい導入手順は別冊のインストールマニュアルを参照してください</strong>（IP・公開ホスト名・DNS・パスキー登録端末・ポート/サービス名の決め方、Caddy 設定、systemd 常駐、フック設定まで）。<br>
+→ <a href="install.ja.html">インストールマニュアル（日本語）</a> / <a href="../INSTALL.md">docs/INSTALL.md</a></div>
+
+<footer>
+EZOS — passkey-protected web cockpit for Claude Code. このマニュアルはリポジトリの <code>docs/manual/</code> に含まれ、GitHub からクローンして単体でも閲覧できます。
+</footer>
+</div>
+
+<script>
+// 言語切替リンク: アプリ内(/manual)では ?lang=、単体ファイルでは manual.xx.html を指す
+(function(){
+  var inApp = /\/manual$/.test(location.pathname);
+  var ja = inApp ? '?lang=ja' : 'manual.ja.html';
+  var en = inApp ? '?lang=en' : 'manual.en.html';
+  document.getElementById('langsw').innerHTML =
+    '<a class="on" href="'+ja+'">日本語</a><a href="'+en+'">English</a>';
+})();
+</script>
+</body>
+</html>

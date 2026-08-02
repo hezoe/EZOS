@@ -177,6 +177,14 @@ function isMobileUA(ua) {
   return /iPhone|iPod|Windows Phone|webOS|BlackBerry|Android.+Mobile/i.test(ua || '');
 }
 
+// 表示言語 ('ja' | 'en')。ezlang cookie(設定ビュー/メニューで保存)由来、既定は ja
+function langMode(req) {
+  const m = /(?:^|;\s*)ezlang=(ja|en)/.exec(req.headers.cookie || '');
+  return m ? m[1] : 'ja';
+}
+// リクエスト言語に応じてサーバー側メッセージ(主に認証フローのエラー)を出し分ける
+function L(req, ja, en) { return langMode(req) === 'en' ? en : ja; }
+
 // UA判定 + クッキー/クエリによる表示モード ('mobile' | 'desktop')
 function viewMode(req, res, url) {
   const auto = isMobileUA(req.headers['user-agent']) ? 'mobile' : 'desktop';
@@ -227,7 +235,10 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(404).end('not found');
         return;
       }
-      const types = { '.css': 'text/css', '.js': 'text/javascript', '.svg': 'image/svg+xml' };
+      const types = {
+        '.css': 'text/css', '.js': 'text/javascript', '.svg': 'image/svg+xml',
+        '.wav': 'audio/wav', '.mp3': 'audio/mpeg', '.png': 'image/png',
+      };
       res.writeHead(200, {
         'Content-Type': (types[path.extname(file)] || 'application/octet-stream') + '; charset=utf-8',
         'Cache-Control': 'no-cache',
@@ -236,13 +247,29 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // マニュアル(言語別HTML)。ログイン中のみ配信。実体は docs/manual/manual.<lang>.html
+    // (GitHub からクローンした場合は同ファイルを file:// で単体閲覧できる)。
+    if (p === '/manual' && req.method === 'GET') {
+      if (!isAuthed(req)) { res.writeHead(302, { Location: '/' }).end(); return; }
+      const l = url.searchParams.get('lang') === 'en' ? 'en' : 'ja';
+      const file = path.join(ROOT, 'docs', 'manual', `manual.${l}.html`);
+      if (file.startsWith(path.join(ROOT, 'docs', 'manual')) && fs.existsSync(file)) {
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
+        fs.createReadStream(file).pipe(res);
+        return;
+      }
+      res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }).end('manual not found');
+      return;
+    }
+
     // トップページ
     if (p === '/' && req.method === 'GET') {
       const view = viewMode(req, res, url);
+      const lang = langMode(req);
       const authed = isAuthed(req);
       const hasCreds = getCredentials().length > 0;
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
-      res.end(renderPage({ authed, view, hasCreds }));
+      res.end(renderPage({ authed, view, lang, hasCreds }));
       return;
     }
 
@@ -271,7 +298,7 @@ const server = http.createServer(async (req, res) => {
         const open = w && typeof w.expires === 'number' && w.expires > Date.now();
         if (!open || !w.key || body.setupKey !== w.key) {
           await new Promise((r) => setTimeout(r, 1500));
-          sendJson(res, 403, { error: '登録は現在受け付けていません(サーバーで open-register を実行してください)' });
+          sendJson(res, 403, { error: L(req, '登録は現在受け付けていません(サーバーで open-register を実行してください)', 'Registration is currently closed (run open-register on the server).') });
           return;
         }
       }
@@ -296,7 +323,7 @@ const server = http.createServer(async (req, res) => {
       const body = await readBody(req);
       const challenge = takeChallenge(body.challengeId, 'reg');
       if (!challenge) {
-        sendJson(res, 400, { error: 'チャレンジが無効です。やり直してください' });
+        sendJson(res, 400, { error: L(req, 'チャレンジが無効です。やり直してください', 'Challenge is invalid. Please try again.') });
         return;
       }
       let verification;
@@ -309,11 +336,11 @@ const server = http.createServer(async (req, res) => {
           requireUserVerification: true,
         });
       } catch (e) {
-        sendJson(res, 400, { error: '登録に失敗しました: ' + e.message });
+        sendJson(res, 400, { error: L(req, '登録に失敗しました: ', 'Registration failed: ') + e.message });
         return;
       }
       if (!verification.verified) {
-        sendJson(res, 400, { error: '検証に失敗しました' });
+        sendJson(res, 400, { error: L(req, '検証に失敗しました', 'Verification failed.') });
         return;
       }
       const { credential } = verification.registrationInfo;
@@ -340,7 +367,7 @@ const server = http.createServer(async (req, res) => {
     if (p === '/api/login-options' && req.method === 'POST') {
       const creds = getCredentials();
       if (!creds.length) {
-        sendJson(res, 404, { error: 'パスキーが未登録です' });
+        sendJson(res, 404, { error: L(req, 'パスキーが未登録です', 'No passkey is registered.') });
         return;
       }
       const options = await generateAuthenticationOptions({
@@ -357,13 +384,13 @@ const server = http.createServer(async (req, res) => {
       const body = await readBody(req);
       const challenge = takeChallenge(body.challengeId, 'auth');
       if (!challenge) {
-        sendJson(res, 400, { error: 'チャレンジが無効です。やり直してください' });
+        sendJson(res, 400, { error: L(req, 'チャレンジが無効です。やり直してください', 'Challenge is invalid. Please try again.') });
         return;
       }
       const creds = getCredentials();
       const cred = creds.find((c) => c.id === body.authResp?.id);
       if (!cred) {
-        sendJson(res, 403, { error: '未知のパスキーです' });
+        sendJson(res, 403, { error: L(req, '未知のパスキーです', 'Unknown passkey.') });
         return;
       }
       let verification;
@@ -382,11 +409,11 @@ const server = http.createServer(async (req, res) => {
           },
         });
       } catch (e) {
-        sendJson(res, 403, { error: 'ログインに失敗しました: ' + e.message });
+        sendJson(res, 403, { error: L(req, 'ログインに失敗しました: ', 'Login failed: ') + e.message });
         return;
       }
       if (!verification.verified) {
-        sendJson(res, 403, { error: '検証に失敗しました' });
+        sendJson(res, 403, { error: L(req, '検証に失敗しました', 'Verification failed.') });
         return;
       }
       cred.counter = verification.authenticationInfo.newCounter;
@@ -401,12 +428,39 @@ const server = http.createServer(async (req, res) => {
     /* --- ここからログイン必須 --- */
 
     if (!isAuthed(req)) {
-      sendJson(res, 401, { error: 'ログインが必要です' });
+      sendJson(res, 401, { error: L(req, 'ログインが必要です', 'Login required.') });
       return;
     }
 
     if (p === '/api/logout' && req.method === 'POST') {
       res.setHeader('Set-Cookie', 'ezsess=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax');
+      sendJson(res, 200, { ok: true });
+      return;
+    }
+
+    // 登録済みパスキーの一覧(設定ビューのパスキー端末管理)。機微な公開鍵等は返さない。
+    if (p === '/api/passkeys' && req.method === 'GET') {
+      const list = getCredentials().map((c) => ({
+        id: c.id, label: c.label || 'passkey', createdAt: c.createdAt || null,
+      }));
+      sendJson(res, 200, { passkeys: list });
+      return;
+    }
+
+    // パスキー削除。締め出し防止のため最後の1件は削除させない。
+    if (p === '/api/passkeys/delete' && req.method === 'POST') {
+      const body = await readBody(req);
+      const creds = getCredentials();
+      if (creds.length <= 1) {
+        sendJson(res, 400, { error: '最後のパスキーは削除できません' });
+        return;
+      }
+      const next = creds.filter((c) => c.id !== body.id);
+      if (next.length === creds.length) {
+        sendJson(res, 404, { error: '該当するパスキーがありません' });
+        return;
+      }
+      writeJson('credentials.json', next);
       sendJson(res, 200, { ok: true });
       return;
     }
@@ -889,27 +943,27 @@ const server = http.createServer(async (req, res) => {
 
 /* ---------------- ページレンダリング ---------------- */
 
-function renderPage({ authed, view, hasCreds }) {
+function renderPage({ authed, view, lang, hasCreds }) {
   const bodyClass = `view-${view} ${authed ? 'authed' : 'anon'}`;
   const loginHtml = `
   <div class="login-wrap"><div class="login-box">
     <h1>🖊 EZOS</h1>
-    <p class="sub">Claude を Web から使う</p>
+    <p class="sub" data-i18n="login.sub">Claude を Web から使う</p>
     ${hasCreds ? `
-      <button id="btn-login" class="btn primary big">🔑 パスキーでログイン</button>
-      <p class="hint">1Passwordなどに保存したパスキーで認証します</p>
+      <button id="btn-login" class="btn primary big" data-i18n="login.loginBtn">🔑 パスキーでログイン</button>
+      <p class="hint" data-i18n="login.loginHint">1Passwordなどに保存したパスキーで認証します</p>
       <details class="setup-details">
-        <summary>新しい端末のパスキーを追加登録する</summary>
-        <input id="setup-key" type="password" placeholder="セットアップキー" autocomplete="off">
-        <input id="reg-label" type="text" placeholder="端末名 (例: iPhone)" autocomplete="off">
-        <button id="btn-register" class="btn">パスキーを登録</button>
+        <summary data-i18n="login.addSummary">新しい端末のパスキーを追加登録する</summary>
+        <input id="setup-key" type="password" placeholder="セットアップキー" data-i18n-ph="login.setupKeyPh" autocomplete="off">
+        <input id="reg-label" type="text" placeholder="端末名 (例: iPhone)" data-i18n-ph="login.deviceNamePh" autocomplete="off">
+        <button id="btn-register" class="btn" data-i18n="login.registerBtn">パスキーを登録</button>
       </details>
     ` : `
-      <p class="sub">初期セットアップ: 最初のパスキーを登録してください</p>
-      <input id="setup-key" type="password" placeholder="セットアップキー" autocomplete="off">
-      <input id="reg-label" type="text" placeholder="端末名 (例: メインPC)" autocomplete="off">
-      <button id="btn-register" class="btn primary big">🔐 パスキーを登録</button>
-      <p class="hint">セットアップキーはサーバーの setup.js 実行時に表示されたものです</p>
+      <p class="sub" data-i18n="login.firstSetup">初期セットアップ: 最初のパスキーを登録してください</p>
+      <input id="setup-key" type="password" placeholder="セットアップキー" data-i18n-ph="login.setupKeyPh" autocomplete="off">
+      <input id="reg-label" type="text" placeholder="端末名 (例: メインPC)" data-i18n-ph="login.deviceNamePhFirst" autocomplete="off">
+      <button id="btn-register" class="btn primary big" data-i18n="login.registerBtnBig">🔐 パスキーを登録</button>
+      <p class="hint" data-i18n="login.setupKeyHint">セットアップキーはサーバーの setup.js 実行時に表示されたものです</p>
     `}
     <p id="login-msg" class="err" hidden></p>
   </div></div>`;
@@ -917,15 +971,14 @@ function renderPage({ authed, view, hasCreds }) {
   const termHtml = `
   <div id="term-app">
     <header id="term-bar">
-      <button id="mode-cycle" class="mode-cycle" title="EZterminal / EZbrowser / EZeditor 切替" aria-label="モード切替"></button>
-      <div id="term-tabs"><button id="btn-add-tab" title="新しいターミナル">＋</button></div>
+      <button id="mode-cycle" class="mode-cycle" title="EZterminal / EZbrowser / EZeditor 切替" data-i18n-title="header.modeCycle" aria-label="モード切替"></button>
+      <div id="term-tabs"><button id="btn-add-tab" title="新しいターミナル" data-i18n-title="header.newTerminal">＋</button></div>
       <span class="spacer"></span>
       <div id="usage-widget" hidden></div>
-      <span id="conn-state" class="dot off" title="ターミナル接続状態"></span>
+      <span id="conn-state" class="dot off" title="ターミナル接続状態" data-i18n-title="header.connState"></span>
       <div class="tb-actions">
-        <button id="btn-reconnect" class="btn small" title="ページを再読込" aria-label="再読込" hidden>🔄</button>
-        <a class="btn small" href="?view=${view === 'mobile' ? 'desktop' : 'mobile'}">${view === 'mobile' ? '🖥' : '📱'}</a>
-        <button id="btn-logout" class="btn small" title="ログオフ" aria-label="ログオフ">⏻</button>
+        <button id="btn-reconnect" class="btn small" title="ページを再読込" data-i18n-title="header.reload" aria-label="再読込" hidden>🔄</button>
+        <button id="btn-menu" class="btn small" title="メニュー" data-i18n-title="menu.title" aria-label="メニュー" data-i18n-aria="menu.open">☰</button>
       </div>
     </header>
 
@@ -938,7 +991,7 @@ function renderPage({ authed, view, hasCreds }) {
 
 
   return `<!DOCTYPE html>
-<html lang="ja">
+<html lang="${esc(lang)}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -952,9 +1005,10 @@ ${authed ? '<link rel="stylesheet" href="/assets/ezeditor.css"><link rel="styles
 </head>
 <body class="${esc(bodyClass)}">
 ${authed ? termHtml : loginHtml}
-<script>window.EZ = { authed: ${authed}, view: ${JSON.stringify(view)} };</script>
+<script>window.EZ = { authed: ${authed}, view: ${JSON.stringify(view)}, lang: ${JSON.stringify(lang)} };</script>
+<script src="/assets/i18n.js"></script>
 ${authed
-    ? '<script src="/vendor/xterm.js"></script><script src="/vendor/addon-fit.js"></script><script src="/vendor/addon-clipboard.js"></script><script src="/vendor/addon-web-links.js"></script><script src="/assets/term.js"></script><script src="/assets/ezhl.js"></script><script src="/assets/ezeditor.js"></script><script src="/assets/ezbrowser.js"></script>'
+    ? '<script src="/vendor/xterm.js"></script><script src="/vendor/addon-fit.js"></script><script src="/vendor/addon-clipboard.js"></script><script src="/vendor/addon-web-links.js"></script><script src="/assets/term.js"></script><script src="/assets/ezhl.js"></script><script src="/assets/ezeditor.js"></script><script src="/assets/ezbrowser.js"></script><script src="/assets/menu.js"></script>'
     : '<script src="/assets/app.js"></script>'}
 </body>
 </html>`;

@@ -18,6 +18,7 @@
    ハイライトは window.EZHL(ezhl.js)を利用する。 */
 'use strict';
 (() => {
+  const tr = (k, v) => (window.EZ && window.EZ.t ? window.EZ.t(k, v) : k);
   const HL_MAX = 400 * 1024; // これを超えるファイルはハイライトせず素のまま表示(重さ回避)
 
   function create(ctx) {
@@ -62,7 +63,7 @@
         el.className = 'eze-tab' + (t.id === activeId ? ' active' : '') + (t.dirty ? ' dirty' : '');
         const nm = document.createElement('span'); nm.className = 'eze-tab-nm'; nm.textContent = t.name; nm.title = t.path;
         nm.addEventListener('click', () => activate(t.id));
-        const x = document.createElement('button'); x.className = 'eze-tab-x'; x.textContent = '✕'; x.title = '閉じる';
+        const x = document.createElement('button'); x.className = 'eze-tab-x'; x.textContent = '✕'; x.title = tr('editor.close');
         x.addEventListener('click', (e) => { e.stopPropagation(); closeTab(t.id); });
         el.append(nm, x);
         tabsEl.appendChild(el);
@@ -123,8 +124,8 @@
         persist(); // 開き状態を保存(全デバイスへ引き継ぐ)
         setTimeout(() => edText.focus(), 0);
       } catch (err) {
-        if (err.message === 'binary') alert('バイナリファイルは開けません');
-        else alert('開けません: ' + err.message);
+        if (err.message === 'binary') alert(tr('editor.binaryOpenError'));
+        else alert(tr('editor.openError', { msg: err.message }));
       }
     }
     // 起動時: サーバーに保存された開き状態を復元する。モードは切り替えず(現在の表示を保つ)、
@@ -153,16 +154,16 @@
     /* ---------- 保存 ---------- */
     async function saveTab(t) {
       try { await ctx.fjson('/api/fs/write', { path: t.path, content: t.content }); t.dirty = false; return true; }
-      catch (e) { alert('保存失敗: ' + e.message); return false; }
+      catch (e) { alert(tr('editor.saveError', { msg: e.message })); return false; }
     }
     async function saveFile() {
       const t = active(); if (!t) return;
       syncActive();
-      if (await saveTab(t)) { ctx.flash('保存しました'); renderTabs(); }
+      if (await saveTab(t)) { ctx.flash(tr('editor.saved')); renderTabs(); }
     }
     async function saveAs() {
       const t = active(); if (!t) return;
-      const name = prompt('別名で保存 (現在のフォルダに作成):', t.name || 'new.txt');
+      const name = prompt(tr('editor.saveAsPrompt'), t.name || 'new.txt');
       if (!name) return;
       syncActive();
       try {
@@ -171,8 +172,8 @@
         render(); renderTabs();
         persist(); // パスが変わったので保存し直す
         ctx.reloadBrowser();
-        ctx.flash('保存しました: ' + j.name);
-      } catch (e) { alert('保存失敗: ' + e.message); }
+        ctx.flash(tr('editor.savedAs', { name: j.name }));
+      } catch (e) { alert(tr('editor.saveError', { msg: e.message })); }
     }
 
     /* ---------- 閉じる ---------- */
@@ -204,7 +205,7 @@
     async function edCut() { await edCopy(); const a = edText.selectionStart, b = edText.selectionEnd; edText.setRangeText('', a, b, 'end'); markDirty(); edText.focus(); }
     async function edPaste() {
       try { const t = await navigator.clipboard.readText(); const a = edText.selectionStart, b = edText.selectionEnd; edText.setRangeText(t, a, b, 'end'); markDirty(); edText.focus(); }
-      catch { alert('貼り付けは Ctrl+V を使用してください'); }
+      catch { alert(tr('editor.pasteHint')); }
     }
     // 編集が入った時: アクティブタブを dirty にし(初回のみタブバー更新)、ハイライト再描画
     function markDirty() {
@@ -220,14 +221,14 @@
       // 1段目: 開いているファイルのタブ一覧(+現在タブを閉じる✕)
       const tabbar = document.createElement('div'); tabbar.className = 'eze-tabbar';
       tabsEl = document.createElement('div'); tabsEl.className = 'eze-tabs';
-      const closeb = document.createElement('button'); closeb.className = 'eze-close'; closeb.textContent = '✕'; closeb.title = '現在のタブを閉じる';
+      const closeb = document.createElement('button'); closeb.className = 'eze-close'; closeb.textContent = '✕'; closeb.title = tr('editor.closeCurrentTab');
       closeb.addEventListener('click', () => { if (activeId != null) closeTab(activeId); });
       tabbar.append(tabsEl, closeb);
       // 2段目: ファイルメニュー(ファイル / 編集)
       const bar = document.createElement('div'); bar.className = 'eze-bar';
       const menus = document.createElement('div'); menus.className = 'eze-menus';
-      menus.appendChild(ctx.menuButton('ファイル', () => ([['保存', saveFile], ['別名で保存', saveAs]])));
-      menus.appendChild(ctx.menuButton('編集', () => ([['カット', edCut], ['コピー', edCopy], ['ペースト', edPaste]])));
+      menus.appendChild(ctx.menuButton(tr('editor.menuFile'), () => ([[tr('editor.save'), saveFile], [tr('editor.saveAs'), saveAs]])));
+      menus.appendChild(ctx.menuButton(tr('editor.menuEdit'), () => ([[tr('editor.cut'), edCut], [tr('editor.copy'), edCopy], [tr('editor.paste'), edPaste]])));
       bar.appendChild(menus);
       // オーバーレイ: 透明テキストの textarea の背後に色付き pre を重ねる
       edWrap = document.createElement('div'); edWrap.className = 'eze-wrap';

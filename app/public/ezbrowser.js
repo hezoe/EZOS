@@ -4,6 +4,7 @@
    全FS操作は /home/debian 配下に限定(サーバの safePath が保証)。 */
 'use strict';
 (() => {
+  const t = (k, v) => (window.EZ && window.EZ.t ? window.EZ.t(k, v) : k);
   if (!window.EZ || !window.EZ.authed) return;
   const isMobile = window.EZ.view === 'mobile';
 
@@ -110,7 +111,7 @@
     document.body.dataset.mode = m;
     cycleBtn.innerHTML = ICONS[m];
     const next = modeOrder(); const nm = next[(next.indexOf(m) + 1) % next.length];
-    cycleBtn.title = `${MODE_NAME[m]}（クリックで${MODE_NAME[nm]}へ）`;
+    cycleBtn.title = t('browser.modeSwitchTip', { mode: MODE_NAME[m], next: MODE_NAME[nm] });
     closeDropdown(); closeContext();
     if (m === 'terminal' && window.EZ.fitActive) setTimeout(window.EZ.fitActive, 0);
     if (m === 'browser' && !loaded) load(state.cwd);
@@ -162,10 +163,10 @@
       const b = document.createElement('button'); b.textContent = label; if (disabled) b.disabled = true;
       b.addEventListener('click', () => { closeContext(); fn(); }); menu.appendChild(b);
     };
-    add('名前の変更 / 権限', () => { const e = state.entries.find((x) => x.name === names[0]); if (e) renameDialog(e); }, names.length !== 1);
-    add('パスをコピー', doCopyPath, !names.length);
-    add('ダウンロード', doDownload, !names.length);
-    add('削除', doDelete, !names.length);
+    add(t('browser.renamePerm'), () => { const e = state.entries.find((x) => x.name === names[0]); if (e) renameDialog(e); }, names.length !== 1);
+    add(t('browser.copyPath'), doCopyPath, !names.length);
+    add(t('browser.download'), doDownload, !names.length);
+    add(t('browser.delete'), doDelete, !names.length);
     menu.style.left = Math.min(x, window.innerWidth - 180) + 'px';
     menu.style.top = Math.min(y, window.innerHeight - 140) + 'px';
     document.body.appendChild(menu); curContext = menu;
@@ -177,8 +178,8 @@
     const box = document.createElement('div'); box.className = 'ezb-modal';
     const h = document.createElement('div'); h.className = 'ezb-modal-t'; h.textContent = title;
     const foot = document.createElement('div'); foot.className = 'ezb-modal-foot';
-    const cancel = document.createElement('button'); cancel.textContent = 'キャンセル';
-    const ok = document.createElement('button'); ok.textContent = 'OK'; ok.className = 'ezb-ok';
+    const cancel = document.createElement('button'); cancel.textContent = t('browser.cancel');
+    const ok = document.createElement('button'); ok.textContent = t('browser.ok'); ok.className = 'ezb-ok';
     const close = () => ov.remove();
     cancel.addEventListener('click', close);
     ok.addEventListener('click', async () => { try { await onOk(); close(); } catch (e) { alert(e.message); } });
@@ -193,16 +194,16 @@
     return new Promise((resolve) => {
       const ov = document.createElement('div'); ov.className = 'ezb-modal-ov';
       const box = document.createElement('div'); box.className = 'ezb-modal';
-      const h = document.createElement('div'); h.className = 'ezb-modal-t'; h.textContent = '未保存の変更';
+      const h = document.createElement('div'); h.className = 'ezb-modal-t'; h.textContent = t('browser.unsavedChanges');
       const msg = document.createElement('div'); msg.className = 'ezb-modal-msg';
-      msg.textContent = `「${name}」には未保存の変更があります。保存しますか?`;
+      msg.textContent = t('browser.unsavedConfirm', { name });
       const foot = document.createElement('div'); foot.className = 'ezb-modal-foot';
       const mk = (label, val, cls) => {
         const b = document.createElement('button'); b.textContent = label; if (cls) b.className = cls;
         b.addEventListener('click', () => { ov.remove(); resolve(val); });
         return b;
       };
-      foot.append(mk('キャンセル', 'cancel'), mk('保存せず閉じる', 'discard'), mk('保存して閉じる', 'save', 'ezb-ok'));
+      foot.append(mk(t('browser.cancel'), 'cancel'), mk(t('browser.discardClose'), 'discard'), mk(t('browser.saveClose'), 'save', 'ezb-ok'));
       box.append(h, msg, foot); ov.appendChild(box);
       ov.addEventListener('mousedown', (e) => { if (e.target === ov) { ov.remove(); resolve('cancel'); } });
       document.body.appendChild(ov);
@@ -211,8 +212,8 @@
   function buildPermGrid(mode0) {
     const bits = { ur: 0o400, uw: 0o200, ux: 0o100, gr: 0o40, gw: 0o20, gx: 0o10, or: 0o4, ow: 0o2, ox: 0o1 };
     const el = document.createElement('table'); el.className = 'ezb-perm';
-    const head = document.createElement('tr'); head.innerHTML = '<th></th><th>読 r</th><th>書 w</th><th>実行 x</th>'; el.appendChild(head);
-    const rows = [['所有者', 'u'], ['グループ', 'g'], ['その他', 'o']];
+    const head = document.createElement('tr'); head.innerHTML = `<th></th><th>${t('browser.permRead')}</th><th>${t('browser.permWrite')}</th><th>${t('browser.permExec')}</th>`; el.appendChild(head);
+    const rows = [[t('browser.permOwner'), 'u'], [t('browser.permGroup'), 'g'], [t('browser.permOther'), 'o']];
     const boxes = {};
     for (const [label, who] of rows) {
       const tr = document.createElement('tr');
@@ -227,15 +228,15 @@
   }
   function renameDialog(entry) {
     const wrap = document.createElement('div');
-    const lbl = document.createElement('label'); lbl.className = 'ezb-lbl'; lbl.textContent = '名前';
+    const lbl = document.createElement('label'); lbl.className = 'ezb-lbl'; lbl.textContent = t('browser.name');
     const input = document.createElement('input'); input.type = 'text'; input.className = 'ezb-input'; input.value = entry.name;
     const grid = buildPermGrid(entry.mode);
     wrap.append(lbl, input, grid.el);
-    modal('名前の変更 / 権限', wrap, async () => {
+    modal(t('browser.renamePerm'), wrap, async () => {
       const newName = input.value.trim();
-      if (!newName) throw new Error('名前を入力してください');
+      if (!newName) throw new Error(t('browser.nameRequired'));
       await fjson('/api/fs/rename', { dir: state.cwd, name: entry.name, newName, mode: grid.getMode() });
-      await load(state.cwd); flash('変更しました');
+      await load(state.cwd); flash(t('browser.changed'));
     });
     setTimeout(() => input.focus(), 0);
   }
@@ -249,7 +250,7 @@
     listEl = browserEl.querySelector('.ezb-list');
     uploadInput = document.createElement('input'); uploadInput.type = 'file'; uploadInput.multiple = true; uploadInput.style.display = 'none';
     uploadInput.addEventListener('change', async () => {
-      try { await uploadTo(state.cwd, uploadInput.files); await load(state.cwd); flash('アップロード完了'); }
+      try { await uploadTo(state.cwd, uploadInput.files); await load(state.cwd); flash(t('browser.uploadDone')); }
       catch (e) { alert(e.message); }
       uploadInput.value = '';
     });
@@ -297,7 +298,7 @@
       try {
         await uploadTo(target, files);
         if (target === state.cwd) await load(state.cwd);
-        flash(`${files.length}件をアップロード` + (label ? `（→ ${label}）` : ''));
+        flash(t('browser.uploadedCount', { count: files.length }) + (label ? t('browser.uploadedTo', { label }) : ''));
       } catch (err) { alert(err.message); }
     });
 
@@ -316,24 +317,24 @@
   }
   function buildMenubar() {
     menubarEl.innerHTML = '';
-    menubarEl.appendChild(menuButton('ファイル', () => ([
-      ['新規フォルダ', doMkdir],
-      ['新規テキスト', doCreateText],
-      ['ダウンロード', doDownload, !state.sel.size],
-      ['アップロード', doUpload],
+    menubarEl.appendChild(menuButton(t('browser.menuFile'), () => ([
+      [t('browser.newFolder'), doMkdir],
+      [t('browser.newText'), doCreateText],
+      [t('browser.download'), doDownload, !state.sel.size],
+      [t('browser.upload'), doUpload],
     ])));
-    menubarEl.appendChild(menuButton('編集', () => ([
-      ['編集', doEditSelected, state.sel.size !== 1],
-      ['削除', doDelete, !state.sel.size],
+    menubarEl.appendChild(menuButton(t('browser.menuEdit'), () => ([
+      [t('browser.edit'), doEditSelected, state.sel.size !== 1],
+      [t('browser.delete'), doDelete, !state.sel.size],
     ])));
-    menubarEl.appendChild(menuButton('表示', () => ([
-      ['アイコン表示', () => setView('icon')],
-      ['リスト表示', () => setView('list')],
-      ['詳細表示', () => setView('detail')],
+    menubarEl.appendChild(menuButton(t('browser.menuView'), () => ([
+      [t('browser.viewIcon'), () => setView('icon')],
+      [t('browser.viewList'), () => setView('list')],
+      [t('browser.viewDetail'), () => setView('detail')],
       ['—'],
-      ['隠しファイル: ' + (state.hidden ? 'ON' : 'OFF'), toggleHidden],
+      [t('browser.hiddenFiles') + (state.hidden ? 'ON' : 'OFF'), toggleHidden],
     ])));
-    menubarEl.appendChild(menuButton('ターミナル', () => ([
+    menubarEl.appendChild(menuButton(t('browser.menuTerminal'), () => ([
       ['CLI', () => openTerminal('cli')],
       ['Claude', () => openTerminal('claude')],
     ])));
@@ -352,7 +353,7 @@
   function itemInner(e) {
     const ic = isImage(e) ? thumbHtml(e) : iconFor(e); const nm = esc(e.name);
     if (e.type === 'updir') {
-      return `<span class="ezb-ic">${ic}</span><span class="ezb-nm">.. (上へ)</span>` + (state.view === 'detail' ? '<span></span><span></span><span></span>' : '');
+      return `<span class="ezb-ic">${ic}</span><span class="ezb-nm">${t('browser.upDir')}</span>` + (state.view === 'detail' ? '<span></span><span></span><span></span>' : '');
     }
     if (state.view === 'detail') {
       return `<span class="ezb-ic">${ic}</span><span class="ezb-nm">${nm}</span>`
@@ -366,7 +367,7 @@
     listEl.innerHTML = '';
     if (state.view === 'detail') {
       const head = document.createElement('div'); head.className = 'ezb-head';
-      head.innerHTML = '<span></span><span>名前</span><span>サイズ</span><span>更新</span><span>権限</span>';
+      head.innerHTML = `<span></span><span>${t('browser.colName')}</span><span>${t('browser.colSize')}</span><span>${t('browser.colModified')}</span><span>${t('browser.colPerm')}</span>`;
       listEl.appendChild(head);
     }
     if (state.parent) {
@@ -402,7 +403,7 @@
       renderCrumbs(); renderList();
     } catch (e) {
       if (dir !== '/home/debian/workspace') { load('/home/debian/workspace'); }
-      else alert('一覧の取得に失敗: ' + e.message);
+      else alert(t('browser.listFailed') + e.message);
     }
   }
   function navUp() { if (state.parent) load(state.parent); }
@@ -421,7 +422,7 @@
   }
   function openFile(e) {
     if (e.editable) openInEditor(e);
-    else if (confirm(`「${e.name}」はテキストではありません。ダウンロードしますか?`)) downloadSingle(e.name);
+    else if (confirm(t('browser.notTextConfirm', { name: e.name }))) downloadSingle(e.name);
   }
 
   function bindListEvents() {
@@ -488,37 +489,37 @@
       const j = await fjson('/api/term/add', { dir: state.cwd, kind, title });
       const sid = j.terminal && j.terminal.sid;
       if (sid && window.EZ.gotoTerminal) { setMode('terminal'); await window.EZ.gotoTerminal(sid); }
-      else if (!window.EZ.gotoTerminal) alert('端末機能が読み込まれていません');
+      else if (!window.EZ.gotoTerminal) alert(t('browser.termNotLoaded'));
     } catch (e) { alert(e.message); }
   }
-  async function doMkdir() { try { await fjson('/api/fs/mkdir', { dir: state.cwd }); await load(state.cwd); flash('フォルダを作成'); } catch (e) { alert(e.message); } }
+  async function doMkdir() { try { await fjson('/api/fs/mkdir', { dir: state.cwd }); await load(state.cwd); flash(t('browser.folderCreated')); } catch (e) { alert(e.message); } }
   async function doCreateText() {
     try { const j = await fjson('/api/fs/create', { dir: state.cwd }); await load(state.cwd); openInEditor({ name: j.name, type: 'file', editable: true }); }
     catch (e) { alert(e.message); }
   }
   function doEditSelected() {
     const names = [...state.sel];
-    if (names.length !== 1) { alert('編集するファイルを1つ選択してください'); return; }
+    if (names.length !== 1) { alert(t('browser.selectOneToEdit')); return; }
     const e = state.entries.find((x) => x.name === names[0]);
-    if (!e || e.type === 'dir') { alert('ファイルを選択してください'); return; }
+    if (!e || e.type === 'dir') { alert(t('browser.selectFile')); return; }
     openFile(e);
   }
   function doDelete() {
     const names = [...state.sel];
-    if (!names.length) { alert('削除対象を選択してください'); return; }
-    if (!confirm(`${names.length}件を削除します(フォルダは中身ごと)。よろしいですか?\n\n` + names.join('\n'))) return;
-    fjson('/api/fs/delete', { dir: state.cwd, names }).then(() => { load(state.cwd); flash('削除しました'); }).catch((e) => alert(e.message));
+    if (!names.length) { alert(t('browser.selectToDelete')); return; }
+    if (!confirm(t('browser.deleteConfirm', { count: names.length }) + names.join('\n'))) return;
+    fjson('/api/fs/delete', { dir: state.cwd, names }).then(() => { load(state.cwd); flash(t('browser.deleted')); }).catch((e) => alert(e.message));
   }
   function doCopyPath() {
     const names = [...state.sel];
-    if (!names.length) { alert('対象を選択してください'); return; }
+    if (!names.length) { alert(t('browser.selectTarget')); return; }
     const paths = names.map((n) => join(state.cwd, n)).join('\n');
     copyText(paths);
-    flash(names.length === 1 ? 'パスをコピーしました' : `${names.length}件のパスをコピーしました`);
+    flash(names.length === 1 ? t('browser.pathCopied') : t('browser.pathsCopied', { count: names.length }));
   }
   function doDownload() {
     const names = [...state.sel];
-    if (!names.length) { alert('ダウンロード対象を選択してください'); return; }
+    if (!names.length) { alert(t('browser.selectToDownload')); return; }
     if (names.length === 1) {
       const e = state.entries.find((x) => x.name === names[0]);
       if (e && e.type === 'file') { downloadSingle(names[0]); return; }
@@ -532,7 +533,7 @@
   }
   async function downloadArchive(names) {
     const res = await fapi('/api/fs/archive', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dir: state.cwd, names }) });
-    if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.error || 'アーカイブ失敗'); }
+    if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.error || t('browser.archiveFailed')); }
     const blob = await res.blob();
     let fn = 'download.tar.gz';
     const m = /filename\*=UTF-8''([^;]+)/.exec(res.headers.get('Content-Disposition') || '');
@@ -565,7 +566,7 @@
       setEditorAvailable: (avail) => {
         editorOpen = avail;
         const next = modeOrder(); const nm = next[(next.indexOf(mode) + 1) % next.length];
-        cycleBtn.title = `${MODE_NAME[mode]}（クリックで${MODE_NAME[nm]}へ）`;
+        cycleBtn.title = t('browser.modeSwitchTip', { mode: MODE_NAME[mode], next: MODE_NAME[nm] });
       },
     });
   }

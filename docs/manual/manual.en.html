@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EZOS User Manual</title>
+<style>
+  :root{--bg:#f7f8fb;--ink:#1c2029;--muted:#5c6577;--line:#e2e6ee;--card:#fff;--accent:#4c8dff;--accent2:#D97757;--code:#eef1f7;}
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Hiragino Kaku Gothic ProN","Noto Sans JP",Meiryo,sans-serif;line-height:1.75;}
+  .wrap{max-width:960px;margin:0 auto;padding:0 20px 100px;}
+  header.top{position:sticky;top:0;background:rgba(247,248,251,.92);backdrop-filter:blur(6px);border-bottom:1px solid var(--line);padding:14px 20px;display:flex;align-items:center;gap:14px;z-index:10;}
+  header.top h1{font-size:18px;margin:0;flex:1;}
+  header.top .brand{color:var(--accent2);font-weight:700;}
+  .langsw a{font-size:13px;color:var(--muted);text-decoration:none;border:1px solid var(--line);padding:4px 10px;border-radius:20px;margin-left:6px;background:var(--card);}
+  .langsw a.on{color:#fff;background:var(--accent);border-color:var(--accent);}
+  h2{font-size:24px;margin:48px 0 12px;padding-top:12px;border-top:2px solid var(--line);}
+  h3{font-size:18px;margin:30px 0 8px;color:#2a3143;}
+  h4{font-size:15px;margin:20px 0 4px;color:var(--accent2);}
+  p,li{color:#28303f;}
+  code{background:var(--code);padding:2px 6px;border-radius:5px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.9em;}
+  pre{background:#0f1420;color:#e6e9f0;padding:14px 16px;border-radius:10px;overflow:auto;font-size:13px;line-height:1.6;}
+  pre code{background:none;padding:0;color:inherit;}
+  .lead{font-size:17px;color:var(--muted);}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 22px;margin:18px 0;}
+  .toc{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 22px;margin:22px 0;}
+  .toc ol{margin:6px 0;padding-left:22px;}
+  .toc a{color:var(--accent);text-decoration:none;}
+  .toc a:hover{text-decoration:underline;}
+  table{border-collapse:collapse;width:100%;margin:14px 0;font-size:14px;}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top;}
+  th{background:#eef2fa;}
+  .key{display:inline-block;background:#fff;border:1px solid #c9d0de;border-bottom-width:2px;border-radius:6px;padding:1px 7px;font-size:.85em;font-family:ui-monospace,monospace;}
+  .tag{display:inline-block;font-size:12px;padding:1px 8px;border-radius:20px;background:#eef2fa;color:#41506b;margin-right:4px;}
+  .diagram{overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin:18px 0;}
+  .note{border-left:4px solid var(--accent);background:#eff4ff;padding:10px 16px;border-radius:0 10px 10px 0;margin:14px 0;}
+  .why{border-left:4px solid var(--accent2);background:#fdf1ec;padding:12px 18px;border-radius:0 10px 10px 0;margin:14px 0;}
+  footer{color:var(--muted);font-size:13px;border-top:1px solid var(--line);margin-top:60px;padding-top:20px;}
+  a{color:var(--accent);}
+  .emoji{font-style:normal}
+</style>
+</head>
+<body>
+<header class="top">
+  <h1><span class="brand">EZOS</span> User Manual</h1>
+  <span class="langsw" id="langsw"></span>
+</header>
+<div class="wrap">
+
+<p class="lead">EZOS is <strong>your own personal cockpit for getting the most out of Claude Code from a browser</strong>. With passkey authentication, you can run <code>claude</code> interactively on your VPS from any device's browser — whether on a PC or a phone.</p>
+
+<div class="toc">
+<strong>Contents</strong>
+<ol>
+  <li><a href="#why">Why you need EZOS</a></li>
+  <li><a href="#arch">System architecture</a></li>
+  <li><a href="#login">Login and passkeys</a></li>
+  <li><a href="#header">The screen and header</a></li>
+  <li><a href="#menu">Hamburger menu</a></li>
+  <li><a href="#terminal">EZterminal (terminal)</a></li>
+  <li><a href="#browser">EZbrowser (file management)</a></li>
+  <li><a href="#editor">EZeditor (editor)</a></li>
+  <li><a href="#settings">Settings</a></li>
+  <li><a href="#install">Installation overview</a></li>
+</ol>
+</div>
+
+<h2 id="why">1. Why you need EZOS</h2>
+
+<p>EZOS was born from a simple desire: to build an environment for really getting the most out of Claude Code. It exists to break through several walls that you can't get past by just running <code>claude</code> in an ordinary terminal.</p>
+
+<div class="why">
+<h4>1. Keep several Claudes running in parallel without stalling</h4>
+<p>When you launch Claude across several projects <strong>in parallel</strong>, one process may quietly be stuck <strong>waiting for confirmation (a pending decision)</strong> — asking "Is it OK to run this operation?" — and if you don't notice, the whole workflow grinds to a halt. EZOS <strong>alerts you instantly</strong> to a confirmation request from any Claude process and lets you respond with a single click, so a pending decision never leaves you stuck. A notification sound (such as the limit-break chime) also plays when something is waiting for confirmation.</p>
+</div>
+
+<div class="why">
+<h4>2. Runs on the server / check it from your phone, even on the go</h4>
+<p>Because it's browser-based, <strong>every process runs on the VPS (server)</strong>. Close your local PC and the work keeps going. And you can check status and answer confirmation prompts <strong>from your phone while you're out and about</strong>. Since tmux keeps sessions alive, you can pick up work you started on your PC right where you left off, on the same screen on your phone.</p>
+</div>
+
+<div class="why">
+<h4>3. An input pane that fixes the mismatch between your IME and the remote console</h4>
+<p>When typing in languages that use an IME (such as Japanese), a slow connection means <strong>the IME's conversion and the remote console fall out of sync</strong>, making input incredibly frustrating. EZOS gives each terminal a <strong>dedicated input pane</strong> so you can compose text locally and send only the finalized characters in one go, easing that input pain (<a href="#terminal">the input toggle switch</a>).</p>
+</div>
+
+<div class="why">
+<h4>4. EZbrowser, added for moving files around</h4>
+<p>On top of <strong>EZeditor</strong> for editing files, we added <strong>EZbrowser</strong> (a built-in file manager) for moving files around — uploading, downloading, copying, deleting, and so on. It lets you work with the server's files entirely within the browser.</p>
+</div>
+
+<h2 id="arch">2. System architecture</h2>
+<p>Each installation is made up of <strong>one Node app + a systemd service + a Caddy site definition</strong>. The browser connects through Caddy (TLS termination and reverse proxy) to the Node app listening on localhost.</p>
+
+<div class="diagram">
+<svg viewBox="0 0 900 470" width="900" role="img" aria-label="EZOS system architecture" xmlns="http://www.w3.org/2000/svg" style="max-width:100%;height:auto;font-family:sans-serif;">
+  <defs>
+    <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#5c6577"/></marker>
+    <style>
+      .box{fill:#fff;stroke:#c9d0de;stroke-width:1.5;rx:10;}
+      .lbl{font-size:13px;fill:#1c2029;font-weight:600;}
+      .sub{font-size:11px;fill:#5c6577;}
+      .grp{fill:#f2f5fb;stroke:#d5dcea;stroke-width:1.2;stroke-dasharray:5 4;}
+      .grpt{font-size:12px;fill:#8590a5;font-weight:700;}
+      .edge{stroke:#5c6577;stroke-width:1.6;fill:none;marker-end:url(#ar);}
+      .elbl{font-size:10.5px;fill:#41506b;}
+    </style>
+  </defs>
+
+  <!-- clients -->
+  <rect class="box" x="20" y="60" width="150" height="56" rx="10"/>
+  <text class="lbl" x="95" y="84" text-anchor="middle">PC browser</text>
+  <text class="sub" x="95" y="102" text-anchor="middle">Chrome / Safari …</text>
+  <rect class="box" x="20" y="150" width="150" height="56" rx="10"/>
+  <text class="lbl" x="95" y="174" text-anchor="middle">Phone browser</text>
+  <text class="sub" x="95" y="192" text-anchor="middle">check on the go</text>
+
+  <!-- caddy -->
+  <rect class="box" x="255" y="100" width="150" height="72" rx="10"/>
+  <text class="lbl" x="330" y="130" text-anchor="middle">Caddy</text>
+  <text class="sub" x="330" y="148" text-anchor="middle">TLS / reverse proxy</text>
+  <text class="sub" x="330" y="162" text-anchor="middle">ezos.ezoe.net</text>
+
+  <!-- server group -->
+  <rect class="grp" x="470" y="30" width="410" height="250" rx="12"/>
+  <text class="grpt" x="490" y="52" fill="#8590a5" font-weight="700" font-size="12">VPS (server) / systemd: ezos</text>
+
+  <rect class="box" x="495" y="70" width="165" height="72" rx="10"/>
+  <text class="lbl" x="577" y="98" text-anchor="middle">EZOS Node app</text>
+  <text class="sub" x="577" y="115" text-anchor="middle">server.js</text>
+  <text class="sub" x="577" y="130" text-anchor="middle">127.0.0.1:3101</text>
+
+  <rect class="box" x="495" y="175" width="165" height="80" rx="10"/>
+  <text class="lbl" x="577" y="200" text-anchor="middle">node-pty + tmux</text>
+  <text class="sub" x="577" y="217" text-anchor="middle">ez_&lt;sid&gt; session</text>
+  <text class="sub" x="577" y="233" text-anchor="middle">persists on disconnect</text>
+
+  <rect class="box" x="700" y="175" width="150" height="80" rx="10"/>
+  <text class="lbl" x="775" y="205" text-anchor="middle">claude CLI</text>
+  <text class="sub" x="775" y="223" text-anchor="middle">Claude Code</text>
+  <text class="sub" x="775" y="239" text-anchor="middle">Pro / Max auth</text>
+
+  <rect class="box" x="700" y="70" width="150" height="72" rx="10"/>
+  <text class="lbl" x="775" y="98" text-anchor="middle">app/data/*.json</text>
+  <text class="sub" x="775" y="115" text-anchor="middle">passkeys / settings</text>
+  <text class="sub" x="775" y="130" text-anchor="middle">(no DB)</text>
+
+  <!-- hooks -->
+  <rect class="box" x="255" y="330" width="205" height="70" rx="10"/>
+  <text class="lbl" x="357" y="358" text-anchor="middle">Claude Code hook</text>
+  <text class="sub" x="357" y="376" text-anchor="middle">ez-hook.sh → /api/beat</text>
+  <text class="sub" x="357" y="390" text-anchor="middle">reports session state</text>
+
+  <!-- edges -->
+  <path class="edge" d="M170,88 L250,130"/>
+  <path class="edge" d="M170,178 L250,145"/>
+  <text class="elbl" x="185" y="150">HTTPS / WSS</text>
+  <path class="edge" d="M405,136 L490,110"/>
+  <text class="elbl" x="410" y="112">localhost</text>
+  <path class="edge" d="M577,142 L577,173"/>
+  <path class="edge" d="M660,215 L698,215"/>
+  <text class="elbl" x="637" y="208">interactive</text>
+  <path class="edge" d="M660,105 L698,105"/>
+  <path class="edge" d="M460,360 Q560,360 576,258"/>
+  <text class="elbl" x="470" y="330">POST /api/beat</text>
+</svg>
+</div>
+
+<table>
+<tr><th>Component</th><th>Role</th></tr>
+<tr><td><strong>Browser (PC / phone)</strong></td><td>The EZOS screen. Renders the terminal with xterm.js and communicates bidirectionally with the server over WebSocket.</td></tr>
+<tr><td><strong>Caddy</strong></td><td>Listens on your public domain (e.g. <code>ezos.ezoe.net</code>), automatically obtains a TLS certificate, and reverse-proxies to the Node app on localhost.</td></tr>
+<tr><td><strong>EZOS Node app</strong></td><td><code>server.js</code>. The HTTP/WebSocket server, passkey authentication, UI delivery, and file API. Listens on <code>127.0.0.1</code> (e.g. port 3101).</td></tr>
+<tr><td><strong>node-pty + tmux</strong></td><td>Bridges WebSocket and a pseudo-terminal (pty). Each tab attaches to the tmux session <code>ez_&lt;sid&gt;</code>, so the same screen continues even after disconnecting or switching devices.</td></tr>
+<tr><td><strong>claude CLI</strong></td><td>Claude Code itself, run interactively inside tmux. Requires a Pro/Max account for authentication.</td></tr>
+<tr><td><strong>hook → /api/beat</strong></td><td>A Claude Code hook calls <code>ez-hook.sh</code> to report session state (waiting for confirmation, working, etc.) to the server.</td></tr>
+<tr><td><strong>app/data/*.json</strong></td><td>Runtime data such as passkeys, tokens, and settings (no database; excluded via <code>.gitignore</code>).</td></tr>
+</table>
+
+<h2 id="login">3. Login and passkeys</h2>
+<p>EZOS authenticates with <strong>WebAuthn passkeys</strong> (which can be stored in tools like 1Password).</p>
+<ul>
+  <li><strong>Login</strong>: Press "🔑 Log in with a passkey" and present your passkey using your device's biometrics or similar.</li>
+  <li><strong>First-time setup</strong>: Register your first passkey after opening the registration window on the server.</li>
+  <li><strong>Adding a new device</strong>: From a device that's already logged in, you can add one directly via <a href="#settings">Settings → Passkey device management</a>. If you have no device that can log in at all, run <code>node bin/open-register.js</code> on the server to unlock registration for just 15 minutes (break-glass).</li>
+</ul>
+<div class="note">For security, new passkey registration from an unauthenticated state is not accepted by default. In case you get locked out (losing all your devices), only someone who can SSH into the server can temporarily unlock registration.</div>
+
+<h2 id="header">4. The screen and header</h2>
+<p>After logging in you see a single screen, operated from the header at the top. The main body switches between three modes.</p>
+<table>
+<tr><th>Header element</th><th>Description</th></tr>
+<tr><td><span class="tag">Mode switch</span> icon at the far left</td><td>Each click cycles through <strong>EZterminal →<span class="emoji">🖥</span> EZbrowser →<span class="emoji">🗂</span> EZeditor</strong>. The color also indicates the current mode (blue = browser / orange = editor).</td></tr>
+<tr><td><span class="tag">Tabs</span> + button</td><td>The list of terminal tabs. Use <span class="key">+</span> to add a new terminal (tmux session). The tabs are authoritative on the server side and shared across all devices.</td></tr>
+<tr><td><span class="tag">Usage</span> widget</td><td>Shows Claude's usage (5-hour and weekly windows) as bars (updates only while Claude is running).</td></tr>
+<tr><td><span class="tag">Connection</span> ●</td><td>Shows the terminal's WebSocket connection state by color.</td></tr>
+<tr><td><span class="tag">☰</span> menu</td><td>A hamburger menu gathering help, language, settings, and log off (next chapter).</td></tr>
+</table>
+
+<h2 id="menu">5. Hamburger menu (☰)</h2>
+<p>Opens when you press the <span class="key">☰</span> at the far right of the header.</p>
+<table>
+<tr><th>Item</th><th>What it does</th></tr>
+<tr><td><span class="emoji">❓</span> <strong>Help / Manual</strong></td><td>Shows this user manual in the selected language, inline in the screen (the <span class="key">⤢</span> at the top right also opens it in a new tab).</td></tr>
+<tr><td><span class="emoji">🌐</span> <strong>Language</strong></td><td>Switches the display language between <strong>Japanese / English</strong>. The entire UI and the manual change to the chosen language.</td></tr>
+<tr><td><span class="emoji">⚙️</span> <strong>Settings</strong></td><td>Opens the settings view (language, display mode, notification sounds, passkey device management). <a href="#settings">Chapter 9</a>.</td></tr>
+<tr><td><span class="emoji">⏻</span> <strong>Log off</strong></td><td>Logs you out. The terminal's tmux sessions are preserved, so you can pick up where you left off at your next login.</td></tr>
+</table>
+
+<h2 id="terminal">6. EZterminal (terminal)</h2>
+<p>Your browser becomes the VPS's terminal itself, letting you run <code>claude</code> interactively. Built from xterm.js + WebSocket + node-pty + tmux, <strong>sessions persist even after disconnecting</strong>, and you can connect to the same session from a PC or phone.</p>
+
+<h3>Input field and input toggle switch</h3>
+<p>Each terminal has a dedicated <strong>input field</strong>, with an <strong>"Input" switch</strong> at its top right.</p>
+<ul>
+  <li><strong>ON (edit in the input field)</strong>: You edit in the local input field and send once you've finalized the text. Direct input to the terminal is locked, so <strong>the IME stays stable</strong>. Your input won't fall out of sync even on a slow connection.</li>
+  <li><strong>OFF (direct input)</strong>: You type keys directly into the terminal.</li>
+  <li>In the input field, <span class="key">Enter</span> = newline / <span class="key">Ctrl+Enter</span> = send. You can also send with the <span class="key">Send ⏎</span> button.</li>
+</ul>
+
+<h3>Control-key row and various buttons</h3>
+<table>
+<tr><th>Button</th><th>Description</th></tr>
+<tr><td><span class="key">⏎</span><span class="key">Tab</span><span class="key">↑↓←→</span><span class="key">^C</span><span class="key">^D</span><span class="key">Esc</span> and more</td><td>A key row that sends control keys to the terminal.</td></tr>
+<tr><td><span class="key">G↓</span> / <span class="key">G↑</span></td><td>Git operations. <strong>G↓</strong> = pull from GitHub, <strong>G↑</strong> = commit and push.</td></tr>
+<tr><td><span class="emoji">🎤</span> Microphone</td><td>Voice input. Puts the recognized text into the input field (when ON) or the terminal (when OFF).</td></tr>
+<tr><td><span class="emoji">📎</span> Attach</td><td>Uploads a file such as an image to the current directory and inserts its path into the input field. Drag-and-drop or paste also works.</td></tr>
+<tr><td><span class="key">⇧</span> / <span class="key">⇩</span></td><td>Move to the previous / next entry in the input history.</td></tr>
+</table>
+
+<h3>Clicking file paths and copying selections</h3>
+<ul>
+  <li>When a <strong>file path appears in the terminal or Claude's output, clicking it opens it directly in EZeditor</strong> (works whether the input toggle is ON or OFF).</li>
+  <li><strong>Selecting text with the mouse copies it</strong>. When you want to report mouse actions to the app instead, hold <span class="key">Alt</span> while operating.</li>
+</ul>
+
+<h3>Connection and reconnection</h3>
+<ul>
+  <li>Even if the connection drops, it <strong>reconnects automatically</strong> (recovering even on in-flight Wi-Fi and the like).</li>
+  <li>If you open the same tab on another device, the display moves there. On the original device, you can recover by pressing the reconnect button, Enter, or tapping the tab.</li>
+</ul>
+
+<h2 id="browser">7. EZbrowser (file management)</h2>
+<p>A built-in file manager for working with the server's files in your browser. It was created for moving files around.</p>
+<table>
+<tr><th>Menu / action</th><th>Description</th></tr>
+<tr><td><strong>File</strong> menu</td><td>New folder, new text file, upload.</td></tr>
+<tr><td><strong>Edit</strong> menu</td><td>Edit, delete, and so on for the selected items.</td></tr>
+<tr><td><strong>View</strong> menu</td><td>Switch between icon / list / details views, and toggle hidden files.</td></tr>
+<tr><td><strong>Terminal</strong> menu</td><td>Apply the current folder to the terminal side.</td></tr>
+<tr><td>Right-click / long-press</td><td>Rename, permissions (read/write/execute), copy path, download, delete.</td></tr>
+<tr><td>Opening a file</td><td>Text files open in <strong>EZeditor</strong>. Images are shown as thumbnails.</td></tr>
+<tr><td>Upload</td><td>Transfer to the current folder via drag-and-drop or the upload button.</td></tr>
+</table>
+
+<h2 id="editor">8. EZeditor (editor)</h2>
+<p>Edit text files on the server from within your browser. Opened from a file path in EZbrowser or the terminal.</p>
+<ul>
+  <li><strong>File</strong> menu: Save (equivalent to <span class="key">Ctrl+S</span>), Save As.</li>
+  <li><strong>Edit</strong> menu: Cut / copy / paste.</li>
+  <li>You can open multiple files as tabs. If you try to close with unsaved changes, you'll be prompted to confirm.</li>
+  <li>Includes basic syntax highlighting.</li>
+</ul>
+
+<h2 id="settings">9. Settings</h2>
+<p>Open via the hamburger menu → <span class="emoji">⚙️</span> Settings.</p>
+<table>
+<tr><th>Setting</th><th>What it does</th></tr>
+<tr><td><strong>Language</strong></td><td>Japanese / English. Choosing one switches the entire UI and the manual (the page reloads).</td></tr>
+<tr><td><strong>Display mode</strong></td><td><strong>Auto</strong> (detected by device) / <strong>Desktop</strong> / <strong>Mobile</strong>. Use this when you want to lock the phone-optimized layout.</td></tr>
+<tr><td><strong>Notification sounds</strong></td><td>A <em>confirmation-waiting sound</em> (limit break / cat meow / none) and a <em>work-finished sound</em> (play / none). The confirmation sound plays a preview when you select it.</td></tr>
+<tr><td><strong>Passkey device management</strong></td><td>A list of registered passkeys that can log in to this EZOS. You can delete them per device and add a new passkey on this device (the last remaining one can't be deleted, to prevent lockout).</td></tr>
+</table>
+
+<h2 id="install">10. Installation overview</h2>
+<p>EZOS is open-sourced on GitHub, so anyone can set it up in their own environment. <a href="https://github.com/hezoe/EZOS">github.com/hezoe/EZOS</a></p>
+<p>The rough flow is as follows.</p>
+<pre><code>git clone https://github.com/hezoe/EZOS.git
+cd EZOS/app
+npm install --omit=dev
+node setup.js          # generates config.json (rpID / origin / port, etc.)
+node server.js         # start it (normally runs as a systemd service)</code></pre>
+<p>For TLS termination and reverse proxying on a public domain, use Caddy to connect a public hostname like <code>ezos.ezoe.net</code> to the listening port on localhost.</p>
+<div class="note"><strong>For detailed setup instructions, see the separate installation manual</strong> (covering how to decide on your IP, public hostname, DNS, passkey registration device, port/service name, plus Caddy configuration, running under systemd, and hook setup).<br>
+→ <a href="install.en.html">Installation manual (English)</a> / <a href="../INSTALL.md">docs/INSTALL.md</a></div>
+
+<footer>
+EZOS — passkey-protected web cockpit for Claude Code. This manual is included in the repository's <code>docs/manual/</code> and can be viewed standalone after cloning from GitHub.
+</footer>
+</div>
+
+<script>
+// Language switch links: inside the app (/manual) they point to ?lang=, as a standalone file they point to manual.xx.html
+(function(){
+  var inApp = /\/manual$/.test(location.pathname);
+  var ja = inApp ? '?lang=ja' : 'manual.ja.html';
+  var en = inApp ? '?lang=en' : 'manual.en.html';
+  document.getElementById('langsw').innerHTML =
+    '<a href="'+ja+'">日本語</a><a class="on" href="'+en+'">English</a>';
+})();
+</script>
+</body>
+</html>

@@ -15,6 +15,12 @@
 - 🔑 **認証**: WebAuthnパスキー（1Password対応）。初回登録はセットアップキー必須
 - 📱 **スマホ最適化**: サーバー側UA判定でレイアウト切替（`?view=mobile|desktop|auto`）
 
+## ドキュメント / マニュアル
+
+- 📖 **取扱説明書（多言語 / 日本語・English）**: [docs/manual/index.html](docs/manual/index.html)
+  なぜ EZOS が必要なのか、全 GUI の使い方、システム構成図を収録。アプリ内でもヘッダーの **☰ → ヘルプ・マニュアル** から言語に応じて表示できる。GitHub からクローンすれば `docs/manual/*.html` を単体（`file://`）でも閲覧可能。
+- 🛠 **インストールマニュアル（別冊 / 日本語・English）**: [docs/manual/install.ja.html](docs/manual/install.ja.html) ／ [install.en.html](docs/manual/install.en.html)（Markdown 版: [docs/INSTALL.md](docs/INSTALL.md)）
+
 ## 構成
 
 各インストールは **1つの Node アプリ + systemd サービス + Caddy のサイト定義** で成り立つ。

@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EZOS Documentation</title>
+<style>
+  :root{--bg:#f7f8fb;--ink:#1c2029;--muted:#5c6577;--line:#e2e6ee;--card:#fff;--accent:#4c8dff;--accent2:#D97757;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans JP",Meiryo,sans-serif;line-height:1.7;}
+  .wrap{max-width:760px;margin:0 auto;padding:60px 20px 100px;}
+  h1{font-size:34px;margin:0 0 4px;}
+  h1 .brand{color:var(--accent2);}
+  .sub{color:var(--muted);font-size:16px;margin:0 0 36px;}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  @media(max-width:560px){.grid{grid-template-columns:1fr;}}
+  .doc{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px;text-decoration:none;color:inherit;display:block;transition:transform .1s,box-shadow .1s;}
+  .doc:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(30,40,70,.08);}
+  .doc h2{margin:0 0 4px;font-size:19px;}
+  .doc p{margin:0;color:var(--muted);font-size:14px;}
+  .doc .lang{margin-top:12px;}
+  .doc .lang span{display:inline-block;font-size:13px;color:var(--accent);border:1px solid var(--line);border-radius:20px;padding:3px 12px;margin-right:6px;}
+  .foot{margin-top:40px;color:var(--muted);font-size:13px;}
+  a.repo{color:var(--accent);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1><span class="brand">EZOS</span> Documentation</h1>
+  <p class="sub">Browser-based cockpit for Claude Code — passkey-protected, mobile-ready.</p>
+
+  <div class="grid">
+    <a class="doc" href="manual.ja.html">
+      <h2>取扱説明書</h2>
+      <p>なぜ EZOS が必要なのか、全 GUI の使い方、システム構成図。</p>
+      <div class="lang"><span>日本語</span></div>
+    </a>
+    <a class="doc" href="manual.en.html">
+      <h2>User Manual</h2>
+      <p>Why EZOS exists, every GUI feature, and the system architecture.</p>
+      <div class="lang"><span>English</span></div>
+    </a>
+    <a class="doc" href="install.ja.html">
+      <h2>インストールマニュアル</h2>
+      <p>新しいサーバーへの導入手順（Caddy / systemd / パスキー登録）。</p>
+      <div class="lang"><span>日本語</span></div>
+    </a>
+    <a class="doc" href="install.en.html">
+      <h2>Installation Guide</h2>
+      <p>Set up EZOS on a new server (Caddy / systemd / passkey registration).</p>
+      <div class="lang"><span>English</span></div>
+    </a>
+  </div>
+
+  <p class="foot">Repository: <a class="repo" href="https://github.com/hezoe/EZOS">github.com/hezoe/EZOS</a></p>
+</div>
+</body>
+</html>

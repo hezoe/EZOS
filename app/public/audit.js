@@ -2,6 +2,7 @@
 'use strict';
 
 (() => {
+  const t = (k, v) => (window.EZ && window.EZ.t ? window.EZ.t(k, v) : k);
   const logEl = document.getElementById('audit-log');
   if (!logEl) return;
   const statusEl = document.getElementById('audit-status');
@@ -77,19 +78,19 @@
   function connect() {
     if (connected) return;
     connected = true;
-    statusEl.textContent = '接続中…';
+    statusEl.textContent = t('audit.connecting');
     const es = new EventSource('/api/audit/stream');
     es.addEventListener('seed', (e) => {
       logEl.innerHTML = '';
       const lines = JSON.parse(e.data).lines;
       appendLines(lines, true);
-      if (!lines.length) systemLine('まだ記録がありません。Claudeが作業を始めると流れます');
-      statusEl.textContent = '● 追従中';
+      if (!lines.length) systemLine(t('audit.noRecords'));
+      statusEl.textContent = t('audit.following');
     });
     es.addEventListener('line', (e) => appendLines(JSON.parse(e.data).lines, false));
-    es.addEventListener('reset', () => systemLine('ログがローテーションされました'));
-    es.onopen = () => { statusEl.textContent = '● 追従中'; };
-    es.onerror = () => { statusEl.textContent = '⚠ 再接続中…'; };
+    es.addEventListener('reset', () => systemLine(t('audit.rotated')));
+    es.onopen = () => { statusEl.textContent = t('audit.following'); };
+    es.onerror = () => { statusEl.textContent = t('audit.reconnecting'); };
   }
 
   filterEl.addEventListener('input', () => {

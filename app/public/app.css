@@ -430,3 +430,73 @@ body[data-mode="editor"] #terminals { visibility: hidden; pointer-events: none; 
 body.view-mobile .ezb-list { touch-action: manipulation; }
 body.view-mobile .ezb-item { padding: 11px 8px; }
 body.view-mobile .ezb-menu-btn { padding: 7px 12px; }
+
+/* ================= ハンバーガーメニュー / 設定 / マニュアル ================= */
+.ez-menu {
+  position: fixed; z-index: 1000; background: var(--panel); border: 1px solid var(--line);
+  border-radius: 10px; box-shadow: 0 8px 30px rgba(0,0,0,.5); padding: 6px; overflow: hidden;
+}
+.ez-menu-item {
+  display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+  background: none; border: none; color: var(--text); cursor: pointer;
+  padding: 10px 12px; border-radius: 7px; font-size: 14px; font-family: inherit;
+}
+.ez-menu-item:hover { background: var(--card); }
+.ez-mi-ic { width: 20px; text-align: center; flex: none; }
+.ez-mi-tx { flex: 1; }
+
+/* オーバーレイ(モーダル) */
+.ez-overlay {
+  position: fixed; inset: 0; z-index: 1001; background: rgba(0,0,0,.55);
+  display: flex; align-items: center; justify-content: center; padding: 24px;
+}
+.ez-modal {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+  width: 100%; max-width: 460px; max-height: 88vh; display: flex; flex-direction: column;
+  box-shadow: 0 12px 40px rgba(0,0,0,.6); overflow: hidden;
+}
+.ez-modal.wide { max-width: 980px; height: 88vh; }
+.ez-modal-head {
+  display: flex; align-items: center; gap: 10px; padding: 14px 16px;
+  border-bottom: 1px solid var(--line); flex: none;
+}
+.ez-modal-head h2 { flex: 1; margin: 0; font-size: 16px; }
+.ez-modal-x, .ez-modal-head .btn {
+  background: var(--card); border: 1px solid var(--line); color: var(--text);
+  border-radius: 7px; cursor: pointer; padding: 5px 10px; font-size: 14px;
+}
+.ez-modal-x:hover { background: var(--card-hover); }
+.ez-modal-body { padding: 16px; overflow: auto; }
+.ez-modal.wide .ez-modal-body { padding: 0; flex: 1; display: flex; }
+
+/* マニュアル iframe */
+.ez-manual-wrap { flex: 1; display: flex; }
+.ez-manual-frame { flex: 1; width: 100%; height: 100%; border: none; background: #fff; }
+
+/* 設定 */
+.ez-settings { display: flex; flex-direction: column; gap: 22px; }
+.ez-set-sec h3 { margin: 0 0 10px; font-size: 14px; color: var(--accent); }
+.ez-set-sub { font-size: 12px; color: var(--dim); margin: 12px 0 6px; }
+.ez-set-note { font-size: 12px; color: var(--dim); margin: 8px 0 0; line-height: 1.5; }
+.ez-radio, .ez-switch {
+  display: flex; align-items: center; gap: 10px; padding: 8px 6px; cursor: pointer;
+  border-radius: 7px; font-size: 14px;
+}
+.ez-radio:hover, .ez-switch:hover { background: var(--card); }
+.ez-radio input, .ez-switch input { width: 16px; height: 16px; accent-color: var(--accent); }
+
+/* パスキー一覧 */
+.ez-pk-list { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; }
+.ez-pk-row {
+  display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+  background: var(--card); border: 1px solid var(--line); border-radius: 9px;
+}
+.ez-pk-info { flex: 1; min-width: 0; }
+.ez-pk-label { font-size: 14px; word-break: break-word; }
+.ez-pk-meta { font-size: 12px; color: var(--dim); margin-top: 2px; }
+
+/* モバイル */
+body.view-mobile .ez-overlay { padding: 0; }
+body.view-mobile .ez-modal, body.view-mobile .ez-modal.wide {
+  max-width: 100%; width: 100%; height: 100%; max-height: 100%; border-radius: 0;
+}

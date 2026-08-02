@@ -1,6 +1,8 @@
 /* EZOS front-end */
 'use strict';
 
+const t = (k, v) => (window.EZ && window.EZ.t ? window.EZ.t(k, v) : k); // i18n(i18n.jsが提供)
+
 const b64u2buf = (s) => {
   const pad = s.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(s.length / 4) * 4, '=');
   return Uint8Array.from(atob(pad), (c) => c.charCodeAt(0)).buffer;
@@ -14,7 +16,7 @@ async function api(path, data) {
         body: JSON.stringify(data) }
     : { headers: { 'X-Requested-With': 'ezos' } };
   const res = await fetch(path, opt);
-  const json = await res.json().catch(() => ({ error: 'サーバーエラー' }));
+  const json = await res.json().catch(() => ({ error: t('common.serverError') }));
   if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
   return json;
 }

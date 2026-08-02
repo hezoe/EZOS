@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EZOS インストールマニュアル</title>
+<style>
+  :root{--bg:#f7f8fb;--ink:#1c2029;--muted:#5c6577;--line:#e2e6ee;--card:#fff;--accent:#4c8dff;--accent2:#D97757;--code:#eef1f7;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans JP",Meiryo,sans-serif;line-height:1.75;}
+  .wrap{max-width:960px;margin:0 auto;padding:0 20px 100px;}
+  header.top{position:sticky;top:0;background:rgba(247,248,251,.92);backdrop-filter:blur(6px);border-bottom:1px solid var(--line);padding:14px 20px;display:flex;align-items:center;gap:14px;z-index:10;}
+  header.top h1{font-size:18px;margin:0;flex:1;}
+  header.top .brand{color:var(--accent2);font-weight:700;}
+  .langsw a{font-size:13px;color:var(--muted);text-decoration:none;border:1px solid var(--line);padding:4px 10px;border-radius:20px;margin-left:6px;background:var(--card);}
+  .langsw a.on{color:#fff;background:var(--accent);border-color:var(--accent);}
+  h2{font-size:22px;margin:44px 0 12px;padding-top:12px;border-top:2px solid var(--line);}
+  h3{font-size:17px;margin:26px 0 8px;color:#2a3143;}
+  p,li{color:#28303f;}
+  code{background:var(--code);padding:2px 6px;border-radius:5px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.9em;}
+  pre{background:#0f1420;color:#e6e9f0;padding:14px 16px;border-radius:10px;overflow:auto;font-size:12.5px;line-height:1.6;}
+  pre code{background:none;padding:0;color:inherit;}
+  .lead{font-size:17px;color:var(--muted);}
+  .toc{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 22px;margin:22px 0;}
+  .toc ol{margin:6px 0;padding-left:22px;}
+  .toc a{color:var(--accent);text-decoration:none;}
+  table{border-collapse:collapse;width:100%;margin:14px 0;font-size:14px;}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top;}
+  th{background:#eef2fa;}
+  .note{border-left:4px solid var(--accent);background:#eff4ff;padding:10px 16px;border-radius:0 10px 10px 0;margin:14px 0;}
+  .warn{border-left:4px solid var(--accent2);background:#fdf1ec;padding:10px 16px;border-radius:0 10px 10px 0;margin:14px 0;}
+  .diagram{overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin:18px 0;}
+  footer{color:var(--muted);font-size:13px;border-top:1px solid var(--line);margin-top:60px;padding-top:20px;}
+  a{color:var(--accent);}
+</style>
+</head>
+<body>
+<header class="top">
+  <h1><span class="brand">EZOS</span> インストールマニュアル</h1>
+  <span class="langsw" id="langsw"></span>
+</header>
+<div class="wrap">
+
+<p class="lead">新しいサーバー（VPS）に EZOS を導入し、公開ドメインで使えるようにするための手順書です。GitHub から誰でも自分の環境を構築できます。</p>
+<div class="note">この手順は <strong>Claude Code に実行させることを前提</strong>に書かれています。作業者はサーバーへ SSH ログインし、Claude Code を導入・認証したうえで「このリポジトリ(<a href="https://github.com/hezoe/EZOS">github.com/hezoe/EZOS</a>)をインストールして」と指示するだけで、Claude が本書を読みながら対話的に導入できます。手動で行う場合もそのまま実行できます。</div>
+
+<div class="toc">
+<strong>目次</strong>
+<ol>
+  <li><a href="#overview">構成の概要</a></li>
+  <li><a href="#step0">STEP 0. 事前に決める項目</a></li>
+  <li><a href="#step1">STEP 1. 前提コマンド</a></li>
+  <li><a href="#step2">STEP 2. インフラ確認（Caddy）</a></li>
+  <li><a href="#step3">STEP 3. リポジトリ取得</a></li>
+  <li><a href="#step4">STEP 4. 依存と初期設定</a></li>
+  <li><a href="#step5">STEP 5. systemd 常駐化</a></li>
+  <li><a href="#step6">STEP 6. Caddy 公開設定</a></li>
+  <li><a href="#step7">STEP 7. セッション追跡フック（任意）</a></li>
+  <li><a href="#step8">STEP 8. 検証と初回パスキー登録</a></li>
+  <li><a href="#trouble">トラブルシュート</a></li>
+</ol>
+</div>
+
+<h2 id="overview">構成の概要</h2>
+<p>各インストールは <strong>1 つの Node アプリ + systemd サービス + Caddy のサイト定義</strong> で成り立ちます。</p>
+<div class="diagram">
+<svg viewBox="0 0 860 210" width="860" role="img" aria-label="EZOS デプロイ構成" xmlns="http://www.w3.org/2000/svg" style="max-width:100%;height:auto;font-family:sans-serif;">
+  <defs><marker id="ar2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#5c6577"/></marker></defs>
+  <rect x="15" y="70" width="140" height="64" rx="10" fill="#fff" stroke="#c9d0de" stroke-width="1.5"/>
+  <text x="85" y="98" text-anchor="middle" font-size="13" font-weight="600">ブラウザ</text>
+  <text x="85" y="116" text-anchor="middle" font-size="11" fill="#5c6577">PC / スマホ</text>
+  <rect x="235" y="60" width="160" height="84" rx="10" fill="#fff" stroke="#c9d0de" stroke-width="1.5"/>
+  <text x="315" y="90" text-anchor="middle" font-size="13" font-weight="600">Caddy</text>
+  <text x="315" y="108" text-anchor="middle" font-size="11" fill="#5c6577">TLS 自動取得</text>
+  <text x="315" y="123" text-anchor="middle" font-size="11" fill="#5c6577">リバースプロキシ</text>
+  <rect x="475" y="60" width="170" height="84" rx="10" fill="#fff" stroke="#c9d0de" stroke-width="1.5"/>
+  <text x="560" y="90" text-anchor="middle" font-size="13" font-weight="600">EZOS Node</text>
+  <text x="560" y="108" text-anchor="middle" font-size="11" fill="#5c6577">systemd: ezos</text>
+  <text x="560" y="123" text-anchor="middle" font-size="11" fill="#5c6577">127.0.0.1:PORT</text>
+  <rect x="710" y="60" width="135" height="84" rx="10" fill="#fff" stroke="#c9d0de" stroke-width="1.5"/>
+  <text x="777" y="90" text-anchor="middle" font-size="13" font-weight="600">tmux</text>
+  <text x="777" y="108" text-anchor="middle" font-size="11" fill="#5c6577">+ claude CLI</text>
+  <text x="777" y="123" text-anchor="middle" font-size="11" fill="#5c6577">永続セッション</text>
+  <path d="M155,102 L232,102" stroke="#5c6577" stroke-width="1.6" fill="none" marker-end="url(#ar2)"/>
+  <text x="160" y="94" font-size="10" fill="#41506b">HTTPS/WSS</text>
+  <path d="M395,102 L472,102" stroke="#5c6577" stroke-width="1.6" fill="none" marker-end="url(#ar2)"/>
+  <text x="398" y="94" font-size="10" fill="#41506b">localhost</text>
+  <path d="M645,102 L707,102" stroke="#5c6577" stroke-width="1.6" fill="none" marker-end="url(#ar2)"/>
+</svg>
+</div>
+<p>ブラウザは Caddy（TLS 終端・リバースプロキシ）を経由して、localhost で待ち受ける Node アプリへ繋がります。ターミナルは node-pty + tmux で擬似端末に橋渡しされ、その中で <code>claude</code> が対話実行されます。</p>
+
+<h2 id="step0">STEP 0. 事前に決める項目</h2>
+<p>環境依存で勝手に決められない値です。埋まるまで先に進まないでください（#3・#6〜#9 は既定のままで可）。</p>
+<table>
+<tr><th>#</th><th>項目</th><th>例 / 既定</th><th>用途</th></tr>
+<tr><td>1</td><td>サーバーのグローバル IP</td><td><code>160.16.105.64</code></td><td>DNS がここへ向いているかの確認</td></tr>
+<tr><td>2</td><td>公開ホスト名(URL)</td><td><code>https://ezos.ezoe.net</code></td><td>Caddy のサイト名 / WebAuthn origin</td></tr>
+<tr><td>3</td><td>WebAuthn の rpID(親ドメイン)</td><td><code>ezoe.net</code></td><td>パスキーの有効範囲</td></tr>
+<tr><td>4</td><td>DNS 設定は完了しているか</td><td>済 / これから</td><td>未なら A レコードを #1 の IP へ</td></tr>
+<tr><td>5</td><td>最初にパスキーを登録する端末</td><td>作業者のノート PC(Chrome)</td><td>その端末のブラウザで登録</td></tr>
+<tr><td>6</td><td>systemd サービス名</td><td><code>ezos</code></td><td>既定でよい</td></tr>
+<tr><td>7</td><td>localhost 待受ポート</td><td><code>3100</code></td><td>既定でよい</td></tr>
+<tr><td>8</td><td>設置ディレクトリ</td><td><code>/home/debian/EZOS</code></td><td>リポジトリを置く場所</td></tr>
+<tr><td>9</td><td>実行ユーザー</td><td><code>debian</code></td><td>systemd の User= 等</td></tr>
+</table>
+<p>以降のコマンドはプレースホルダを次のように置き換えます。</p>
+<pre><code>HOST=ezos.ezoe.net            # #2 のホスト名(スキームなし)
+ORIGIN=https://ezos.ezoe.net  # #2 のURL
+RPID=ezoe.net                 # #3
+PORT=3100                     # #7
+SERVICE=ezos                  # #6
+APPDIR=/home/debian/EZOS      # #8 (この直下に app/ が入る)
+USER_=debian                  # #9</code></pre>
+
+<h2 id="step1">STEP 1. 前提コマンド</h2>
+<pre><code>for c in git gh node npm jq tmux curl; do
+  printf '%-6s ' "$c"; command -v "$c" || echo 'MISSING'
+done
+node -v   # v20 以上を推奨</code></pre>
+<ul>
+  <li>不足があれば: <code>sudo apt-get update &amp;&amp; sudo apt-get install -y jq tmux curl</code></li>
+  <li>Node が古い/無い場合は Node 20 系を導入。</li>
+  <li><code>gh auth status</code> で GitHub 認証を確認（未認証なら <code>gh auth login</code>）。</li>
+  <li>Claude Code をグローバル導入し、Pro/Max アカウントで認証しておく（<code>~/.claude/.credentials.json</code>）。</li>
+</ul>
+
+<h2 id="step2">STEP 2. インフラ確認（Caddy / リバースプロキシ）</h2>
+<p>TLS 終端＆リバースプロキシを「まず存在確認 → 有れば利用、無ければ方針提示」の順で決めます。</p>
+<pre><code>command -v docker &amp;&amp; docker ps --format '{{.Names}}' | grep -i caddy   # saas-caddy 等
+ls -d /home/debian/saas/caddy/sites 2>/dev/null                        # サイト定義ディレクトリ</code></pre>
+<ul>
+  <li><strong>Docker の Caddy が動いている場合</strong>: <code>sites/*.caddy</code> を 1 枚足すだけで公開できる → STEP 6 へ。</li>
+  <li><strong>Caddy が無い / 別のプロキシの場合</strong>: 既存 nginx 等があればその流儀で <code>&lt;host&gt;</code> を <code>127.0.0.1:&lt;port&gt;</code> へ転送し TLS を張る。プロキシ自体が無ければ導入方針を作業者と合意してから進む（勝手に 443 を専有しない）。</li>
+</ul>
+
+<h2 id="step3">STEP 3. リポジトリ取得</h2>
+<pre><code>gh repo clone hezoe/EZOS "$APPDIR"    # または: git clone https://github.com/hezoe/EZOS.git "$APPDIR"
+cd "$APPDIR/app"</code></pre>
+
+<h2 id="step4">STEP 4. 依存インストール &amp; 初期設定（config.json 生成）</h2>
+<p><code>setup.js</code> は環境変数で値を受け取ります（<code>ORIGIN</code>・<code>RPID</code>・<code>PORT</code> を必ず渡す）。<code>data/config.json</code> は <code>.gitignore</code> 対象＝インストールごとの実行時設定です。</p>
+<pre><code>cd "$APPDIR/app"
+npm install --omit=dev
+
+EZOS_ORIGIN="$ORIGIN" EZOS_RPID="$RPID" EZOS_PORT="$PORT" \
+  node setup.js
+# => data/config.json を作成する</code></pre>
+<div class="warn">パスキーの登録は、セキュリティのため常時は受け付けません。初回登録するときだけサーバー上で <code>node bin/open-register.js</code> を実行し、表示される<strong>ワンタイム登録キー</strong>で登録します（15 分だけ解錠、登録成功で自動失効）。ログイン済み端末からは解錠なしで<a href="manual.ja.html#settings">設定 → パスキー端末管理</a>から追加できます。</div>
+
+<h2 id="step5">STEP 5. systemd 常駐化（自動起動・自動再起動）</h2>
+<p><code>KillMode=process</code> は node だけ止めて、node-pty が起こした tmux（永続ターミナル）を再起動で生かし続けるためです。Docker の Caddy から <code>host.docker.internal</code> 経由で届くよう、EZOS は docker0(172.17.0.1) にも待受するため <code>After=docker.service</code> を付けます。</p>
+<pre><code>sudo tee /etc/systemd/system/${SERVICE}.service >/dev/null &lt;&lt;UNIT
+[Unit]
+Description=EZOS (${HOST}) - Claude web cockpit
+After=network-online.target docker.service
+Wants=network-online.target docker.service
+
+[Service]
+Type=simple
+User=${USER_}
+WorkingDirectory=${APPDIR}/app
+ExecStart=/usr/bin/node server.js
+Restart=always
+RestartSec=3
+KillMode=process
+Environment=NODE_ENV=production
+Environment=HOME=/home/${USER_}
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now ${SERVICE}
+systemctl is-active ${SERVICE}          # => active
+ss -tlnp | grep ":${PORT}"              # => 127.0.0.1:&lt;port&gt; で node が待受</code></pre>
+
+<h2 id="step6">STEP 6. Caddy サイト定義（公開）</h2>
+<pre><code>cat > /home/${USER_}/saas/caddy/sites/${SERVICE}.caddy &lt;&lt;CADDY
+${HOST} {
+  header {
+    Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    X-Content-Type-Options "nosniff"
+    X-Frame-Options "DENY"
+    Referrer-Policy "strict-origin-when-cross-origin"
+    Permissions-Policy "geolocation=(), microphone=(self), camera=()"
+    -Server
+  }
+  encode zstd gzip
+  reverse_proxy host.docker.internal:${PORT} {
+    flush_interval -1
+  }
+}
+CADDY
+
+docker exec saas-caddy caddy validate --config /etc/caddy/Caddyfile
+docker exec saas-caddy caddy reload   --config /etc/caddy/Caddyfile</code></pre>
+<ul>
+  <li><code>flush_interval -1</code> は SSE/ストリーミング（Claude 出力）をバッファせず流すため。</li>
+  <li><code>Permissions-Policy</code> の <code>microphone=(self)</code> は音声入力（Web Speech API）のため。</li>
+  <li>reload 後、Caddy が <code>${HOST}</code> の Let's Encrypt 証明書を自動取得します（#4 の DNS が #1 の IP へ解決していることが前提）。</li>
+</ul>
+
+<h2 id="step7">STEP 7. セッション追跡フック（任意・推奨）</h2>
+<p>Claude のセッション状態（確認待ち／作業中など）を追跡したい場合、<code>~/.claude/settings.json</code> の各フックで <code>${APPDIR}/app/bin/ez-hook.sh &lt;state&gt;</code> を呼びます。送信先ポートはスクリプトが <code>data/config.json</code> から自動取得します（localhost 限定・認証不要）。</p>
+
+<h2 id="step8">STEP 8. 検証と初回パスキー登録</h2>
+<pre><code>getent hosts "$HOST"                                                   # => &lt;IP&gt; $HOST
+curl -sS -o /dev/null -w "%{http_code} ssl=%{ssl_verify_result}\n" "$ORIGIN/"   # => 200 ssl=0</code></pre>
+<p><code>200 ssl=0</code> なら公開成功です。続いて初回パスキーを登録します。</p>
+<ol>
+  <li>サーバー上で <code>cd "$APPDIR/app" &amp;&amp; node bin/open-register.js</code> を実行（15 分の登録解錠 + ワンタイムキー表示）。</li>
+  <li>STEP 0 #5 で決めた端末のブラウザで <code>${ORIGIN}</code> を開く。</li>
+  <li>ログイン画面の「新しい端末のパスキーを追加登録する」に、表示されたワンタイムキーと端末名を入力して登録。</li>
+</ol>
+
+<h2 id="trouble">トラブルシュート</h2>
+<table>
+<tr><th>症状</th><th>確認</th></tr>
+<tr><td><code>curl</code> が 502/522</td><td><code>systemctl is-active ${SERVICE}</code> と <code>ss -tlnp | grep :${PORT}</code>。<code>journalctl -u ${SERVICE} -e</code></td></tr>
+<tr><td>証明書が出ない</td><td><code>getent hosts ${HOST}</code> がサーバ IP を返すか（DNS 未反映）。<code>docker logs saas-caddy</code></td></tr>
+<tr><td>パスキー登録できない</td><td><code>config.json</code> の <code>origin</code> がアクセス URL と完全一致か、<code>rpID</code> がホストの親ドメインか。登録ウィンドウが開いているか（<code>node bin/open-register.js</code>）</td></tr>
+<tr><td>再起動後に待受しない / <code>EADDRNOTAVAIL</code></td><td>EZOS が Docker より先に起動し docker0 未生成。unit の <code>After=/Wants=docker.service</code> を確認。server.js は自動リトライ（<code>journalctl</code> に <code>retrying in 3s</code>）</td></tr>
+</table>
+
+<footer>
+EZOS — passkey-protected web cockpit for Claude Code. 本書はリポジトリの <code>docs/manual/</code> に含まれ、クローンして単体で閲覧できます。使い方は <a href="manual.ja.html">取扱説明書</a> を参照。
+</footer>
+</div>
+<script>
+(function(){
+  document.getElementById('langsw').innerHTML =
+    '<a class="on" href="install.ja.html">日本語</a><a href="install.en.html">English</a>';
+})();
+</script>
+</body>
+</html>

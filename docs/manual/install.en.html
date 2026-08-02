@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EZOS Installation Manual</title>
+<style>
+  :root{--bg:#f7f8fb;--ink:#1c2029;--muted:#5c6577;--line:#e2e6ee;--card:#fff;--accent:#4c8dff;--accent2:#D97757;--code:#eef1f7;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans JP",Meiryo,sans-serif;line-height:1.75;}
+  .wrap{max-width:960px;margin:0 auto;padding:0 20px 100px;}
+  header.top{position:sticky;top:0;background:rgba(247,248,251,.92);backdrop-filter:blur(6px);border-bottom:1px solid var(--line);padding:14px 20px;display:flex;align-items:center;gap:14px;z-index:10;}
+  header.top h1{font-size:18px;margin:0;flex:1;}
+  header.top .brand{color:var(--accent2);font-weight:700;}
+  .langsw a{font-size:13px;color:var(--muted);text-decoration:none;border:1px solid var(--line);padding:4px 10px;border-radius:20px;margin-left:6px;background:var(--card);}
+  .langsw a.on{color:#fff;background:var(--accent);border-color:var(--accent);}
+  h2{font-size:22px;margin:44px 0 12px;padding-top:12px;border-top:2px solid var(--line);}
+  h3{font-size:17px;margin:26px 0 8px;color:#2a3143;}
+  p,li{color:#28303f;}
+  code{background:var(--code);padding:2px 6px;border-radius:5px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.9em;}
+  pre{background:#0f1420;color:#e6e9f0;padding:14px 16px;border-radius:10px;overflow:auto;font-size:12.5px;line-height:1.6;}
+  pre code{background:none;padding:0;color:inherit;}
+  .lead{font-size:17px;color:var(--muted);}
+  .toc{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 22px;margin:22px 0;}
+  .toc ol{margin:6px 0;padding-left:22px;}
+  .toc a{color:var(--accent);text-decoration:none;}
+  table{border-collapse:collapse;width:100%;margin:14px 0;font-size:14px;}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top;}
+  th{background:#eef2fa;}
+  .note{border-left:4px solid var(--accent);background:#eff4ff;padding:10px 16px;border-radius:0 10px 10px 0;margin:14px 0;}
+  .warn{border-left:4px solid var(--accent2);background:#fdf1ec;padding:10px 16px;border-radius:0 10px 10px 0;margin:14px 0;}
+  .diagram{overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin:18px 0;}
+  footer{color:var(--muted);font-size:13px;border-top:1px solid var(--line);margin-top:60px;padding-top:20px;}
+  a{color:var(--accent);}
+</style>
+</head>
+<body>
+<header class="top">
+  <h1><span class="brand">EZOS</span> Installation Manual</h1>
+  <span class="langsw" id="langsw"></span>
+</header>
+<div class="wrap">
+
+<p class="lead">This is a step-by-step guide for deploying EZOS on a new server (VPS) and making it available on a public domain. Anyone can build their own environment straight from GitHub.</p>
+<div class="note">This guide is written on the assumption that <strong>Claude Code will carry out the work</strong>. The operator simply logs in to the server over SSH, installs and authenticates Claude Code, and then instructs it: "Install this repository (<a href="https://github.com/hezoe/EZOS">github.com/hezoe/EZOS</a>)." Claude then reads this document and performs the installation interactively. If you prefer to do it by hand, the same steps apply.</div>
+
+<div class="toc">
+<strong>Contents</strong>
+<ol>
+  <li><a href="#overview">Architecture overview</a></li>
+  <li><a href="#step0">STEP 0. Decisions to make in advance</a></li>
+  <li><a href="#step1">STEP 1. Prerequisite commands</a></li>
+  <li><a href="#step2">STEP 2. Infrastructure check (Caddy)</a></li>
+  <li><a href="#step3">STEP 3. Clone the repository</a></li>
+  <li><a href="#step4">STEP 4. Dependencies and initial setup</a></li>
+  <li><a href="#step5">STEP 5. Run as a systemd service</a></li>
+  <li><a href="#step6">STEP 6. Caddy public configuration</a></li>
+  <li><a href="#step7">STEP 7. Session-tracking hooks (optional)</a></li>
+  <li><a href="#step8">STEP 8. Verification and first passkey registration</a></li>
+  <li><a href="#trouble">Troubleshooting</a></li>
+</ol>
+</div>
+
+<h2 id="overview">Architecture overview</h2>
+<p>Each installation consists of <strong>a single Node app + a systemd service + a Caddy site definition</strong>.</p>
+<div class="diagram">
+<svg viewBox="0 0 860 210" width="860" role="img" aria-label="EZOS deployment architecture" xmlns="http://www.w3.org/2000/svg" style="max-width:100%;height:auto;font-family:sans-serif;">
+  <defs><marker id="ar2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#5c6577"/></marker></defs>
+  <rect x="15" y="70" width="140" height="64" rx="10" fill="#fff" stroke="#c9d0de" stroke-width="1.5"/>
+  <text x="85" y="98" text-anchor="middle" font-size="13" font-weight="600">Browser</text>
+  <text x="85" y="116" text-anchor="middle" font-size="11" fill="#5c6577">PC / Phone</text>
+  <rect x="235" y="60" width="160" height="84" rx="10" fill="#fff" stroke="#c9d0de" stroke-width="1.5"/>
+  <text x="315" y="90" text-anchor="middle" font-size="13" font-weight="600">Caddy</text>
+  <text x="315" y="108" text-anchor="middle" font-size="11" fill="#5c6577">Automatic TLS</text>
+  <text x="315" y="123" text-anchor="middle" font-size="11" fill="#5c6577">Reverse proxy</text>
+  <rect x="475" y="60" width="170" height="84" rx="10" fill="#fff" stroke="#c9d0de" stroke-width="1.5"/>
+  <text x="560" y="90" text-anchor="middle" font-size="13" font-weight="600">EZOS Node</text>
+  <text x="560" y="108" text-anchor="middle" font-size="11" fill="#5c6577">systemd: ezos</text>
+  <text x="560" y="123" text-anchor="middle" font-size="11" fill="#5c6577">127.0.0.1:PORT</text>
+  <rect x="710" y="60" width="135" height="84" rx="10" fill="#fff" stroke="#c9d0de" stroke-width="1.5"/>
+  <text x="777" y="90" text-anchor="middle" font-size="13" font-weight="600">tmux</text>
+  <text x="777" y="108" text-anchor="middle" font-size="11" fill="#5c6577">+ claude CLI</text>
+  <text x="777" y="123" text-anchor="middle" font-size="11" fill="#5c6577">Persistent session</text>
+  <path d="M155,102 L232,102" stroke="#5c6577" stroke-width="1.6" fill="none" marker-end="url(#ar2)"/>
+  <text x="160" y="94" font-size="10" fill="#41506b">HTTPS/WSS</text>
+  <path d="M395,102 L472,102" stroke="#5c6577" stroke-width="1.6" fill="none" marker-end="url(#ar2)"/>
+  <text x="398" y="94" font-size="10" fill="#41506b">localhost</text>
+  <path d="M645,102 L707,102" stroke="#5c6577" stroke-width="1.6" fill="none" marker-end="url(#ar2)"/>
+</svg>
+</div>
+<p>The browser connects through Caddy (TLS termination and reverse proxy) to the Node app listening on localhost. The terminal is bridged to a pseudo-terminal via node-pty + tmux, and <code>claude</code> runs interactively inside it.</p>
+
+<h2 id="step0">STEP 0. Decisions to make in advance</h2>
+<p>These are values that depend on your environment and cannot be decided automatically. Do not proceed until they are all filled in (#3 and #6–#9 may be left at their defaults).</p>
+<table>
+<tr><th>#</th><th>Item</th><th>Example / default</th><th>Purpose</th></tr>
+<tr><td>1</td><td>Server's global IP</td><td><code>160.16.105.64</code></td><td>To confirm DNS points here</td></tr>
+<tr><td>2</td><td>Public hostname (URL)</td><td><code>https://ezos.ezoe.net</code></td><td>Caddy site name / WebAuthn origin</td></tr>
+<tr><td>3</td><td>WebAuthn rpID (parent domain)</td><td><code>ezoe.net</code></td><td>Passkey scope</td></tr>
+<tr><td>4</td><td>Is DNS configured?</td><td>Done / to be done</td><td>If not, point an A record at the IP in #1</td></tr>
+<tr><td>5</td><td>Device used for the first passkey registration</td><td>Operator's laptop (Chrome)</td><td>Register from that device's browser</td></tr>
+<tr><td>6</td><td>systemd service name</td><td><code>ezos</code></td><td>Default is fine</td></tr>
+<tr><td>7</td><td>localhost listen port</td><td><code>3100</code></td><td>Default is fine</td></tr>
+<tr><td>8</td><td>Installation directory</td><td><code>/home/debian/EZOS</code></td><td>Where the repository is placed</td></tr>
+<tr><td>9</td><td>Run-as user</td><td><code>debian</code></td><td>systemd User=, etc.</td></tr>
+</table>
+<p>The commands below substitute the placeholders as follows.</p>
+<pre><code>HOST=ezos.ezoe.net            # #2 hostname (no scheme)
+ORIGIN=https://ezos.ezoe.net  # #2 URL
+RPID=ezoe.net                 # #3
+PORT=3100                     # #7
+SERVICE=ezos                  # #6
+APPDIR=/home/debian/EZOS      # #8 (app/ lives directly under this)
+USER_=debian                  # #9</code></pre>
+
+<h2 id="step1">STEP 1. Prerequisite commands</h2>
+<pre><code>for c in git gh node npm jq tmux curl; do
+  printf '%-6s ' "$c"; command -v "$c" || echo 'MISSING'
+done
+node -v   # v20 or later recommended</code></pre>
+<ul>
+  <li>If anything is missing: <code>sudo apt-get update &amp;&amp; sudo apt-get install -y jq tmux curl</code></li>
+  <li>If Node is outdated or absent, install the Node 20 series.</li>
+  <li>Check GitHub authentication with <code>gh auth status</code> (run <code>gh auth login</code> if not authenticated).</li>
+  <li>Install Claude Code globally and authenticate with a Pro/Max account (<code>~/.claude/.credentials.json</code>).</li>
+</ul>
+
+<h2 id="step2">STEP 2. Infrastructure check (Caddy / reverse proxy)</h2>
+<p>Decide on TLS termination and reverse proxying in this order: "first check whether one exists → use it if so, otherwise propose an approach."</p>
+<pre><code>command -v docker &amp;&amp; docker ps --format '{{.Names}}' | grep -i caddy   # e.g. saas-caddy
+ls -d /home/debian/saas/caddy/sites 2>/dev/null                        # site-definitions directory</code></pre>
+<ul>
+  <li><strong>If a Dockerized Caddy is running</strong>: you can publish just by adding a single <code>sites/*.caddy</code> file → go to STEP 6.</li>
+  <li><strong>If there is no Caddy / a different proxy</strong>: if an existing nginx (or similar) is present, follow its conventions to forward <code>&lt;host&gt;</code> to <code>127.0.0.1:&lt;port&gt;</code> and set up TLS. If there is no proxy at all, agree on an installation approach with the operator before proceeding (do not seize port 443 on your own).</li>
+</ul>
+
+<h2 id="step3">STEP 3. Clone the repository</h2>
+<pre><code>gh repo clone hezoe/EZOS "$APPDIR"    # or: git clone https://github.com/hezoe/EZOS.git "$APPDIR"
+cd "$APPDIR/app"</code></pre>
+
+<h2 id="step4">STEP 4. Install dependencies &amp; initial setup (generate config.json)</h2>
+<p><code>setup.js</code> takes its values from environment variables (you must pass <code>ORIGIN</code>, <code>RPID</code>, and <code>PORT</code>). <code>data/config.json</code> is covered by <code>.gitignore</code>, i.e. it is per-installation runtime configuration.</p>
+<pre><code>cd "$APPDIR/app"
+npm install --omit=dev
+
+EZOS_ORIGIN="$ORIGIN" EZOS_RPID="$RPID" EZOS_PORT="$PORT" \
+  node setup.js
+# => creates data/config.json</code></pre>
+<div class="warn">For security, passkey registration is not accepted at all times. Only for the initial registration, run <code>node bin/open-register.js</code> on the server and register using the <strong>one-time registration key</strong> it displays (unlocked for just 15 minutes; automatically revoked on successful registration). From an already-logged-in device you can add passkeys without unlocking, via <a href="manual.en.html#settings">Settings → Passkey device management</a>.</div>
+
+<h2 id="step5">STEP 5. Run as a systemd service (auto-start, auto-restart)</h2>
+<p><code>KillMode=process</code> stops only node, so that the tmux (persistent terminal) spawned by node-pty stays alive across restarts. So that requests from the Dockerized Caddy arrive via <code>host.docker.internal</code>, EZOS also listens on docker0 (172.17.0.1), which is why <code>After=docker.service</code> is added.</p>
+<pre><code>sudo tee /etc/systemd/system/${SERVICE}.service >/dev/null &lt;&lt;UNIT
+[Unit]
+Description=EZOS (${HOST}) - Claude web cockpit
+After=network-online.target docker.service
+Wants=network-online.target docker.service
+
+[Service]
+Type=simple
+User=${USER_}
+WorkingDirectory=${APPDIR}/app
+ExecStart=/usr/bin/node server.js
+Restart=always
+RestartSec=3
+KillMode=process
+Environment=NODE_ENV=production
+Environment=HOME=/home/${USER_}
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now ${SERVICE}
+systemctl is-active ${SERVICE}          # => active
+ss -tlnp | grep ":${PORT}"              # => node listening on 127.0.0.1:&lt;port&gt;</code></pre>
+
+<h2 id="step6">STEP 6. Caddy site definition (publish)</h2>
+<pre><code>cat > /home/${USER_}/saas/caddy/sites/${SERVICE}.caddy &lt;&lt;CADDY
+${HOST} {
+  header {
+    Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    X-Content-Type-Options "nosniff"
+    X-Frame-Options "DENY"
+    Referrer-Policy "strict-origin-when-cross-origin"
+    Permissions-Policy "geolocation=(), microphone=(self), camera=()"
+    -Server
+  }
+  encode zstd gzip
+  reverse_proxy host.docker.internal:${PORT} {
+    flush_interval -1
+  }
+}
+CADDY
+
+docker exec saas-caddy caddy validate --config /etc/caddy/Caddyfile
+docker exec saas-caddy caddy reload   --config /etc/caddy/Caddyfile</code></pre>
+<ul>
+  <li><code>flush_interval -1</code> streams SSE/streaming (Claude output) without buffering.</li>
+  <li><code>microphone=(self)</code> in <code>Permissions-Policy</code> is for voice input (the Web Speech API).</li>
+  <li>After the reload, Caddy automatically obtains a Let's Encrypt certificate for <code>${HOST}</code> (this assumes the DNS from #4 resolves to the IP in #1).</li>
+</ul>
+
+<h2 id="step7">STEP 7. Session-tracking hooks (optional, recommended)</h2>
+<p>If you want to track Claude's session state (waiting for confirmation, working, etc.), call <code>${APPDIR}/app/bin/ez-hook.sh &lt;state&gt;</code> from each hook in <code>~/.claude/settings.json</code>. The script obtains the destination port automatically from <code>data/config.json</code> (localhost only, no authentication required).</p>
+
+<h2 id="step8">STEP 8. Verification and first passkey registration</h2>
+<pre><code>getent hosts "$HOST"                                                   # => &lt;IP&gt; $HOST
+curl -sS -o /dev/null -w "%{http_code} ssl=%{ssl_verify_result}\n" "$ORIGIN/"   # => 200 ssl=0</code></pre>
+<p>If you get <code>200 ssl=0</code>, publishing succeeded. Next, register the first passkey.</p>
+<ol>
+  <li>On the server, run <code>cd "$APPDIR/app" &amp;&amp; node bin/open-register.js</code> (15-minute registration unlock + one-time key display).</li>
+  <li>On the browser of the device chosen in STEP 0 #5, open <code>${ORIGIN}</code>.</li>
+  <li>On the login screen, under "Add a passkey for a new device," enter the displayed one-time key and a device name to register.</li>
+</ol>
+
+<h2 id="trouble">Troubleshooting</h2>
+<table>
+<tr><th>Symptom</th><th>What to check</th></tr>
+<tr><td><code>curl</code> returns 502/522</td><td><code>systemctl is-active ${SERVICE}</code> and <code>ss -tlnp | grep :${PORT}</code>. <code>journalctl -u ${SERVICE} -e</code></td></tr>
+<tr><td>No certificate is issued</td><td>Whether <code>getent hosts ${HOST}</code> returns the server IP (DNS not yet propagated). <code>docker logs saas-caddy</code></td></tr>
+<tr><td>Cannot register a passkey</td><td>Whether <code>origin</code> in <code>config.json</code> exactly matches the access URL, and whether <code>rpID</code> is the host's parent domain. Whether the registration window is open (<code>node bin/open-register.js</code>)</td></tr>
+<tr><td>Not listening after a restart / <code>EADDRNOTAVAIL</code></td><td>EZOS started before Docker and docker0 was not yet created. Check <code>After=/Wants=docker.service</code> in the unit. server.js retries automatically (<code>retrying in 3s</code> in <code>journalctl</code>)</td></tr>
+</table>
+
+<footer>
+EZOS — passkey-protected web cockpit for Claude Code. This document is included in the repository under <code>docs/manual/</code> and can be viewed standalone after cloning. For usage, see the <a href="manual.en.html">user manual</a>.
+</footer>
+</div>
+<script>
+(function(){
+  document.getElementById('langsw').innerHTML =
+    '<a href="install.ja.html">日本語</a><a class="on" href="install.en.html">English</a>';
+})();
+</script>
+</body>
+</html>
