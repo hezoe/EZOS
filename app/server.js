@@ -252,8 +252,10 @@ const server = http.createServer(async (req, res) => {
     if (p === '/manual' && req.method === 'GET') {
       if (!isAuthed(req)) { res.writeHead(302, { Location: '/' }).end(); return; }
       const l = url.searchParams.get('lang') === 'en' ? 'en' : 'ja';
-      const file = path.join(ROOT, 'docs', 'manual', `manual.${l}.html`);
-      if (file.startsWith(path.join(ROOT, 'docs', 'manual')) && fs.existsSync(file)) {
+      // ROOT は app/ ディレクトリ。マニュアルはリポジトリ直下の docs/manual にあるため親を辿る。
+      const manualDir = path.join(ROOT, '..', 'docs', 'manual');
+      const file = path.join(manualDir, `manual.${l}.html`);
+      if (file.startsWith(manualDir) && fs.existsSync(file)) {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
         fs.createReadStream(file).pipe(res);
         return;
