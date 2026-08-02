@@ -291,13 +291,35 @@ EZOS — passkey-protected web cockpit for Claude Code. このマニュアルは
 </div>
 
 <script>
-// 言語切替リンク: アプリ内(/manual)では ?lang=、単体ファイルでは manual.xx.html を指す
+// 言語切替。単体ファイルでは manual.xx.html、アプリ内(/manual)では ?lang= を指す。
+// iframe 埋め込み時は実URLへ遷移すると X-Frame-Options で拒否されるため、親へ
+// postMessage して親が srcdoc を差し替える。他リンクは新しいタブで開く。
 (function(){
+  var embedded; try { embedded = window.parent && window.parent !== window; } catch(e){ embedded = true; }
   var inApp = /\/manual$/.test(location.pathname);
-  var ja = inApp ? '?lang=ja' : 'manual.ja.html';
-  var en = inApp ? '?lang=en' : 'manual.en.html';
-  document.getElementById('langsw').innerHTML =
-    '<a class="on" href="'+ja+'">日本語</a><a href="'+en+'">English</a>';
+  var cur = (document.documentElement.lang === 'en') ? 'en' : 'ja';
+  function a(l){
+    var on = (l === cur) ? ' class="on"' : '';
+    var label = (l === 'ja') ? '日本語' : 'English';
+    if (embedded) return '<a'+on+' href="#" data-lang="'+l+'">'+label+'</a>';
+    var href = inApp ? ('?lang='+l) : ('manual.'+l+'.html');
+    return '<a'+on+' href="'+href+'">'+label+'</a>';
+  }
+  var sw = document.getElementById('langsw');
+  if (sw) sw.innerHTML = a('ja') + a('en');
+  if (embedded) {
+    if (sw) sw.addEventListener('click', function(e){
+      var el = e.target.closest ? e.target.closest('a[data-lang]') : null;
+      if (!el) return;
+      e.preventDefault();
+      try { window.parent.postMessage({ ezManualLang: el.getAttribute('data-lang') }, '*'); } catch(_){ }
+    });
+    var links = document.querySelectorAll('a[href]');
+    for (var i = 0; i < links.length; i++) {
+      var h = links[i].getAttribute('href');
+      if (h && h.charAt(0) !== '#' && !links[i].hasAttribute('data-lang')) { links[i].target = '_blank'; links[i].rel = 'noopener'; }
+    }
+  }
 })();
 </script>
 </body>

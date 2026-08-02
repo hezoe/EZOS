@@ -100,7 +100,7 @@
     body.appendChild(contentEl);
     modal.appendChild(head); modal.appendChild(body);
     wrap.appendChild(modal);
-    const close = () => wrap.remove();
+    const close = () => { wrap.remove(); if (opts && typeof opts.onClose === 'function') opts.onClose(); };
     x.addEventListener('click', close);
     wrap.addEventListener('mousedown', (e) => { if (e.target === wrap) close(); });
     document.addEventListener('keydown', function onEsc(ev) { if (ev.key === 'Escape') { close(); document.removeEventListener('keydown', onEsc); } });
@@ -111,7 +111,6 @@
   /* ---------- ヘルプ(マニュアル) ---------- */
   function openManual() {
     closeMenu();
-    const url = `/manual?lang=${encodeURIComponent(lang())}`;
     const cont = document.createElement('div');
     cont.className = 'ez-manual-wrap';
     const frame = document.createElement('iframe');
@@ -120,21 +119,33 @@
     cont.appendChild(frame);
     const openTab = document.createElement('a');
     openTab.className = 'btn small';
-    openTab.href = url; openTab.target = '_blank'; openTab.rel = 'noopener';
+    openTab.href = `/manual?lang=${encodeURIComponent(lang())}`;
+    openTab.target = '_blank'; openTab.rel = 'noopener';
     openTab.textContent = '⤢';
     openTab.title = lang() === 'ja' ? '新しいタブで開く' : 'Open in new tab';
-    overlay(t('menu.help'), cont, { wide: true, headExtra: openTab });
+
     // マニュアルHTMLを取得して srcdoc で表示する。リバースプロキシ(Caddy)が付与する
     // X-Frame-Options: DENY は URL 読み込みの iframe をブロックするが、srcdoc には適用
-    // されないため、これで確実に画面内表示できる(新しいタブでの表示は ⤢ から)。
-    fetch(url, { credentials: 'same-origin' })
-      .then((r) => (r.ok ? r.text() : Promise.reject(new Error('http ' + r.status))))
-      .then((html) => { frame.srcdoc = html; })
-      .catch(() => {
-        frame.srcdoc = '<p style="font-family:sans-serif;padding:24px;color:#333">'
-          + (lang() === 'ja' ? 'マニュアルを読み込めませんでした。' : 'Failed to load the manual.')
-          + '</p>';
-      });
+    // されないため確実に画面内表示できる。言語切替はマニュアル内リンクからの iframe
+    // ナビゲーション(=実URL読込で XFO に弾かれる)ではなく、postMessage で親に伝えて
+    // ここで srcdoc を差し替える(新しいタブでの表示は ⤢ から)。
+    let curLang = lang();
+    function load(lg) {
+      curLang = (lg === 'en') ? 'en' : 'ja';
+      openTab.href = `/manual?lang=${curLang}`;
+      fetch(`/manual?lang=${curLang}`, { credentials: 'same-origin' })
+        .then((r) => (r.ok ? r.text() : Promise.reject(new Error('http ' + r.status))))
+        .then((html) => { frame.srcdoc = html; })
+        .catch(() => {
+          frame.srcdoc = '<p style="font-family:sans-serif;padding:24px;color:#333">'
+            + (curLang === 'ja' ? 'マニュアルを読み込めませんでした。' : 'Failed to load the manual.')
+            + '</p>';
+        });
+    }
+    const onMsg = (e) => { if (e.data && e.data.ezManualLang) load(e.data.ezManualLang); };
+    window.addEventListener('message', onMsg);
+    overlay(t('menu.help'), cont, { wide: true, headExtra: openTab, onClose: () => window.removeEventListener('message', onMsg) });
+    load(curLang);
   }
 
   /* ---------- 設定ビュー ---------- */

@@ -291,13 +291,35 @@ EZOS — passkey-protected web cockpit for Claude Code. This manual is included 
 </div>
 
 <script>
-// Language switch links: inside the app (/manual) they point to ?lang=, as a standalone file they point to manual.xx.html
+// Language switch. Standalone -> manual.xx.html; inside the app (/manual) -> ?lang=.
+// When embedded in an iframe, navigating to a real URL is blocked by X-Frame-Options,
+// so we postMessage the parent to swap the srcdoc instead. Other links open in a new tab.
 (function(){
+  var embedded; try { embedded = window.parent && window.parent !== window; } catch(e){ embedded = true; }
   var inApp = /\/manual$/.test(location.pathname);
-  var ja = inApp ? '?lang=ja' : 'manual.ja.html';
-  var en = inApp ? '?lang=en' : 'manual.en.html';
-  document.getElementById('langsw').innerHTML =
-    '<a href="'+ja+'">日本語</a><a class="on" href="'+en+'">English</a>';
+  var cur = (document.documentElement.lang === 'en') ? 'en' : 'ja';
+  function a(l){
+    var on = (l === cur) ? ' class="on"' : '';
+    var label = (l === 'ja') ? '日本語' : 'English';
+    if (embedded) return '<a'+on+' href="#" data-lang="'+l+'">'+label+'</a>';
+    var href = inApp ? ('?lang='+l) : ('manual.'+l+'.html');
+    return '<a'+on+' href="'+href+'">'+label+'</a>';
+  }
+  var sw = document.getElementById('langsw');
+  if (sw) sw.innerHTML = a('ja') + a('en');
+  if (embedded) {
+    if (sw) sw.addEventListener('click', function(e){
+      var el = e.target.closest ? e.target.closest('a[data-lang]') : null;
+      if (!el) return;
+      e.preventDefault();
+      try { window.parent.postMessage({ ezManualLang: el.getAttribute('data-lang') }, '*'); } catch(_){ }
+    });
+    var links = document.querySelectorAll('a[href]');
+    for (var i = 0; i < links.length; i++) {
+      var h = links[i].getAttribute('href');
+      if (h && h.charAt(0) !== '#' && !links[i].hasAttribute('data-lang')) { links[i].target = '_blank'; links[i].rel = 'noopener'; }
+    }
+  }
 })();
 </script>
 </body>
