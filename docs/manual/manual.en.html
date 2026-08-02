@@ -54,6 +54,7 @@
 <strong>Contents</strong>
 <ol>
   <li><a href="#why">Why you need EZOS</a></li>
+  <li><a href="#usecase">Real-world example: an AI-built site on another domain</a></li>
   <li><a href="#arch">System architecture</a></li>
   <li><a href="#login">Login and passkeys</a></li>
   <li><a href="#header">The screen and header</a></li>
@@ -90,7 +91,50 @@
 <p>On top of <strong>EZeditor</strong> for editing files, we added <strong>EZbrowser</strong> (a built-in file manager) for moving files around — uploading, downloading, copying, deleting, and so on. It lets you work with the server's files entirely within the browser.</p>
 </div>
 
-<h2 id="arch">2. System architecture</h2>
+<h2 id="usecase">2. Real-world example: hosting a site on another domain on the same server, built by AI</h2>
+<p>The real power of EZOS isn't just talking to Claude. It shows best in a pattern like this: <strong>on the same VPS, build and operate a completely separate website on a different domain with AI (Claude Code), and publish it through the same reverse proxy (Caddy).</strong></p>
+
+<h3>How it works: one server, and Caddy routes multiple domains</h3>
+<p>Caddy can hold a site definition per domain. Each domain simply reverse-proxies to an app running on its own localhost port, so several sites can live side by side on a single machine.</p>
+<div class="diagram">
+<svg viewBox="0 0 820 250" width="820" role="img" aria-label="One server, Caddy routes multiple domains" xmlns="http://www.w3.org/2000/svg" style="max-width:100%;height:auto;font-family:sans-serif;">
+  <defs><marker id="ar3" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#5c6577"/></marker></defs>
+  <rect x="15" y="95" width="130" height="60" rx="10" fill="#fff" stroke="#c9d0de" stroke-width="1.5"/>
+  <text x="80" y="121" text-anchor="middle" font-size="13" font-weight="600">Browser</text>
+  <text x="80" y="139" text-anchor="middle" font-size="11" fill="#5c6577">PC / Phone</text>
+  <rect x="215" y="90" width="150" height="70" rx="10" fill="#fff" stroke="#c9d0de" stroke-width="1.5"/>
+  <text x="290" y="118" text-anchor="middle" font-size="13" font-weight="600">Caddy</text>
+  <text x="290" y="136" text-anchor="middle" font-size="11" fill="#5c6577">TLS / reverse proxy</text>
+  <rect x="470" y="30" width="330" height="80" rx="10" fill="#fff" stroke="#c9d0de" stroke-width="1.5"/>
+  <text x="490" y="58" font-size="12.5" font-weight="600">EZOS</text>
+  <text x="490" y="76" font-size="11" fill="#5c6577">ezos.ezoe.net</text>
+  <text x="490" y="92" font-size="11" fill="#5c6577">Node cockpit &#8226; 127.0.0.1:3101</text>
+  <rect x="470" y="140" width="330" height="86" rx="10" fill="#fff" stroke="#c9d0de" stroke-width="1.5"/>
+  <text x="490" y="168" font-size="12.5" font-weight="600">Takikawa Airplane site</text>
+  <text x="490" y="186" font-size="11" fill="#5c6577">www.takikawa-airplane.jp</text>
+  <text x="490" y="202" font-size="11" fill="#5c6577">Next.js &#8226; 127.0.0.1:PORT</text>
+  <text x="490" y="218" font-size="11" fill="#5c6577">(+ staging www2, another port)</text>
+  <path d="M145,125 L212,125" stroke="#5c6577" stroke-width="1.6" fill="none" marker-end="url(#ar3)"/>
+  <path d="M365,118 L468,80" stroke="#5c6577" stroke-width="1.6" fill="none" marker-end="url(#ar3)"/>
+  <path d="M365,132 L468,175" stroke="#5c6577" stroke-width="1.6" fill="none" marker-end="url(#ar3)"/>
+</svg>
+</div>
+<ul>
+  <li><code>ezos.ezoe.net</code> → EZOS (this cockpit)</li>
+  <li><code>www.takikawa-airplane.jp</code> → another website (a separate app on a separate port)</li>
+</ul>
+<p>You run Claude Code from EZOS's EZterminal to write that other site's code, edit files directly in <a href="#browser">EZbrowser</a> / <a href="#editor">EZeditor</a>, and build and deploy it on the same server. Because it's browser-based, <strong>you can tell Claude "fix this part of the site" from your phone, even while traveling.</strong></p>
+
+<h3>The example: the Takikawa-Airplane corporate site</h3>
+<p>A great real example is <a href="https://www.takikawa-airplane.jp">www.takikawa-airplane.jp</a> (Takikawa Sky Park / Takikawa Airplane). This site runs <strong>on the same server</strong> as EZOS, is <strong>built and updated by Claude Code</strong> using Next.js, and is published through the same Caddy reverse proxy as EZOS.</p>
+<ul>
+  <li><strong>Production</strong> <code>www.takikawa-airplane.jp</code> and a <strong>staging</strong> site <code>www2.takikawa-airplane.jp</code> (Basic-auth protected) coexist as separate Next.js processes on separate ports.</li>
+  <li>Review on staging → promote to production if it looks good — that whole flow is driven with Claude Code inside EZOS.</li>
+  <li>Bilingual (JA/EN) support, mobile optimization, and ingesting column articles are all continuously improved AI-first.</li>
+</ul>
+<div class="note">In short, EZOS is both "a cockpit for getting the most out of Claude" and <strong>a home base for growing a separate, real production site inside the same box using that very Claude</strong>. One VPS becomes your dev environment, your AI's workshop, and the public server for multiple domains all at once.</div>
+
+<h2 id="arch">3. System architecture</h2>
 <p>Each installation is made up of <strong>one Node app + a systemd service + a Caddy site definition</strong>. The browser connects through Caddy (TLS termination and reverse proxy) to the Node app listening on localhost.</p>
 
 <div class="diagram">
@@ -178,7 +222,7 @@
 <tr><td><strong>app/data/*.json</strong></td><td>Runtime data such as passkeys, tokens, and settings (no database; excluded via <code>.gitignore</code>).</td></tr>
 </table>
 
-<h2 id="login">3. Login and passkeys</h2>
+<h2 id="login">4. Login and passkeys</h2>
 <p>EZOS authenticates with <strong>WebAuthn passkeys</strong> (which can be stored in tools like 1Password).</p>
 <ul>
   <li><strong>Login</strong>: Press "🔑 Log in with a passkey" and present your passkey using your device's biometrics or similar.</li>
@@ -187,7 +231,7 @@
 </ul>
 <div class="note">For security, new passkey registration from an unauthenticated state is not accepted by default. In case you get locked out (losing all your devices), only someone who can SSH into the server can temporarily unlock registration.</div>
 
-<h2 id="header">4. The screen and header</h2>
+<h2 id="header">5. The screen and header</h2>
 <p>After logging in you see a single screen, operated from the header at the top. The main body switches between three modes.</p>
 <table>
 <tr><th>Header element</th><th>Description</th></tr>
@@ -198,17 +242,17 @@
 <tr><td><span class="tag">☰</span> menu</td><td>A hamburger menu gathering help, language, settings, and log off (next chapter).</td></tr>
 </table>
 
-<h2 id="menu">5. Hamburger menu (☰)</h2>
+<h2 id="menu">6. Hamburger menu (☰)</h2>
 <p>Opens when you press the <span class="key">☰</span> at the far right of the header.</p>
 <table>
 <tr><th>Item</th><th>What it does</th></tr>
 <tr><td><span class="emoji">❓</span> <strong>Help / Manual</strong></td><td>Shows this user manual in the selected language, inline in the screen (the <span class="key">⤢</span> at the top right also opens it in a new tab).</td></tr>
 <tr><td><span class="emoji">🌐</span> <strong>Language</strong></td><td>Switches the display language between <strong>Japanese / English</strong>. The entire UI and the manual change to the chosen language.</td></tr>
-<tr><td><span class="emoji">⚙️</span> <strong>Settings</strong></td><td>Opens the settings view (language, display mode, notification sounds, passkey device management). <a href="#settings">Chapter 9</a>.</td></tr>
+<tr><td><span class="emoji">⚙️</span> <strong>Settings</strong></td><td>Opens the settings view (language, display mode, notification sounds, passkey device management). <a href="#settings">Chapter 10</a>.</td></tr>
 <tr><td><span class="emoji">⏻</span> <strong>Log off</strong></td><td>Logs you out. The terminal's tmux sessions are preserved, so you can pick up where you left off at your next login.</td></tr>
 </table>
 
-<h2 id="terminal">6. EZterminal (terminal)</h2>
+<h2 id="terminal">7. EZterminal (terminal)</h2>
 <p>Your browser becomes the VPS's terminal itself, letting you run <code>claude</code> interactively. Built from xterm.js + WebSocket + node-pty + tmux, <strong>sessions persist even after disconnecting</strong>, and you can connect to the same session from a PC or phone.</p>
 
 <h3>Input field and input toggle switch</h3>
@@ -241,7 +285,7 @@
   <li>If you open the same tab on another device, the display moves there. On the original device, you can recover by pressing the reconnect button, Enter, or tapping the tab.</li>
 </ul>
 
-<h2 id="browser">7. EZbrowser (file management)</h2>
+<h2 id="browser">8. EZbrowser (file management)</h2>
 <p>A built-in file manager for working with the server's files in your browser. It was created for moving files around.</p>
 <table>
 <tr><th>Menu / action</th><th>Description</th></tr>
@@ -254,7 +298,7 @@
 <tr><td>Upload</td><td>Transfer to the current folder via drag-and-drop or the upload button.</td></tr>
 </table>
 
-<h2 id="editor">8. EZeditor (editor)</h2>
+<h2 id="editor">9. EZeditor (editor)</h2>
 <p>Edit text files on the server from within your browser. Opened from a file path in EZbrowser or the terminal.</p>
 <ul>
   <li><strong>File</strong> menu: Save (equivalent to <span class="key">Ctrl+S</span>), Save As.</li>
@@ -263,7 +307,7 @@
   <li>Includes basic syntax highlighting.</li>
 </ul>
 
-<h2 id="settings">9. Settings</h2>
+<h2 id="settings">10. Settings</h2>
 <p>Open via the hamburger menu → <span class="emoji">⚙️</span> Settings.</p>
 <table>
 <tr><th>Setting</th><th>What it does</th></tr>
@@ -273,7 +317,7 @@
 <tr><td><strong>Passkey device management</strong></td><td>A list of registered passkeys that can log in to this EZOS. You can delete them per device and add a new passkey on this device (the last remaining one can't be deleted, to prevent lockout).</td></tr>
 </table>
 
-<h2 id="install">10. Installation overview</h2>
+<h2 id="install">11. Installation overview</h2>
 <p>EZOS is open-sourced on GitHub, so anyone can set it up in their own environment. <a href="https://github.com/hezoe/EZOS">github.com/hezoe/EZOS</a></p>
 <p>The rough flow is as follows.</p>
 <pre><code>git clone https://github.com/hezoe/EZOS.git

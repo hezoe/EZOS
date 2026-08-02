@@ -54,6 +54,7 @@
 <strong>目次</strong>
 <ol>
   <li><a href="#why">なぜ EZOS が必要なのか</a></li>
+  <li><a href="#usecase">活用例：AIで別ドメインのサイトを同居構築</a></li>
   <li><a href="#arch">システム構成図</a></li>
   <li><a href="#login">ログインとパスキー</a></li>
   <li><a href="#header">画面全体とヘッダー</a></li>
@@ -90,7 +91,50 @@
 <p>ファイルを編集する <strong>EZeditor</strong> に加えて、ファイルのやり取り（アップロード／ダウンロード／コピー／削除など）のために <strong>EZbrowser</strong>（内蔵ファイルマネージャ）を追加しました。ブラウザ上で完結してサーバーのファイルを扱えます。</p>
 </div>
 
-<h2 id="arch">2. システム構成図</h2>
+<h2 id="usecase">2. 活用例：リバースプロキシで「別ドメインのサイト」を同じサーバに同居させ、AIで構築する</h2>
+<p>EZOS の真価は、単に Claude と対話できることだけではありません。<strong>同じ VPS 上に、まったく別のドメインの Web サイトを AI（Claude Code）で構築・運用し、同じリバースプロキシ（Caddy）で公開する</strong>——という使い方に、その力がよく表れます。</p>
+
+<h3>仕組み：1 台のサーバー + Caddy が複数ドメインを振り分ける</h3>
+<p>Caddy はドメインごとのサイト定義を持てます。各ドメインを、localhost の別ポートで動くアプリへリバースプロキシするだけで、同じ 1 台の上に複数のサイトを同居できます。</p>
+<div class="diagram">
+<svg viewBox="0 0 820 250" width="820" role="img" aria-label="One server, Caddy routes multiple domains" xmlns="http://www.w3.org/2000/svg" style="max-width:100%;height:auto;font-family:sans-serif;">
+  <defs><marker id="ar3" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#5c6577"/></marker></defs>
+  <rect x="15" y="95" width="130" height="60" rx="10" fill="#fff" stroke="#c9d0de" stroke-width="1.5"/>
+  <text x="80" y="121" text-anchor="middle" font-size="13" font-weight="600">Browser</text>
+  <text x="80" y="139" text-anchor="middle" font-size="11" fill="#5c6577">PC / Phone</text>
+  <rect x="215" y="90" width="150" height="70" rx="10" fill="#fff" stroke="#c9d0de" stroke-width="1.5"/>
+  <text x="290" y="118" text-anchor="middle" font-size="13" font-weight="600">Caddy</text>
+  <text x="290" y="136" text-anchor="middle" font-size="11" fill="#5c6577">TLS / reverse proxy</text>
+  <rect x="470" y="30" width="330" height="80" rx="10" fill="#fff" stroke="#c9d0de" stroke-width="1.5"/>
+  <text x="490" y="58" font-size="12.5" font-weight="600">EZOS</text>
+  <text x="490" y="76" font-size="11" fill="#5c6577">ezos.ezoe.net</text>
+  <text x="490" y="92" font-size="11" fill="#5c6577">Node cockpit &#8226; 127.0.0.1:3101</text>
+  <rect x="470" y="140" width="330" height="86" rx="10" fill="#fff" stroke="#c9d0de" stroke-width="1.5"/>
+  <text x="490" y="168" font-size="12.5" font-weight="600">Takikawa Airplane site</text>
+  <text x="490" y="186" font-size="11" fill="#5c6577">www.takikawa-airplane.jp</text>
+  <text x="490" y="202" font-size="11" fill="#5c6577">Next.js &#8226; 127.0.0.1:PORT</text>
+  <text x="490" y="218" font-size="11" fill="#5c6577">(+ staging www2, another port)</text>
+  <path d="M145,125 L212,125" stroke="#5c6577" stroke-width="1.6" fill="none" marker-end="url(#ar3)"/>
+  <path d="M365,118 L468,80" stroke="#5c6577" stroke-width="1.6" fill="none" marker-end="url(#ar3)"/>
+  <path d="M365,132 L468,175" stroke="#5c6577" stroke-width="1.6" fill="none" marker-end="url(#ar3)"/>
+</svg>
+</div>
+<ul>
+  <li><code>ezos.ezoe.net</code> → EZOS（このコックピット）</li>
+  <li><code>www.takikawa-airplane.jp</code> → もう一つの Web サイト（別アプリ・別ポート）</li>
+</ul>
+<p>あなたは EZOS の EZterminal から Claude Code を動かして、その別サイトのコードを書き、<a href="#browser">EZbrowser</a>／<a href="#editor">EZeditor</a> でファイルを直接いじり、同じサーバー上でビルド・デプロイします。ブラウザ型なので、<strong>スマホから移動中でも「サイトのここを直して」と Claude に指示できます。</strong></p>
+
+<h3>実例：Takikawa-Airplane のコーポレートサイト</h3>
+<p>この良い実例が <a href="https://www.takikawa-airplane.jp">www.takikawa-airplane.jp</a>（滝川スカイパーク / Takikawa Airplane）です。このサイトは、EZOS が動いているのと<strong>同じサーバー上で</strong>、Next.js を用いて <strong>Claude Code によって構築・更新</strong>され、EZOS と同じ Caddy のリバースプロキシから公開されています。</p>
+<ul>
+  <li><strong>本番</strong> <code>www.takikawa-airplane.jp</code> と、<strong>控え（ステージング）</strong> <code>www2.takikawa-airplane.jp</code>（Basic 認証つき）を、それぞれ別ポートの Next.js プロセスとして同居。</li>
+  <li>控えで内容を確認 → 問題なければ本番へ昇格、というフローも、すべて EZOS 上の Claude Code で回せます。</li>
+  <li>多言語（日英）対応やスマホ最適化、コラム記事の取り込みなども AI 主導で継続的に改善しています。</li>
+</ul>
+<div class="note">要するに EZOS は「Claude を使い込むためのコックピット」であると同時に、<strong>その Claude を使って“別の実運用サイト”を同じ箱の中で育てるための拠点</strong>にもなります。1 台の VPS が、開発環境であり、AI の作業場であり、複数ドメインの公開サーバーでもある——という形です。</div>
+
+<h2 id="arch">3. システム構成図</h2>
 <p>各インストールは <strong>1 つの Node アプリ + systemd サービス + Caddy のサイト定義</strong> で成り立ちます。ブラウザは Caddy（TLS 終端・リバースプロキシ）を経由して、localhost で待ち受ける Node アプリに繋がります。</p>
 
 <div class="diagram">
@@ -178,7 +222,7 @@
 <tr><td><strong>app/data/*.json</strong></td><td>パスキー・トークン・設定などの実行時データ（DB 不使用、<code>.gitignore</code> 対象）。</td></tr>
 </table>
 
-<h2 id="login">3. ログインとパスキー</h2>
+<h2 id="login">4. ログインとパスキー</h2>
 <p>EZOS は <strong>WebAuthn パスキー</strong>で認証します（1Password などに保存可）。</p>
 <ul>
   <li><strong>ログイン</strong>: 「🔑 パスキーでログイン」を押し、端末の生体認証などでパスキーを提示します。</li>
@@ -187,7 +231,7 @@
 </ul>
 <div class="note">セキュリティのため、未認証からの新規パスキー登録は常時は受け付けません。締め出し（全端末喪失）に備え、SSH でサーバーに入れる人だけが登録を一時解錠できる仕組みです。</div>
 
-<h2 id="header">4. 画面全体とヘッダー</h2>
+<h2 id="header">5. 画面全体とヘッダー</h2>
 <p>ログインすると 1 枚の画面が表示され、上部のヘッダーで操作します。本体は 3 つのモードを切り替えて使います。</p>
 <table>
 <tr><th>ヘッダー要素</th><th>説明</th></tr>
@@ -198,17 +242,17 @@
 <tr><td><span class="tag">☰</span> メニュー</td><td>ヘルプ・言語・設定・ログオフをまとめたハンバーガーメニュー（次章）。</td></tr>
 </table>
 
-<h2 id="menu">5. ハンバーガーメニュー（☰）</h2>
+<h2 id="menu">6. ハンバーガーメニュー（☰）</h2>
 <p>ヘッダー右端の <span class="key">☰</span> を押すと開きます。</p>
 <table>
 <tr><th>項目</th><th>内容</th></tr>
 <tr><td><span class="emoji">❓</span> <strong>ヘルプ・マニュアル</strong></td><td>この取扱説明書を、選択中の言語で画面内に表示します（右上の <span class="key">⤢</span> で新しいタブでも開けます）。</td></tr>
 <tr><td><span class="emoji">🌐</span> <strong>言語</strong></td><td>表示言語を <strong>日本語 / English</strong> で切り替えます。UI 全体とマニュアルが選択言語になります。</td></tr>
-<tr><td><span class="emoji">⚙️</span> <strong>設定</strong></td><td>設定ビューを開きます（言語・表示モード・通知音・パスキー端末管理）。<a href="#settings">第 9 章</a>。</td></tr>
+<tr><td><span class="emoji">⚙️</span> <strong>設定</strong></td><td>設定ビューを開きます（言語・表示モード・通知音・パスキー端末管理）。<a href="#settings">第 10 章</a>。</td></tr>
 <tr><td><span class="emoji">⏻</span> <strong>ログオフ</strong></td><td>ログアウトします。ターミナルの tmux セッションは保持され、次回ログイン時に続きから使えます。</td></tr>
 </table>
 
-<h2 id="terminal">6. EZterminal（ターミナル）</h2>
+<h2 id="terminal">7. EZterminal（ターミナル）</h2>
 <p>ブラウザが VPS のターミナルそのものになり、<code>claude</code> を対話実行できます。xterm.js + WebSocket + node-pty + tmux で構成され、<strong>切断してもセッションは永続</strong>、PC/スマホから同一セッションに接続できます。</p>
 
 <h3>入力欄と入力切替スイッチ</h3>
@@ -241,7 +285,7 @@
   <li>別のデバイスで同じタブを開くと、そちらへ表示が移ります。元の端末では再接続ボタン／Enter／タブのタップで復帰できます。</li>
 </ul>
 
-<h2 id="browser">7. EZbrowser（ファイル管理）</h2>
+<h2 id="browser">8. EZbrowser（ファイル管理）</h2>
 <p>サーバー上のファイルをブラウザで扱う内蔵ファイルマネージャです。ファイルのやり取りのために用意されました。</p>
 <table>
 <tr><th>メニュー / 操作</th><th>説明</th></tr>
@@ -254,7 +298,7 @@
 <tr><td>アップロード</td><td>ドラッグ＆ドロップやアップロードボタンで、現在のフォルダへ転送。</td></tr>
 </table>
 
-<h2 id="editor">8. EZeditor（エディタ）</h2>
+<h2 id="editor">9. EZeditor（エディタ）</h2>
 <p>サーバー上のテキストファイルをブラウザ内で編集します。EZbrowser やターミナルのファイルパスから開かれます。</p>
 <ul>
   <li><strong>ファイル</strong>メニュー: 保存（<span class="key">Ctrl+S</span> 相当）・別名で保存。</li>
@@ -263,7 +307,7 @@
   <li>簡易シンタックスハイライト付き。</li>
 </ul>
 
-<h2 id="settings">9. 設定</h2>
+<h2 id="settings">10. 設定</h2>
 <p>ハンバーガーメニュー → <span class="emoji">⚙️</span> 設定 で開きます。</p>
 <table>
 <tr><th>設定</th><th>内容</th></tr>
@@ -273,7 +317,7 @@
 <tr><td><strong>パスキー端末管理</strong></td><td>この EZOS にログインできる登録済みパスキーの一覧。端末ごとに削除でき、この端末に新しいパスキーを追加できます（締め出し防止のため最後の 1 件は削除不可）。</td></tr>
 </table>
 
-<h2 id="install">10. インストール概要</h2>
+<h2 id="install">11. インストール概要</h2>
 <p>EZOS は GitHub で公開されており、誰でも自分の環境に構築できます。<a href="https://github.com/hezoe/EZOS">github.com/hezoe/EZOS</a></p>
 <p>大まかな流れは次の通りです。</p>
 <pre><code>git clone https://github.com/hezoe/EZOS.git
