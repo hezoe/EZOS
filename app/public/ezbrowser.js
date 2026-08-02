@@ -146,8 +146,9 @@
     dd.style.left = r.left + 'px'; dd.style.top = (r.bottom + 2) + 'px';
     document.body.appendChild(dd); curDropdown = dd; curDropdownBtn = btn;
   }
-  function menuButton(label, items) {
+  function menuButton(label, items, tip) {
     const b = document.createElement('button'); b.className = 'ezb-menu-btn'; b.textContent = label;
+    if (tip) b.setAttribute('data-tip', tip); // ホバー時のバルーン説明(tooltip.js)
     b.addEventListener('click', () => openDropdownFor(b, typeof items === 'function' ? items() : items));
     return b;
   }
@@ -322,22 +323,22 @@
       [t('browser.newText'), doCreateText],
       [t('browser.download'), doDownload, !state.sel.size],
       [t('browser.upload'), doUpload],
-    ])));
+    ]), 'help.browserFile'));
     menubarEl.appendChild(menuButton(t('browser.menuEdit'), () => ([
       [t('browser.edit'), doEditSelected, state.sel.size !== 1],
       [t('browser.delete'), doDelete, !state.sel.size],
-    ])));
+    ]), 'help.browserEdit'));
     menubarEl.appendChild(menuButton(t('browser.menuView'), () => ([
       [t('browser.viewIcon'), () => setView('icon')],
       [t('browser.viewList'), () => setView('list')],
       [t('browser.viewDetail'), () => setView('detail')],
       ['—'],
       [t('browser.hiddenFiles') + (state.hidden ? 'ON' : 'OFF'), toggleHidden],
-    ])));
+    ]), 'help.browserView'));
     menubarEl.appendChild(menuButton(t('browser.menuTerminal'), () => ([
       ['CLI', () => openTerminal('cli')],
       ['Claude', () => openTerminal('claude')],
-    ])));
+    ]), 'help.browserTerminal'));
   }
 
   /* ---------- 一覧描画 ---------- */

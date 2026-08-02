@@ -366,6 +366,30 @@
   Object.assign(DICT.ja, _EXTRA.ja);
   Object.assign(DICT.en, _EXTRA.en);
 
+  // ホバー時のバルーン説明(tooltip.js が data-tip から参照)
+  Object.assign(DICT.ja, {
+    'help.modeCycle': 'モード切替。クリックするたび EZterminal(ターミナル)→ EZbrowser(ファイル管理)→ EZeditor(エディタ)を巡回します。',
+    'help.newTerminal': '新しいターミナル(tmuxセッション)を追加します。タブは全端末で共有されます。',
+    'help.usage': 'Claude の利用量。5時間枠と週枠の使用率をバーで表示します(Claude稼働中のみ更新)。',
+    'help.connState': 'ターミナルの接続状態。緑=接続中／赤=切断。切れても自動的に再接続します。',
+    'help.menu': 'メニュー。ヘルプ(マニュアル)・言語(日本語/English)・設定・ログオフを開きます。',
+    'help.browserFile': 'ファイル操作。新規フォルダ・新規テキストの作成、ファイルのアップロード。',
+    'help.browserEdit': '選択したファイルの編集・削除など。',
+    'help.browserView': '表示切替(アイコン／リスト／詳細)と隠しファイルの表示。',
+    'help.browserTerminal': '現在のフォルダをターミナル側に反映するなどの連携。',
+  });
+  Object.assign(DICT.en, {
+    'help.modeCycle': 'Switch mode. Each click cycles EZterminal (terminal) → EZbrowser (files) → EZeditor (editor).',
+    'help.newTerminal': 'Add a new terminal (tmux session). Tabs are shared across all your devices.',
+    'help.usage': 'Claude usage. Bars show your 5-hour and weekly usage (updates only while Claude is active).',
+    'help.connState': 'Terminal connection state. Green = connected / red = disconnected. It auto-reconnects.',
+    'help.menu': 'Menu. Opens Help (manual), Language (JA/EN), Settings, and Log off.',
+    'help.browserFile': 'File actions: create a new folder or text file, and upload files.',
+    'help.browserEdit': 'Edit or delete the selected file, and related actions.',
+    'help.browserView': 'Switch view (icons / list / details) and toggle hidden files.',
+    'help.browserTerminal': 'Terminal integration, e.g. sync the current folder to the terminal.',
+  });
+
   function pickLang() {
     let l = window.EZ.lang || localStorage.getItem('ez_lang') || 'ja';
     if (l !== 'ja' && l !== 'en') l = 'ja';

@@ -973,14 +973,14 @@ function renderPage({ authed, view, lang, hasCreds }) {
   const termHtml = `
   <div id="term-app">
     <header id="term-bar">
-      <button id="mode-cycle" class="mode-cycle" title="EZterminal / EZbrowser / EZeditor 切替" data-i18n-title="header.modeCycle" aria-label="モード切替"></button>
-      <div id="term-tabs"><button id="btn-add-tab" title="新しいターミナル" data-i18n-title="header.newTerminal">＋</button></div>
+      <button id="mode-cycle" class="mode-cycle" title="EZterminal / EZbrowser / EZeditor 切替" data-i18n-title="header.modeCycle" data-tip="help.modeCycle" aria-label="モード切替"></button>
+      <div id="term-tabs"><button id="btn-add-tab" title="新しいターミナル" data-i18n-title="header.newTerminal" data-tip="help.newTerminal">＋</button></div>
       <span class="spacer"></span>
-      <div id="usage-widget" hidden></div>
-      <span id="conn-state" class="dot off" title="ターミナル接続状態" data-i18n-title="header.connState"></span>
+      <div id="usage-widget" hidden data-tip="help.usage"></div>
+      <span id="conn-state" class="dot off" title="ターミナル接続状態" data-i18n-title="header.connState" data-tip="help.connState"></span>
       <div class="tb-actions">
         <button id="btn-reconnect" class="btn small" title="ページを再読込" data-i18n-title="header.reload" aria-label="再読込" hidden>🔄</button>
-        <button id="btn-menu" class="btn small" title="メニュー" data-i18n-title="menu.title" aria-label="メニュー" data-i18n-aria="menu.open">☰</button>
+        <button id="btn-menu" class="btn small" title="メニュー" data-i18n-title="menu.title" data-tip="help.menu" aria-label="メニュー" data-i18n-aria="menu.open">☰</button>
       </div>
     </header>
 
@@ -1009,6 +1009,7 @@ ${authed ? '<link rel="stylesheet" href="/assets/ezeditor.css"><link rel="styles
 ${authed ? termHtml : loginHtml}
 <script>window.EZ = { authed: ${authed}, view: ${JSON.stringify(view)}, lang: ${JSON.stringify(lang)} };</script>
 <script src="/assets/i18n.js"></script>
+<script src="/assets/tooltip.js"></script>
 ${authed
     ? '<script src="/vendor/xterm.js"></script><script src="/vendor/addon-fit.js"></script><script src="/vendor/addon-clipboard.js"></script><script src="/vendor/addon-web-links.js"></script><script src="/assets/term.js"></script><script src="/assets/ezhl.js"></script><script src="/assets/ezeditor.js"></script><script src="/assets/ezbrowser.js"></script><script src="/assets/menu.js"></script>'
     : '<script src="/assets/app.js"></script>'}
