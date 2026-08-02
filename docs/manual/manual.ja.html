@@ -363,6 +363,16 @@ EZOS — passkey-protected web cockpit for Claude Code. このマニュアルは
       var h = links[i].getAttribute('href');
       if (h && h.charAt(0) !== '#' && !links[i].hasAttribute('data-lang')) { links[i].target = '_blank'; links[i].rel = 'noopener'; }
     }
+    // srcdoc では基準URLが親ページになり、#アンカーのクリックが親URLへの iframe 遷移
+    // (=X-Frame-Options で拒否)になってしまう。自前でスクロールして遷移を防ぐ。
+    document.addEventListener('click', function(e){
+      var el = e.target.closest ? e.target.closest('a[href^="#"]') : null;
+      if (!el || el.hasAttribute('data-lang')) return;
+      var id = el.getAttribute('href').slice(1);
+      var tgt = id ? document.getElementById(id) : null;
+      e.preventDefault();
+      if (tgt) tgt.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
   }
 })();
 </script>
