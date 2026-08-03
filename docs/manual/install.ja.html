@@ -48,6 +48,7 @@
 <strong>目次</strong>
 <ol>
   <li><a href="#overview">構成の概要</a></li>
+  <li><a href="#requirements">動作環境・前提条件</a></li>
   <li><a href="#step0">STEP 0. 事前に決める項目</a></li>
   <li><a href="#step1">STEP 1. 前提コマンド</a></li>
   <li><a href="#step2">STEP 2. インフラ確認（Caddy）</a></li>
@@ -89,6 +90,36 @@
 </svg>
 </div>
 <p>ブラウザは Caddy（TLS 終端・リバースプロキシ）を経由して、localhost で待ち受ける Node アプリへ繋がります。ターミナルは node-pty + tmux で擬似端末に橋渡しされ、その中で <code>claude</code> が対話実行されます。</p>
+
+<h2 id="requirements">動作環境・前提条件</h2>
+<p>EZOS は「サーバー(ホスト)」で常駐する Node アプリと、そこへ接続する「クライアント(ブラウザ)」で成り立ちます。導入前に、次の環境条件を満たしているか確認してください。</p>
+
+<h3>サーバー(ホスト)側</h3>
+<table>
+<tr><th>項目</th><th>要件 / 推奨</th></tr>
+<tr><td>対応OS</td><td><strong>Linux(systemd 系)</strong>。動作確認は <strong>Debian 12 / 11</strong>。<strong>Ubuntu 24.04 / 22.04 / 20.04</strong> など Debian 系や、systemd + パッケージ管理(apt/dnf 等)が使える一般的なディストリでも動作見込み。<br>※ macOS は Node アプリ単体なら起動するが、本手順(systemd・apt・Docker 版 Caddy)は対象外。<br>※ Windows はサーバー用途では非対象(WSL2 上の Linux なら可)。</td></tr>
+<tr><td>CPU アーキテクチャ</td><td><strong>x86_64 (amd64)</strong> / <strong>arm64 (aarch64)</strong>。node-pty のネイティブビルド(またはプリビルド)が通る環境。</td></tr>
+<tr><td>Node.js</td><td><strong>v20 (LTS) 以上を推奨</strong>(開発・運用は Node 20)。ES モジュール(<code>type:module</code>)前提。</td></tr>
+<tr><td>必須コマンド</td><td><code>node</code> / <code>npm</code>、<strong><code>tmux</code>(必須 — ターミナル永続化の基盤)</strong>、<code>bash</code>、<code>git</code>。</td></tr>
+<tr><td>ビルドツール<br>(node-pty 用)</td><td>プリビルドが無い環境向けに <code>python3</code>・<code>make</code>・C++ コンパイラ(Debian 系は <code>build-essential</code>)。一般的な x86_64/arm64 Linux ではプリビルドで不要なことが多い。</td></tr>
+<tr><td>セッション追跡フック<br>(任意)</td><td>管制塔でセッション状態を追う場合のみ <code>jq</code> と <code>curl</code>(<code>ez-hook.sh</code> が使用)。使わなければ不要。</td></tr>
+<tr><td>リバースプロキシ / TLS</td><td><strong>Caddy</strong>(Docker 版 or 単体)を推奨(証明書を自動取得)。既存の nginx 等でも可。公開せずローカル検証だけなら不要だが、その場合パスキーは使えない(下記)。</td></tr>
+<tr><td>Claude Code</td><td><strong>Claude Code CLI をグローバル導入し、Pro / Max アカウントで認証済み</strong>であること(<code>~/.claude/.credentials.json</code>)。EZOS は内部で <code>claude</code> を対話実行するため<strong>必須</strong>。</td></tr>
+<tr><td>ドメイン名 / DNS</td><td>公開運用には <strong>独自ホスト名 + DNS A レコード(サーバー IP へ)</strong> が必要。パスキー(WebAuthn)は <strong>HTTPS のセキュアコンテキスト</strong>でのみ動作するため、実運用では TLS 付き公開ホスト名が前提。<code>localhost</code> でのローカル検証は可。</td></tr>
+<tr><td>GitHub CLI(任意)</td><td><code>gh</code>(リポジトリのクローンや将来の Issue 連携に便利。無くても <code>git</code> で代替可)。</td></tr>
+<tr><td>リソース目安</td><td>アプリ自体は軽量。ただし Claude Code の実行やビルドを伴うため <strong>メモリ 1GB 以上(2GB+ 推奨)</strong>、空きディスク数百 MB 以上。</td></tr>
+<tr><td>ネットワーク</td><td>公開用に <strong>443/tcp</strong>(Caddy)。アプリは <code>127.0.0.1:&lt;port&gt;</code>(既定 3100)で待受。Claude / GitHub 等への外向き通信が必要。</td></tr>
+</table>
+
+<h3>クライアント(ブラウザ)側</h3>
+<table>
+<tr><th>項目</th><th>要件</th></tr>
+<tr><td>ブラウザ</td><td>WebAuthn(パスキー)対応のモダンブラウザ: <strong>Chrome / Edge / Safari / Firefox</strong> の新しめのバージョン。PC・スマホ(iOS/Android)いずれも可。</td></tr>
+<tr><td>接続</td><td>パスキー認証・マイク利用には <strong>HTTPS(セキュアコンテキスト)</strong>が必要。</td></tr>
+<tr><td>パスキー保管</td><td>端末の生体認証、または <strong>1Password 等のパスキー対応マネージャ</strong>。</td></tr>
+<tr><td>音声入力(任意)</td><td>Web Speech API 対応ブラウザ(主に <strong>Chrome / Edge</strong>)。未対応ブラウザではマイクボタンが無効になる。</td></tr>
+</table>
+<div class="note">最小構成をまとめると <strong>「systemd 系 Linux + Node 20 + tmux + Claude Code(Pro/Max 認証) + リバースプロキシ(TLS) + 公開ホスト名」</strong>です。次の STEP 0 以降で、これらの実値を決めて導入します。</div>
 
 <h2 id="step0">STEP 0. 事前に決める項目</h2>
 <p>環境依存で勝手に決められない値です。埋まるまで先に進まないでください（#3・#6〜#9 は既定のままで可）。</p>

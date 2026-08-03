@@ -48,6 +48,7 @@
 <strong>Contents</strong>
 <ol>
   <li><a href="#overview">Architecture overview</a></li>
+  <li><a href="#requirements">System requirements</a></li>
   <li><a href="#step0">STEP 0. Decisions to make in advance</a></li>
   <li><a href="#step1">STEP 1. Prerequisite commands</a></li>
   <li><a href="#step2">STEP 2. Infrastructure check (Caddy)</a></li>
@@ -89,6 +90,36 @@
 </svg>
 </div>
 <p>The browser connects through Caddy (TLS termination and reverse proxy) to the Node app listening on localhost. The terminal is bridged to a pseudo-terminal via node-pty + tmux, and <code>claude</code> runs interactively inside it.</p>
+
+<h2 id="requirements">System requirements</h2>
+<p>EZOS consists of a Node app that runs persistently on a <strong>server (host)</strong> and the <strong>client (browser)</strong> that connects to it. Before installing, make sure your environment meets the conditions below.</p>
+
+<h3>Server (host) side</h3>
+<table>
+<tr><th>Item</th><th>Requirement / recommendation</th></tr>
+<tr><td>Supported OS</td><td><strong>Linux with systemd</strong>. Verified on <strong>Debian 12 / 11</strong>. Expected to work on <strong>Ubuntu 24.04 / 22.04 / 20.04</strong> and other mainstream distros that provide systemd + a package manager (apt/dnf, etc.).<br>Note: macOS can launch the Node app itself, but this guide (systemd, apt, Dockerized Caddy) does not target it. Windows is not supported as a server (use Linux on WSL2).</td></tr>
+<tr><td>CPU architecture</td><td><strong>x86_64 (amd64)</strong> / <strong>arm64 (aarch64)</strong> — anywhere node-pty's native build (or prebuilt) works.</td></tr>
+<tr><td>Node.js</td><td><strong>v20 (LTS) or newer recommended</strong> (developed and run on Node 20). ES modules (<code>type:module</code>).</td></tr>
+<tr><td>Required commands</td><td><code>node</code> / <code>npm</code>, <strong><code>tmux</code> (required — the basis of terminal persistence)</strong>, <code>bash</code>, <code>git</code>.</td></tr>
+<tr><td>Build tools<br>(for node-pty)</td><td>Where no prebuilt binary exists: <code>python3</code>, <code>make</code>, a C++ compiler (on Debian-family, <code>build-essential</code>). Usually unnecessary on common x86_64/arm64 Linux.</td></tr>
+<tr><td>Session-tracking hook<br>(optional)</td><td>Only if you track session state in the control tower: <code>jq</code> and <code>curl</code> (used by <code>ez-hook.sh</code>). Not needed otherwise.</td></tr>
+<tr><td>Reverse proxy / TLS</td><td><strong>Caddy</strong> (Docker or standalone) recommended (automatic certificates). An existing nginx etc. also works. Not needed for local-only testing, but then passkeys are unavailable (see below).</td></tr>
+<tr><td>Claude Code</td><td><strong>Claude Code CLI installed globally and authenticated with a Pro / Max account</strong> (<code>~/.claude/.credentials.json</code>). <strong>Required</strong>, since EZOS runs <code>claude</code> interactively.</td></tr>
+<tr><td>Domain / DNS</td><td>Public use needs <strong>a hostname + a DNS A record pointing to the server IP</strong>. Passkeys (WebAuthn) only work in a <strong>secure (HTTPS) context</strong>, so a TLS public hostname is assumed for real use. <code>localhost</code> is fine for local testing.</td></tr>
+<tr><td>GitHub CLI (optional)</td><td><code>gh</code> (handy for cloning and future issue integration; <code>git</code> alone also works).</td></tr>
+<tr><td>Resource guideline</td><td>The app itself is light, but running Claude Code and builds calls for <strong>1 GB+ RAM (2 GB+ recommended)</strong> and a few hundred MB of free disk.</td></tr>
+<tr><td>Network</td><td><strong>443/tcp</strong> for public access (Caddy). The app listens on <code>127.0.0.1:&lt;port&gt;</code> (default 3100). Outbound access to Claude / GitHub, etc. is required.</td></tr>
+</table>
+
+<h3>Client (browser) side</h3>
+<table>
+<tr><th>Item</th><th>Requirement</th></tr>
+<tr><td>Browser</td><td>A modern browser with WebAuthn (passkey) support: <strong>Chrome / Edge / Safari / Firefox</strong>, reasonably recent. PC or phone (iOS/Android).</td></tr>
+<tr><td>Connection</td><td>Passkey auth and microphone use require <strong>HTTPS (a secure context)</strong>.</td></tr>
+<tr><td>Passkey storage</td><td>The device's biometric authentication, or a <strong>passkey manager such as 1Password</strong>.</td></tr>
+<tr><td>Voice input (optional)</td><td>A browser with the Web Speech API (mainly <strong>Chrome / Edge</strong>). The mic button is disabled where unsupported.</td></tr>
+</table>
+<div class="note">In short, the minimum stack is <strong>"a systemd Linux + Node 20 + tmux + Claude Code (Pro/Max) + a reverse proxy (TLS) + a public hostname"</strong>. STEP 0 onward is where you fill in the concrete values.</div>
 
 <h2 id="step0">STEP 0. Decisions to make in advance</h2>
 <p>These are values that depend on your environment and cannot be decided automatically. Do not proceed until they are all filled in (#3 and #6–#9 may be left at their defaults).</p>

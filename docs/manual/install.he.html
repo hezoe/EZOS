@@ -49,6 +49,7 @@
 <strong>תוכן העניינים</strong>
 <ol>
   <li><a href="#overview">סקירת ארכיטקטורה</a></li>
+  <li><a href="#requirements">דרישות מערכת</a></li>
   <li><a href="#step0">שלב 0. החלטות שיש לקבל מראש</a></li>
   <li><a href="#step1">שלב 1. פקודות דרישות מוקדמות</a></li>
   <li><a href="#step2">שלב 2. בדיקת תשתית (Caddy)</a></li>
@@ -90,6 +91,36 @@
 </svg>
 </div>
 <p>הדפדפן מתחבר דרך Caddy (סיום TLS ופרוקסי הפוך) אל אפליקציית Node המאזינה ב-localhost. הטרמינל מגושר לפסאודו-טרמינל באמצעות node-pty ‏+ tmux, ובתוכו <code>claude</code> רץ באופן אינטראקטיבי.</p>
+
+<h2 id="requirements">דרישות מערכת</h2>
+<p>‏EZOS מורכב מאפליקציית Node הפועלת באופן מתמשך ב<strong>שרת (מארח)</strong> ומה<strong>לקוח (דפדפן)</strong> המתחבר אליה. לפני ההתקנה, ודאו שהסביבה שלכם עומדת בתנאים שלהלן.</p>
+
+<h3>צד השרת (המארח)</h3>
+<table>
+<tr><th>פריט</th><th>דרישה / המלצה</th></tr>
+<tr><td>מערכות הפעלה נתמכות</td><td><strong>‏Linux עם systemd</strong>. נבדק על <strong>Debian 12 / 11</strong>. צפוי לעבוד על <strong>Ubuntu 24.04 / 22.04 / 20.04</strong> ועל הפצות מרכזיות אחרות המספקות systemd + מנהל חבילות (‏apt/dnf וכדומה).<br>הערה: ‏macOS יכולה להריץ את אפליקציית Node עצמה, אך מדריך זה (‏systemd, ‏apt, ‏Caddy מבוסס-Docker) אינו מיועד לה. ‏Windows אינה נתמכת כשרת (השתמשו ב-Linux על WSL2).</td></tr>
+<tr><td>ארכיטקטורת מעבד</td><td><strong>‏x86_64 (amd64)</strong> / <strong>arm64 (aarch64)</strong> — בכל מקום שבו הבנייה המקורית של node-pty (או בינארי מוכן מראש) עובדת.</td></tr>
+<tr><td>Node.js</td><td><strong>‏v20 (LTS) ומעלה מומלץ</strong> (פותח ורץ על Node 20). מודולי ES ‏(<code>type:module</code>).</td></tr>
+<tr><td>פקודות נדרשות</td><td><code>node</code> / <code>npm</code>, <strong><code>tmux</code> (נדרש — הבסיס להתמשכות הטרמינל)</strong>, <code>bash</code>, <code>git</code>.</td></tr>
+<tr><td>כלי בנייה<br>(עבור node-pty)</td><td>במקום שבו אין בינארי מוכן מראש: <code>python3</code>, <code>make</code>, מהדר C++ ‏(במשפחת Debian, ‏<code>build-essential</code>). בדרך כלל אין בכך צורך על Linux נפוץ מסוג x86_64/arm64.</td></tr>
+<tr><td>hook למעקב אחר הפעלה<br>(אופציונלי)</td><td>רק אם אתם עוקבים אחר מצב ההפעלה במגדל הבקרה: <code>jq</code> ו-<code>curl</code> (בשימוש על ידי <code>ez-hook.sh</code>). אחרת אין בהם צורך.</td></tr>
+<tr><td>פרוקסי הפוך / TLS</td><td><strong>‏Caddy</strong> (‏Docker או עצמאי) מומלץ (תעודות אוטומטיות). גם nginx קיים וכדומה עובד. אין בכך צורך לבדיקה מקומית בלבד, אך אז ה-passkeys אינם זמינים (ראו להלן).</td></tr>
+<tr><td>Claude Code</td><td><strong>‏Claude Code CLI מותקן גלובלית ומאומת עם חשבון Pro / Max</strong> ‏(<code>~/.claude/.credentials.json</code>). <strong>נדרש</strong>, מכיוון ש-EZOS מריץ את <code>claude</code> באופן אינטראקטיבי.</td></tr>
+<tr><td>דומיין / DNS</td><td>שימוש ציבורי מצריך <strong>שם מארח + רשומת DNS מסוג A המפנה ל-IP של השרת</strong>. ‏Passkeys (‏WebAuthn) עובדים רק ב<strong>הקשר מאובטח (HTTPS)</strong>, ולכן לשימוש אמיתי מונח קיומו של שם מארח ציבורי עם TLS. ‏<code>localhost</code> מתאים לבדיקה מקומית.</td></tr>
+<tr><td>GitHub CLI (אופציונלי)</td><td><code>gh</code> (נוח לשכפול ולשילוב issues עתידי; גם <code>git</code> לבדו עובד).</td></tr>
+<tr><td>הנחיית משאבים</td><td>האפליקציה עצמה קלה, אך הרצת Claude Code ובנייה מצריכות <strong>1 GB+ RAM (2 GB+ מומלץ)</strong> וכמה מאות MB של שטח דיסק פנוי.</td></tr>
+<tr><td>רשת</td><td><strong>‏443/tcp</strong> לגישה ציבורית (‏Caddy). האפליקציה מאזינה ב-<code>127.0.0.1:&lt;port&gt;</code> (ברירת מחדל 3100). נדרשת גישה יוצאת ל-Claude / GitHub וכדומה.</td></tr>
+</table>
+
+<h3>צד הלקוח (הדפדפן)</h3>
+<table>
+<tr><th>פריט</th><th>דרישה</th></tr>
+<tr><td>דפדפן</td><td>דפדפן מודרני עם תמיכה ב-WebAuthn (‏passkey): <strong>Chrome / Edge / Safari / Firefox</strong>, בגרסה עדכנית סבירה. מחשב או נייד (‏iOS/Android).</td></tr>
+<tr><td>חיבור</td><td>אימות passkey ושימוש במיקרופון מצריכים <strong>HTTPS (הקשר מאובטח)</strong>.</td></tr>
+<tr><td>אחסון passkey</td><td>האימות הביומטרי של המכשיר, או <strong>מנהל passkey כגון 1Password</strong>.</td></tr>
+<tr><td>קלט קולי (אופציונלי)</td><td>דפדפן עם Web Speech API (בעיקר <strong>Chrome / Edge</strong>). כפתור המיקרופון מושבת במקום שבו אין תמיכה.</td></tr>
+</table>
+<div class="note">בקצרה, המחסנית המינימלית היא <strong>"‏Linux עם systemd + Node 20 + tmux + Claude Code (‏Pro/Max) + פרוקסי הפוך (‏TLS) + שם מארח ציבורי"</strong>. משלב 0 והלאה ממלאים את הערכים הקונקרטיים.</div>
 
 <h2 id="step0">שלב 0. החלטות שיש לקבל מראש</h2>
 <p>אלו ערכים התלויים בסביבה שלכם ולא ניתן להחליט עליהם אוטומטית. אין להמשיך עד שכולם מולאו (‏#3 ו-#6–#9 ניתן להשאיר בברירת המחדל).</p>
