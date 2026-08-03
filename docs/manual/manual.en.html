@@ -341,16 +341,16 @@ EZOS — passkey-protected web cockpit for Claude Code. This manual is included 
 (function(){
   var embedded; try { embedded = window.parent && window.parent !== window; } catch(e){ embedded = true; }
   var inApp = /\/manual$/.test(location.pathname);
-  var cur = (document.documentElement.lang === 'en') ? 'en' : 'ja';
+  var cur = document.documentElement.lang; if (['ja','en','he'].indexOf(cur) < 0) cur = 'ja';
   function a(l){
     var on = (l === cur) ? ' class="on"' : '';
-    var label = (l === 'ja') ? '日本語' : 'English';
+    var label = (l === 'ja') ? '日本語' : (l === 'he') ? 'עברית' : 'English';
     if (embedded) return '<a'+on+' href="#" data-lang="'+l+'">'+label+'</a>';
     var href = inApp ? ('?lang='+l) : ('manual.'+l+'.html');
     return '<a'+on+' href="'+href+'">'+label+'</a>';
   }
   var sw = document.getElementById('langsw');
-  if (sw) sw.innerHTML = a('ja') + a('en');
+  if (sw) sw.innerHTML = a('ja') + a('en') + a('he');
   if (embedded) {
     if (sw) sw.addEventListener('click', function(e){
       var el = e.target.closest ? e.target.closest('a[data-lang]') : null;

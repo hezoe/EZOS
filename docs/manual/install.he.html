@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>מדריך התקנה של EZOS</title>
+<style>
+  :root{--bg:#f7f8fb;--ink:#1c2029;--muted:#5c6577;--line:#e2e6ee;--card:#fff;--accent:#4c8dff;--accent2:#D97757;--code:#eef1f7;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans JP",Meiryo,sans-serif;line-height:1.75;}
+  .wrap{max-width:960px;margin:0 auto;padding:0 20px 100px;}
+  header.top{position:sticky;top:0;background:rgba(247,248,251,.92);backdrop-filter:blur(6px);border-bottom:1px solid var(--line);padding:14px 20px;display:flex;align-items:center;gap:14px;z-index:10;}
+  header.top h1{font-size:18px;margin:0;flex:1;}
+  header.top .brand{color:var(--accent2);font-weight:700;}
+  .langsw a{font-size:13px;color:var(--muted);text-decoration:none;border:1px solid var(--line);padding:4px 10px;border-radius:20px;margin-left:6px;background:var(--card);}
+  .langsw a.on{color:#fff;background:var(--accent);border-color:var(--accent);}
+  h2{font-size:22px;margin:44px 0 12px;padding-top:12px;border-top:2px solid var(--line);}
+  h3{font-size:17px;margin:26px 0 8px;color:#2a3143;}
+  p,li{color:#28303f;}
+  code{background:var(--code);padding:2px 6px;border-radius:5px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.9em;}
+  pre{background:#0f1420;color:#e6e9f0;padding:14px 16px;border-radius:10px;overflow:auto;font-size:12.5px;line-height:1.6;}
+  pre code{background:none;padding:0;color:inherit;}
+  .lead{font-size:17px;color:var(--muted);}
+  .toc{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 22px;margin:22px 0;}
+  .toc ol{margin:6px 0;padding-left:22px;}
+  .toc a{color:var(--accent);text-decoration:none;}
+  table{border-collapse:collapse;width:100%;margin:14px 0;font-size:14px;}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top;}
+  th{background:#eef2fa;}
+  .note{border-left:4px solid var(--accent);background:#eff4ff;padding:10px 16px;border-radius:0 10px 10px 0;margin:14px 0;}
+  .warn{border-left:4px solid var(--accent2);background:#fdf1ec;padding:10px 16px;border-radius:0 10px 10px 0;margin:14px 0;}
+  .diagram{overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin:18px 0;}
+  footer{color:var(--muted);font-size:13px;border-top:1px solid var(--line);margin-top:60px;padding-top:20px;}
+  a{color:var(--accent);}
+  code, pre { direction: ltr; text-align: left; unicode-bidi: embed; } .diagram svg { direction: ltr; }
+</style>
+</head>
+<body>
+<header class="top">
+  <h1><span class="brand">EZOS</span> מדריך התקנה</h1>
+  <span class="langsw" id="langsw"></span>
+</header>
+<div class="wrap">
+
+<p class="lead">זהו מדריך שלב-אחר-שלב לפריסת EZOS על שרת חדש (VPS) ולהנגשתו בדומיין ציבורי. כל אחד יכול לבנות סביבה משלו ישירות מ-GitHub.</p>
+<div class="note">מדריך זה נכתב מתוך הנחה ש<strong>Claude Code יבצע את העבודה</strong>. המפעיל פשוט מתחבר לשרת דרך SSH, מתקין ומאמת את Claude Code, ואז מנחה אותו: "התקן את המאגר הזה (<a href="https://github.com/hezoe/EZOS">github.com/hezoe/EZOS</a>)." לאחר מכן Claude קורא את המסמך הזה ומבצע את ההתקנה באופן אינטראקטיבי. אם אתם מעדיפים לבצע זאת ידנית, אותם השלבים חלים.</div>
+
+<div class="toc">
+<strong>תוכן העניינים</strong>
+<ol>
+  <li><a href="#overview">סקירת ארכיטקטורה</a></li>
+  <li><a href="#step0">שלב 0. החלטות שיש לקבל מראש</a></li>
+  <li><a href="#step1">שלב 1. פקודות דרישות מוקדמות</a></li>
+  <li><a href="#step2">שלב 2. בדיקת תשתית (Caddy)</a></li>
+  <li><a href="#step3">שלב 3. שכפול המאגר</a></li>
+  <li><a href="#step4">שלב 4. תלויות והתקנה ראשונית</a></li>
+  <li><a href="#step5">שלב 5. הרצה כשירות systemd</a></li>
+  <li><a href="#step6">שלב 6. תצורה ציבורית של Caddy</a></li>
+  <li><a href="#step7">שלב 7. hooks למעקב אחר הפעלה (אופציונלי)</a></li>
+  <li><a href="#step8">שלב 8. אימות ורישום ה-passkey הראשון</a></li>
+  <li><a href="#trouble">פתרון תקלות</a></li>
+</ol>
+</div>
+
+<h2 id="overview">סקירת ארכיטקטורה</h2>
+<p>כל התקנה מורכבת מ<strong>אפליקציית Node יחידה + שירות systemd + הגדרת אתר של Caddy</strong>.</p>
+<div class="diagram">
+<svg viewBox="0 0 860 210" width="860" role="img" aria-label="EZOS deployment architecture" xmlns="http://www.w3.org/2000/svg" style="max-width:100%;height:auto;font-family:sans-serif;">
+  <defs><marker id="ar2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#5c6577"/></marker></defs>
+  <rect x="15" y="70" width="140" height="64" rx="10" fill="#fff" stroke="#c9d0de" stroke-width="1.5"/>
+  <text x="85" y="98" text-anchor="middle" font-size="13" font-weight="600">דפדפן</text>
+  <text x="85" y="116" text-anchor="middle" font-size="11" fill="#5c6577">מחשב / נייד</text>
+  <rect x="235" y="60" width="160" height="84" rx="10" fill="#fff" stroke="#c9d0de" stroke-width="1.5"/>
+  <text x="315" y="90" text-anchor="middle" font-size="13" font-weight="600">Caddy</text>
+  <text x="315" y="108" text-anchor="middle" font-size="11" fill="#5c6577">TLS אוטומטי</text>
+  <text x="315" y="123" text-anchor="middle" font-size="11" fill="#5c6577">פרוקסי הפוך</text>
+  <rect x="475" y="60" width="170" height="84" rx="10" fill="#fff" stroke="#c9d0de" stroke-width="1.5"/>
+  <text x="560" y="90" text-anchor="middle" font-size="13" font-weight="600">EZOS Node</text>
+  <text x="560" y="108" text-anchor="middle" font-size="11" fill="#5c6577">systemd: ezos</text>
+  <text x="560" y="123" text-anchor="middle" font-size="11" fill="#5c6577">127.0.0.1:PORT</text>
+  <rect x="710" y="60" width="135" height="84" rx="10" fill="#fff" stroke="#c9d0de" stroke-width="1.5"/>
+  <text x="777" y="90" text-anchor="middle" font-size="13" font-weight="600">tmux</text>
+  <text x="777" y="108" text-anchor="middle" font-size="11" fill="#5c6577">+ claude CLI</text>
+  <text x="777" y="123" text-anchor="middle" font-size="11" fill="#5c6577">הפעלה מתמשכת</text>
+  <path d="M155,102 L232,102" stroke="#5c6577" stroke-width="1.6" fill="none" marker-end="url(#ar2)"/>
+  <text x="160" y="94" font-size="10" fill="#41506b">HTTPS/WSS</text>
+  <path d="M395,102 L472,102" stroke="#5c6577" stroke-width="1.6" fill="none" marker-end="url(#ar2)"/>
+  <text x="398" y="94" font-size="10" fill="#41506b">localhost</text>
+  <path d="M645,102 L707,102" stroke="#5c6577" stroke-width="1.6" fill="none" marker-end="url(#ar2)"/>
+</svg>
+</div>
+<p>הדפדפן מתחבר דרך Caddy (סיום TLS ופרוקסי הפוך) אל אפליקציית Node המאזינה ב-localhost. הטרמינל מגושר לפסאודו-טרמינל באמצעות node-pty ‏+ tmux, ובתוכו <code>claude</code> רץ באופן אינטראקטיבי.</p>
+
+<h2 id="step0">שלב 0. החלטות שיש לקבל מראש</h2>
+<p>אלו ערכים התלויים בסביבה שלכם ולא ניתן להחליט עליהם אוטומטית. אין להמשיך עד שכולם מולאו (‏#3 ו-#6–#9 ניתן להשאיר בברירת המחדל).</p>
+<table>
+<tr><th>#</th><th>פריט</th><th>דוגמה / ברירת מחדל</th><th>מטרה</th></tr>
+<tr><td>1</td><td>IP גלובלי של השרת</td><td><code>160.16.105.64</code></td><td>כדי לוודא ש-DNS מפנה לכאן</td></tr>
+<tr><td>2</td><td>שם מארח ציבורי (URL)</td><td><code>https://ezos.ezoe.net</code></td><td>שם אתר Caddy / origin של WebAuthn</td></tr>
+<tr><td>3</td><td>rpID של WebAuthn (דומיין אב)</td><td><code>ezoe.net</code></td><td>היקף ה-passkey</td></tr>
+<tr><td>4</td><td>האם DNS מוגדר?</td><td>הושלם / להשלמה</td><td>אם לא, הפנו רשומת A ל-IP שב-#1</td></tr>
+<tr><td>5</td><td>מכשיר לרישום ה-passkey הראשון</td><td>מחשב נייד של המפעיל (Chrome)</td><td>רשמו מהדפדפן של אותו מכשיר</td></tr>
+<tr><td>6</td><td>שם שירות systemd</td><td><code>ezos</code></td><td>ברירת המחדל תקינה</td></tr>
+<tr><td>7</td><td>פורט האזנה ב-localhost</td><td><code>3100</code></td><td>ברירת המחדל תקינה</td></tr>
+<tr><td>8</td><td>ספריית התקנה</td><td><code>/home/debian/EZOS</code></td><td>היכן שהמאגר ממוקם</td></tr>
+<tr><td>9</td><td>משתמש להרצה</td><td><code>debian</code></td><td>‏User= של systemd וכדומה</td></tr>
+</table>
+<p>הפקודות שלהלן מחליפות את מחזיקי המקום באופן הבא.</p>
+<pre><code>HOST=ezos.ezoe.net            # #2 hostname (no scheme)
+ORIGIN=https://ezos.ezoe.net  # #2 URL
+RPID=ezoe.net                 # #3
+PORT=3100                     # #7
+SERVICE=ezos                  # #6
+APPDIR=/home/debian/EZOS      # #8 (app/ lives directly under this)
+USER_=debian                  # #9</code></pre>
+
+<h2 id="step1">שלב 1. פקודות דרישות מוקדמות</h2>
+<pre><code>for c in git gh node npm jq tmux curl; do
+  printf '%-6s ' "$c"; command -v "$c" || echo 'MISSING'
+done
+node -v   # v20 ומעלה מומלץ</code></pre>
+<ul>
+  <li>אם משהו חסר: <code>sudo apt-get update &amp;&amp; sudo apt-get install -y jq tmux curl</code></li>
+  <li>אם Node מיושן או חסר, התקינו את סדרת Node 20.</li>
+  <li>בדקו את אימות GitHub באמצעות <code>gh auth status</code> (הריצו <code>gh auth login</code> אם לא מאומת).</li>
+  <li>התקינו את Claude Code גלובלית ואמתו עם חשבון Pro/Max (‏<code>~/.claude/.credentials.json</code>).</li>
+</ul>
+
+<h2 id="step2">שלב 2. בדיקת תשתית (Caddy / פרוקסי הפוך)</h2>
+<p>החליטו על סיום TLS ופרוקסי הפוך בסדר הבא: "תחילה בדקו אם קיים אחד ← השתמשו בו אם כן, אחרת הציעו גישה."</p>
+<pre><code>command -v docker &amp;&amp; docker ps --format '{{.Names}}' | grep -i caddy   # e.g. saas-caddy
+ls -d /home/debian/saas/caddy/sites 2>/dev/null                        # site-definitions directory</code></pre>
+<ul>
+  <li><strong>אם Caddy מבוסס-Docker פועל</strong>: ניתן לפרסם רק על ידי הוספת קובץ <code>sites/*.caddy</code> יחיד ← עברו לשלב 6.</li>
+  <li><strong>אם אין Caddy / קיים פרוקסי אחר</strong>: אם קיים nginx (או דומה), פעלו לפי המוסכמות שלו כדי להעביר <code>&lt;host&gt;</code> אל <code>127.0.0.1:&lt;port&gt;</code> והגדירו TLS. אם אין פרוקסי כלל, סכמו על גישת התקנה עם המפעיל לפני שתמשיכו (אל תתפסו את פורט 443 בעצמכם).</li>
+</ul>
+
+<h2 id="step3">שלב 3. שכפול המאגר</h2>
+<pre><code>gh repo clone hezoe/EZOS "$APPDIR"    # or: git clone https://github.com/hezoe/EZOS.git "$APPDIR"
+cd "$APPDIR/app"</code></pre>
+
+<h2 id="step4">שלב 4. התקנת תלויות והתקנה ראשונית (יצירת config.json)</h2>
+<p><code>setup.js</code> לוקח את ערכיו ממשתני סביבה (יש להעביר <code>ORIGIN</code>, ‏<code>RPID</code> ו-<code>PORT</code>). ‏<code>data/config.json</code> מכוסה על ידי <code>.gitignore</code>, כלומר זוהי תצורת ריצה ייחודית לכל התקנה.</p>
+<pre><code>cd "$APPDIR/app"
+npm install --omit=dev
+
+EZOS_ORIGIN="$ORIGIN" EZOS_RPID="$RPID" EZOS_PORT="$PORT" \
+  node setup.js
+# => creates data/config.json</code></pre>
+<div class="warn">מטעמי אבטחה, רישום passkey אינו מתקבל בכל עת. רק עבור הרישום הראשוני, הריצו <code>node bin/open-register.js</code> על השרת ורשמו באמצעות <strong>מפתח הרישום החד-פעמי</strong> שהיא מציגה (נפתח למשך 15 דקות בלבד; מבוטל אוטומטית עם רישום מוצלח). ממכשיר שכבר מחובר ניתן להוסיף passkeys ללא פתיחת נעילה, דרך <a href="manual.he.html#settings">הגדרות ← ניהול מכשירי passkey</a>.</div>
+
+<h2 id="step5">שלב 5. הרצה כשירות systemd (הפעלה אוטומטית, הפעלה מחדש אוטומטית)</h2>
+<p><code>KillMode=process</code> עוצר רק את node, כך שה-tmux (הטרמינל המתמשך) שנוצר על ידי node-pty נשאר פעיל בין הפעלות מחדש. כדי שבקשות מ-Caddy מבוסס-Docker יגיעו דרך <code>host.docker.internal</code>, ‏EZOS מאזין גם ל-docker0 ‏(172.17.0.1), ולכן נוסף <code>After=docker.service</code>.</p>
+<pre><code>sudo tee /etc/systemd/system/${SERVICE}.service >/dev/null &lt;&lt;UNIT
+[Unit]
+Description=EZOS (${HOST}) - Claude web cockpit
+After=network-online.target docker.service
+Wants=network-online.target docker.service
+
+[Service]
+Type=simple
+User=${USER_}
+WorkingDirectory=${APPDIR}/app
+ExecStart=/usr/bin/node server.js
+Restart=always
+RestartSec=3
+KillMode=process
+Environment=NODE_ENV=production
+Environment=HOME=/home/${USER_}
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now ${SERVICE}
+systemctl is-active ${SERVICE}          # => active
+ss -tlnp | grep ":${PORT}"              # => node listening on 127.0.0.1:&lt;port&gt;</code></pre>
+
+<h2 id="step6">שלב 6. הגדרת אתר של Caddy (פרסום)</h2>
+<pre><code>cat > /home/${USER_}/saas/caddy/sites/${SERVICE}.caddy &lt;&lt;CADDY
+${HOST} {
+  header {
+    Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    X-Content-Type-Options "nosniff"
+    X-Frame-Options "DENY"
+    Referrer-Policy "strict-origin-when-cross-origin"
+    Permissions-Policy "geolocation=(), microphone=(self), camera=()"
+    -Server
+  }
+  encode zstd gzip
+  reverse_proxy host.docker.internal:${PORT} {
+    flush_interval -1
+  }
+}
+CADDY
+
+docker exec saas-caddy caddy validate --config /etc/caddy/Caddyfile
+docker exec saas-caddy caddy reload   --config /etc/caddy/Caddyfile</code></pre>
+<ul>
+  <li><code>flush_interval -1</code> מזרים SSE/streaming (פלט של Claude) ללא באפרינג.</li>
+  <li><code>microphone=(self)</code> ב-<code>Permissions-Policy</code> מיועד לקלט קולי (‏Web Speech API).</li>
+  <li>לאחר ה-reload, ‏Caddy משיג אוטומטית תעודת Let's Encrypt עבור <code>${HOST}</code> (זה מניח שה-DNS מ-#4 מפנה ל-IP שב-#1).</li>
+</ul>
+
+<h2 id="step7">שלב 7. hooks למעקב אחר הפעלה (אופציונלי, מומלץ)</h2>
+<p>אם ברצונכם לעקוב אחר מצב ההפעלה של Claude (ממתין לאישור, עובד וכדומה), קראו ל-<code>${APPDIR}/app/bin/ez-hook.sh &lt;state&gt;</code> מכל hook ב-<code>~/.claude/settings.json</code>. הסקריפט משיג את פורט היעד אוטומטית מ-<code>data/config.json</code> (‏localhost בלבד, ללא צורך באימות).</p>
+
+<h2 id="step8">שלב 8. אימות ורישום ה-passkey הראשון</h2>
+<pre><code>getent hosts "$HOST"                                                   # => &lt;IP&gt; $HOST
+curl -sS -o /dev/null -w "%{http_code} ssl=%{ssl_verify_result}\n" "$ORIGIN/"   # => 200 ssl=0</code></pre>
+<p>אם קיבלתם <code>200 ssl=0</code>, הפרסום הצליח. כעת רשמו את ה-passkey הראשון.</p>
+<ol>
+  <li>על השרת, הריצו <code>cd "$APPDIR/app" &amp;&amp; node bin/open-register.js</code> (פתיחת רישום ל-15 דקות + הצגת מפתח חד-פעמי).</li>
+  <li>בדפדפן של המכשיר שנבחר בשלב 0 ‏#5, פתחו את <code>${ORIGIN}</code>.</li>
+  <li>במסך ההתחברות, תחת "הוסף passkey למכשיר חדש," הזינו את המפתח החד-פעמי המוצג ושם מכשיר כדי לרשום.</li>
+</ol>
+
+<h2 id="trouble">פתרון תקלות</h2>
+<table>
+<tr><th>תסמין</th><th>מה לבדוק</th></tr>
+<tr><td><code>curl</code> מחזיר 502/522</td><td><code>systemctl is-active ${SERVICE}</code> ו-<code>ss -tlnp | grep :${PORT}</code>. ‏<code>journalctl -u ${SERVICE} -e</code></td></tr>
+<tr><td>לא מונפקת תעודה</td><td>האם <code>getent hosts ${HOST}</code> מחזיר את ה-IP של השרת (‏DNS עדיין לא התפשט). ‏<code>docker logs saas-caddy</code></td></tr>
+<tr><td>לא ניתן לרשום passkey</td><td>האם <code>origin</code> ב-<code>config.json</code> תואם בדיוק לכתובת הגישה, והאם <code>rpID</code> הוא דומיין האב של המארח. האם חלון הרישום פתוח (‏<code>node bin/open-register.js</code>)</td></tr>
+<tr><td>לא מאזין לאחר הפעלה מחדש / <code>EADDRNOTAVAIL</code></td><td>‏EZOS עלה לפני Docker ו-docker0 עדיין לא נוצר. בדקו <code>After=/Wants=docker.service</code> ביחידה. ‏server.js מנסה שוב אוטומטית (‏<code>retrying in 3s</code> ב-<code>journalctl</code>)</td></tr>
+</table>
+
+<footer>
+EZOS — web cockpit מוגן-passkey עבור Claude Code. מסמך זה כלול במאגר תחת <code>docs/manual/</code> וניתן לצפייה עצמאית לאחר השכפול. לשימוש, ראו את <a href="manual.he.html">מדריך המשתמש</a>.
+</footer>
+</div>
+<script>(function(){document.getElementById('langsw').innerHTML='<a href="install.ja.html">日本語</a><a href="install.en.html">English</a><a class="on" href="install.he.html">עברית</a>';})();</script>
+</body>
+</html>

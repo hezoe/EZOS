@@ -177,13 +177,16 @@ function isMobileUA(ua) {
   return /iPhone|iPod|Windows Phone|webOS|BlackBerry|Android.+Mobile/i.test(ua || '');
 }
 
-// 表示言語 ('ja' | 'en')。ezlang cookie(設定ビュー/メニューで保存)由来、既定は ja
+// 表示言語 ('ja' | 'en' | 'he')。ezlang cookie(設定ビュー/メニューで保存)由来、既定は ja
 function langMode(req) {
-  const m = /(?:^|;\s*)ezlang=(ja|en)/.exec(req.headers.cookie || '');
+  const m = /(?:^|;\s*)ezlang=(ja|en|he)/.exec(req.headers.cookie || '');
   return m ? m[1] : 'ja';
 }
-// リクエスト言語に応じてサーバー側メッセージ(主に認証フローのエラー)を出し分ける
-function L(req, ja, en) { return langMode(req) === 'en' ? en : ja; }
+// ヘブライ語など右横書き(RTL)言語かどうか
+function isRTL(lang) { return lang === 'he'; }
+// リクエスト言語に応じてサーバー側メッセージ(主に認証フローのエラー)を出し分ける。
+// he(ヘブライ語)を含む非日本語は英語にフォールバックする。
+function L(req, ja, en) { return langMode(req) === 'ja' ? ja : en; }
 
 // UA判定 + クッキー/クエリによる表示モード ('mobile' | 'desktop')
 function viewMode(req, res, url) {
@@ -251,7 +254,8 @@ const server = http.createServer(async (req, res) => {
     // (GitHub からクローンした場合は同ファイルを file:// で単体閲覧できる)。
     if (p === '/manual' && req.method === 'GET') {
       if (!isAuthed(req)) { res.writeHead(302, { Location: '/' }).end(); return; }
-      const l = url.searchParams.get('lang') === 'en' ? 'en' : 'ja';
+      const ql = url.searchParams.get('lang');
+      const l = (ql === 'en' || ql === 'he') ? ql : 'ja';
       // ROOT は app/ ディレクトリ。マニュアルはリポジトリ直下の docs/manual にあるため親を辿る。
       const manualDir = path.join(ROOT, '..', 'docs', 'manual');
       const file = path.join(manualDir, `manual.${l}.html`);
@@ -993,7 +997,7 @@ function renderPage({ authed, view, lang, hasCreds }) {
 
 
   return `<!DOCTYPE html>
-<html lang="${esc(lang)}">
+<html lang="${esc(lang)}"${isRTL(lang) ? ' dir="rtl"' : ''}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">

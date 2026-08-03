@@ -58,6 +58,7 @@
       ['↩︎', t('common.cancel'), () => renderMenu(buildRoot())],
       [lang() === 'ja' ? '●' : '○', t('settings.langJa'), () => window.EZ.setLang('ja')],
       [lang() === 'en' ? '●' : '○', t('settings.langEn'), () => window.EZ.setLang('en')],
+      [lang() === 'he' ? '●' : '○', t('settings.langHe'), () => window.EZ.setLang('he')],
     ]);
   }
   function openMenu() {
@@ -131,7 +132,7 @@
     // ここで srcdoc を差し替える(新しいタブでの表示は ⤢ から)。
     let curLang = lang();
     function load(lg) {
-      curLang = (lg === 'en') ? 'en' : 'ja';
+      curLang = (lg === 'en' || lg === 'he') ? lg : 'ja';
       openTab.href = `/manual?lang=${curLang}`;
       fetch(`/manual?lang=${curLang}`, { credentials: 'same-origin' })
         .then((r) => (r.ok ? r.text() : Promise.reject(new Error('http ' + r.status))))
@@ -179,6 +180,7 @@
     const secLang = section('settings.language');
     secLang.appendChild(radioRow('lang', 'ja', lang(), t('settings.langJa'), (v) => window.EZ.setLang(v)));
     secLang.appendChild(radioRow('lang', 'en', lang(), t('settings.langEn'), (v) => window.EZ.setLang(v)));
+    secLang.appendChild(radioRow('lang', 'he', lang(), t('settings.langHe'), (v) => window.EZ.setLang(v)));
     cont.appendChild(secLang);
 
     /* 表示モード */

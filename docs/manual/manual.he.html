@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>מדריך למשתמש של EZOS</title>
+<style>
+  :root{--bg:#f7f8fb;--ink:#1c2029;--muted:#5c6577;--line:#e2e6ee;--card:#fff;--accent:#4c8dff;--accent2:#D97757;--code:#eef1f7;}
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Hiragino Kaku Gothic ProN","Noto Sans JP",Meiryo,sans-serif;line-height:1.75;}
+  .wrap{max-width:960px;margin:0 auto;padding:0 20px 100px;}
+  header.top{position:sticky;top:0;background:rgba(247,248,251,.92);backdrop-filter:blur(6px);border-bottom:1px solid var(--line);padding:14px 20px;display:flex;align-items:center;gap:14px;z-index:10;}
+  header.top h1{font-size:18px;margin:0;flex:1;}
+  header.top .brand{color:var(--accent2);font-weight:700;}
+  .langsw a{font-size:13px;color:var(--muted);text-decoration:none;border:1px solid var(--line);padding:4px 10px;border-radius:20px;margin-left:6px;background:var(--card);}
+  .langsw a.on{color:#fff;background:var(--accent);border-color:var(--accent);}
+  h2{font-size:24px;margin:48px 0 12px;padding-top:12px;border-top:2px solid var(--line);}
+  h3{font-size:18px;margin:30px 0 8px;color:#2a3143;}
+  h4{font-size:15px;margin:20px 0 4px;color:var(--accent2);}
+  p,li{color:#28303f;}
+  code{background:var(--code);padding:2px 6px;border-radius:5px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.9em;}
+  pre{background:#0f1420;color:#e6e9f0;padding:14px 16px;border-radius:10px;overflow:auto;font-size:13px;line-height:1.6;}
+  pre code{background:none;padding:0;color:inherit;}
+  .lead{font-size:17px;color:var(--muted);}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 22px;margin:18px 0;}
+  .toc{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 22px;margin:22px 0;}
+  .toc ol{margin:6px 0;padding-left:22px;}
+  .toc a{color:var(--accent);text-decoration:none;}
+  .toc a:hover{text-decoration:underline;}
+  table{border-collapse:collapse;width:100%;margin:14px 0;font-size:14px;}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top;}
+  th{background:#eef2fa;}
+  .key{display:inline-block;background:#fff;border:1px solid #c9d0de;border-bottom-width:2px;border-radius:6px;padding:1px 7px;font-size:.85em;font-family:ui-monospace,monospace;}
+  .tag{display:inline-block;font-size:12px;padding:1px 8px;border-radius:20px;background:#eef2fa;color:#41506b;margin-right:4px;}
+  .diagram{overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin:18px 0;}
+  .note{border-left:4px solid var(--accent);background:#eff4ff;padding:10px 16px;border-radius:0 10px 10px 0;margin:14px 0;}
+  .why{border-left:4px solid var(--accent2);background:#fdf1ec;padding:12px 18px;border-radius:0 10px 10px 0;margin:14px 0;}
+  footer{color:var(--muted);font-size:13px;border-top:1px solid var(--line);margin-top:60px;padding-top:20px;}
+  a{color:var(--accent);}
+  .emoji{font-style:normal}
+  code, pre { direction: ltr; text-align: left; unicode-bidi: embed; } .diagram svg { direction: ltr; }
+</style>
+</head>
+<body>
+<header class="top">
+  <h1><span class="brand">EZOS</span> מדריך למשתמש</h1>
+  <span class="langsw" id="langsw"></span>
+</header>
+<div class="wrap">
+
+<p class="lead">EZOS הוא <strong>תא הטייס האישי שלכם להפקת המרב מ-Claude Code דרך הדפדפן</strong>. בעזרת אימות באמצעות passkey, אתם יכולים להריץ את <code>claude</code> באופן אינטראקטיבי על ה-VPS שלכם מכל דפדפן בכל מכשיר — בין אם על מחשב ובין אם על נייד.</p>
+
+<div class="toc">
+<strong>תוכן העניינים</strong>
+<ol>
+  <li><a href="#why">למה אתם צריכים את EZOS</a></li>
+  <li><a href="#usecase">דוגמה מהעולם האמיתי: אתר שנבנה על ידי AI בדומיין אחר</a></li>
+  <li><a href="#arch">ארכיטקטורת המערכת</a></li>
+  <li><a href="#login">התחברות ו-passkeys</a></li>
+  <li><a href="#header">המסך והכותרת</a></li>
+  <li><a href="#menu">תפריט המבורגר</a></li>
+  <li><a href="#terminal">EZterminal (טרמינל)</a></li>
+  <li><a href="#browser">EZbrowser (ניהול קבצים)</a></li>
+  <li><a href="#editor">EZeditor (עורך)</a></li>
+  <li><a href="#settings">הגדרות</a></li>
+  <li><a href="#install">סקירת התקנה</a></li>
+</ol>
+</div>
+
+<h2 id="why">1. למה אתם צריכים את EZOS</h2>
+
+<p>EZOS נולד מתוך רצון פשוט: לבנות סביבה שמנצלת באמת את מלוא הפוטנציאל של Claude Code. הוא קיים כדי לפרוץ כמה חומות שאי אפשר לעבור פשוט על ידי הרצת <code>claude</code> בטרמינל רגיל.</p>
+
+<div class="why">
+<h4>1. הרצת כמה מופעי Claude במקביל בלי להיתקע</h4>
+<p>כשאתם מפעילים את Claude על פני כמה פרויקטים <strong>במקביל</strong>, ייתכן שאחד התהליכים יתקע בשקט <strong>בהמתנה לאישור (החלטה ממתינה)</strong> — ושואל "האם מותר לבצע את הפעולה הזו?" — ואם לא תשימו לב, כל תהליך העבודה נעצר. EZOS <strong>מתריע לכם מיד</strong> על בקשת אישור מכל תהליך Claude, ומאפשר לכם להגיב בלחיצה אחת, כך שהחלטה ממתינה לעולם לא תשאיר אתכם תקועים. בנוסף, מתנגן צליל התראה (כגון צליל שבירת המגבלה) כשמשהו ממתין לאישור.</p>
+</div>
+
+<div class="why">
+<h4>2. רץ על השרת / בדקו זאת מהנייד, גם כשאתם בדרכים</h4>
+<p>מכיוון שהוא מבוסס דפדפן, <strong>כל התהליכים רצים על ה-VPS (השרת)</strong>. סגרו את המחשב המקומי, והעבודה ממשיכה. ואתם יכולים לבדוק את הסטטוס ולענות על בקשות אישור <strong>מהנייד בזמן שאתם בחוץ</strong>. מכיוון ש-tmux שומר על ההפעלות חיות, אתם יכולים להמשיך עבודה שהתחלתם על המחשב בדיוק מהמקום שבו הפסקתם, על אותו המסך בנייד.</p>
+</div>
+
+<div class="why">
+<h4>3. חלונית קלט שמתקנת את אי-ההתאמה בין ה-IME לקונסולה המרוחקת</h4>
+<p>בעת הקלדה בשפות שמשתמשות ב-IME (כגון יפנית), חיבור איטי גורם ל<strong>המרת ה-IME ולקונסולה המרוחקת לצאת מסנכרון</strong>, מה שהופך את הקלט למתסכל להחריד. EZOS מעניק לכל טרמינל <strong>חלונית קלט ייעודית</strong> כך שתוכלו להרכיב טקסט מקומית ולשלוח רק את התווים הסופיים בבת אחת, מה שמקל על כאב הקלט הזה (<a href="#terminal">מתג הקלט</a>).</p>
+</div>
+
+<div class="why">
+<h4>4. EZbrowser, שנוסף כדי להזיז קבצים</h4>
+<p>בנוסף ל<strong>EZeditor</strong> לעריכת קבצים, הוספנו את <strong>EZbrowser</strong> (מנהל קבצים מובנה) כדי להזיז קבצים — העלאה, הורדה, העתקה, מחיקה וכן הלאה. הוא מאפשר לכם לעבוד עם קבצי השרת כולם בתוך הדפדפן.</p>
+</div>
+
+<h2 id="usecase">2. דוגמה מהעולם האמיתי: אירוח אתר בדומיין אחר על אותו שרת, שנבנה על ידי AI</h2>
+<p>העוצמה האמיתית של EZOS אינה רק בשיחה עם Claude. היא מתגלה במיטבה בתבנית כמו זו: <strong>על אותו VPS, לבנות ולתפעל אתר אינטרנט נפרד לחלוטין בדומיין אחר בעזרת AI (Claude Code), ולפרסם אותו דרך אותו פרוקסי הפוך (Caddy).</strong></p>
+
+<h3>איך זה עובד: שרת אחד, ו-Caddy מנתב מספר דומיינים</h3>
+<p>Caddy יכול להחזיק הגדרת אתר לכל דומיין. כל דומיין פשוט מבצע פרוקסי הפוך לאפליקציה שרצה על פורט localhost משלה, כך שכמה אתרים יכולים לחיות זה לצד זה על מכונה אחת.</p>
+<div class="diagram">
+<svg viewBox="0 0 820 250" width="820" role="img" aria-label="שרת אחד, Caddy מנתב מספר דומיינים" xmlns="http://www.w3.org/2000/svg" style="max-width:100%;height:auto;font-family:sans-serif;">
+  <defs><marker id="ar3" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#5c6577"/></marker></defs>
+  <rect x="15" y="95" width="130" height="60" rx="10" fill="#fff" stroke="#c9d0de" stroke-width="1.5"/>
+  <text x="80" y="121" text-anchor="middle" font-size="13" font-weight="600">דפדפן</text>
+  <text x="80" y="139" text-anchor="middle" font-size="11" fill="#5c6577">מחשב / נייד</text>
+  <rect x="215" y="90" width="150" height="70" rx="10" fill="#fff" stroke="#c9d0de" stroke-width="1.5"/>
+  <text x="290" y="118" text-anchor="middle" font-size="13" font-weight="600">Caddy</text>
+  <text x="290" y="136" text-anchor="middle" font-size="11" fill="#5c6577">TLS / פרוקסי הפוך</text>
+  <rect x="470" y="30" width="330" height="80" rx="10" fill="#fff" stroke="#c9d0de" stroke-width="1.5"/>
+  <text x="490" y="58" font-size="12.5" font-weight="600">EZOS</text>
+  <text x="490" y="76" font-size="11" fill="#5c6577">ezos.ezoe.net</text>
+  <text x="490" y="92" font-size="11" fill="#5c6577">תא טייס Node &#8226; 127.0.0.1:3101</text>
+  <rect x="470" y="140" width="330" height="86" rx="10" fill="#fff" stroke="#c9d0de" stroke-width="1.5"/>
+  <text x="490" y="168" font-size="12.5" font-weight="600">אתר Takikawa Airplane</text>
+  <text x="490" y="186" font-size="11" fill="#5c6577">www.takikawa-airplane.jp</text>
+  <text x="490" y="202" font-size="11" fill="#5c6577">Next.js &#8226; 127.0.0.1:PORT</text>
+  <text x="490" y="218" font-size="11" fill="#5c6577">(+ staging www2, פורט אחר)</text>
+  <path d="M145,125 L212,125" stroke="#5c6577" stroke-width="1.6" fill="none" marker-end="url(#ar3)"/>
+  <path d="M365,118 L468,80" stroke="#5c6577" stroke-width="1.6" fill="none" marker-end="url(#ar3)"/>
+  <path d="M365,132 L468,175" stroke="#5c6577" stroke-width="1.6" fill="none" marker-end="url(#ar3)"/>
+</svg>
+</div>
+<ul>
+  <li><code>ezos.ezoe.net</code> ← EZOS (תא הטייס הזה)</li>
+  <li><code>www.takikawa-airplane.jp</code> ← אתר אינטרנט אחר (אפליקציה נפרדת על פורט נפרד)</li>
+</ul>
+<p>אתם מריצים את Claude Code מה-EZterminal של EZOS כדי לכתוב את הקוד של אותו אתר אחר, עורכים קבצים ישירות ב-<a href="#browser">EZbrowser</a> / <a href="#editor">EZeditor</a>, ובונים ופורסים אותו על אותו השרת. מכיוון שהוא מבוסס דפדפן, <strong>אתם יכולים לומר ל-Claude "תקן את החלק הזה באתר" מהנייד, אפילו בזמן נסיעה.</strong></p>
+
+<h3>הדוגמה: האתר התאגידי של Takikawa-Airplane</h3>
+<p>דוגמה אמיתית מצוינת היא <a href="https://www.takikawa-airplane.jp">www.takikawa-airplane.jp</a> (Takikawa Sky Park / Takikawa Airplane). האתר הזה רץ <strong>על אותו השרת</strong> כמו EZOS, <strong>נבנה ומתעדכן על ידי Claude Code</strong> באמצעות Next.js, ומתפרסם דרך אותו פרוקסי הפוך של Caddy כמו EZOS.</p>
+<ul>
+  <li><strong>Production</strong> <code>www.takikawa-airplane.jp</code> ואתר <strong>staging</strong> <code>www2.takikawa-airplane.jp</code> (מוגן ב-Basic-auth) מתקיימים זה לצד זה כתהליכי Next.js נפרדים על פורטים נפרדים.</li>
+  <li>סקירה על ה-staging ← קידום ל-production אם זה נראה טוב — כל התהליך הזה מונע על ידי Claude Code בתוך EZOS.</li>
+  <li>תמיכה דו-לשונית (JA/EN), אופטימיזציה לנייד, וקליטת מאמרי טור — כולם משתפרים ברציפות בגישת AI-first.</li>
+</ul>
+<div class="note">בקצרה, EZOS הוא גם "תא טייס להפקת המרב מ-Claude" וגם <strong>בסיס בית לגידול אתר production אמיתי ונפרד בתוך אותה קופסה בעזרת אותו Claude עצמו</strong>. VPS אחד הופך בבת אחת לסביבת הפיתוח שלכם, לסדנה של ה-AI שלכם, ולשרת הציבורי של מספר דומיינים.</div>
+
+<h2 id="arch">3. ארכיטקטורת המערכת</h2>
+<p>כל התקנה מורכבת מ<strong>אפליקציית Node אחת + שירות systemd + הגדרת אתר של Caddy</strong>. הדפדפן מתחבר דרך Caddy (סיום TLS ופרוקסי הפוך) אל אפליקציית Node שמאזינה על localhost.</p>
+
+<div class="diagram">
+<svg viewBox="0 0 900 470" width="900" role="img" aria-label="ארכיטקטורת המערכת של EZOS" xmlns="http://www.w3.org/2000/svg" style="max-width:100%;height:auto;font-family:sans-serif;">
+  <defs>
+    <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#5c6577"/></marker>
+    <style>
+      .box{fill:#fff;stroke:#c9d0de;stroke-width:1.5;rx:10;}
+      .lbl{font-size:13px;fill:#1c2029;font-weight:600;}
+      .sub{font-size:11px;fill:#5c6577;}
+      .grp{fill:#f2f5fb;stroke:#d5dcea;stroke-width:1.2;stroke-dasharray:5 4;}
+      .grpt{font-size:12px;fill:#8590a5;font-weight:700;}
+      .edge{stroke:#5c6577;stroke-width:1.6;fill:none;marker-end:url(#ar);}
+      .elbl{font-size:10.5px;fill:#41506b;}
+    </style>
+  </defs>
+
+  <!-- clients -->
+  <rect class="box" x="20" y="60" width="150" height="56" rx="10"/>
+  <text class="lbl" x="95" y="84" text-anchor="middle">דפדפן במחשב</text>
+  <text class="sub" x="95" y="102" text-anchor="middle">Chrome / Safari …</text>
+  <rect class="box" x="20" y="150" width="150" height="56" rx="10"/>
+  <text class="lbl" x="95" y="174" text-anchor="middle">דפדפן בנייד</text>
+  <text class="sub" x="95" y="192" text-anchor="middle">בדיקה בדרכים</text>
+
+  <!-- caddy -->
+  <rect class="box" x="255" y="100" width="150" height="72" rx="10"/>
+  <text class="lbl" x="330" y="130" text-anchor="middle">Caddy</text>
+  <text class="sub" x="330" y="148" text-anchor="middle">TLS / פרוקסי הפוך</text>
+  <text class="sub" x="330" y="162" text-anchor="middle">ezos.ezoe.net</text>
+
+  <!-- server group -->
+  <rect class="grp" x="470" y="30" width="410" height="250" rx="12"/>
+  <text class="grpt" x="490" y="52" fill="#8590a5" font-weight="700" font-size="12">VPS (שרת) / systemd: ezos</text>
+
+  <rect class="box" x="495" y="70" width="165" height="72" rx="10"/>
+  <text class="lbl" x="577" y="98" text-anchor="middle">אפליקציית EZOS Node</text>
+  <text class="sub" x="577" y="115" text-anchor="middle">server.js</text>
+  <text class="sub" x="577" y="130" text-anchor="middle">127.0.0.1:3101</text>
+
+  <rect class="box" x="495" y="175" width="165" height="80" rx="10"/>
+  <text class="lbl" x="577" y="200" text-anchor="middle">node-pty + tmux</text>
+  <text class="sub" x="577" y="217" text-anchor="middle">הפעלת ez_&lt;sid&gt;</text>
+  <text class="sub" x="577" y="233" text-anchor="middle">שורדת ניתוק</text>
+
+  <rect class="box" x="700" y="175" width="150" height="80" rx="10"/>
+  <text class="lbl" x="775" y="205" text-anchor="middle">claude CLI</text>
+  <text class="sub" x="775" y="223" text-anchor="middle">Claude Code</text>
+  <text class="sub" x="775" y="239" text-anchor="middle">אימות Pro / Max</text>
+
+  <rect class="box" x="700" y="70" width="150" height="72" rx="10"/>
+  <text class="lbl" x="775" y="98" text-anchor="middle">app/data/*.json</text>
+  <text class="sub" x="775" y="115" text-anchor="middle">passkeys / הגדרות</text>
+  <text class="sub" x="775" y="130" text-anchor="middle">(ללא DB)</text>
+
+  <!-- hooks -->
+  <rect class="box" x="255" y="330" width="205" height="70" rx="10"/>
+  <text class="lbl" x="357" y="358" text-anchor="middle">Claude Code hook</text>
+  <text class="sub" x="357" y="376" text-anchor="middle">ez-hook.sh → /api/beat</text>
+  <text class="sub" x="357" y="390" text-anchor="middle">מדווח על מצב ההפעלה</text>
+
+  <!-- edges -->
+  <path class="edge" d="M170,88 L250,130"/>
+  <path class="edge" d="M170,178 L250,145"/>
+  <text class="elbl" x="185" y="150">HTTPS / WSS</text>
+  <path class="edge" d="M405,136 L490,110"/>
+  <text class="elbl" x="410" y="112">localhost</text>
+  <path class="edge" d="M577,142 L577,173"/>
+  <path class="edge" d="M660,215 L698,215"/>
+  <text class="elbl" x="637" y="208">אינטראקטיבי</text>
+  <path class="edge" d="M660,105 L698,105"/>
+  <path class="edge" d="M460,360 Q560,360 576,258"/>
+  <text class="elbl" x="470" y="330">POST /api/beat</text>
+</svg>
+</div>
+
+<table>
+<tr><th>רכיב</th><th>תפקיד</th></tr>
+<tr><td><strong>דפדפן (מחשב / נייד)</strong></td><td>מסך EZOS. מציג את הטרמינל באמצעות xterm.js ומתקשר דו-כיוונית עם השרת מעל WebSocket.</td></tr>
+<tr><td><strong>Caddy</strong></td><td>מאזין על הדומיין הציבורי שלכם (למשל <code>ezos.ezoe.net</code>), משיג אוטומטית תעודת TLS, ומבצע פרוקסי הפוך אל אפליקציית Node על localhost.</td></tr>
+<tr><td><strong>אפליקציית EZOS Node</strong></td><td><code>server.js</code>. שרת ה-HTTP/WebSocket, אימות passkey, אספקת ה-UI, ו-API הקבצים. מאזין על <code>127.0.0.1</code> (למשל פורט 3101).</td></tr>
+<tr><td><strong>node-pty + tmux</strong></td><td>מגשר בין WebSocket לפסאודו-טרמינל (pty). כל טאב מתחבר להפעלת tmux <code>ez_&lt;sid&gt;</code>, כך שאותו מסך ממשיך גם לאחר ניתוק או החלפת מכשירים.</td></tr>
+<tr><td><strong>claude CLI</strong></td><td>Claude Code עצמו, שרץ באופן אינטראקטיבי בתוך tmux. דורש חשבון Pro/Max לצורך אימות.</td></tr>
+<tr><td><strong>hook ← /api/beat</strong></td><td>hook של Claude Code קורא ל-<code>ez-hook.sh</code> כדי לדווח על מצב ההפעלה (המתנה לאישור, בעבודה וכו') לשרת.</td></tr>
+<tr><td><strong>app/data/*.json</strong></td><td>נתוני זמן ריצה כגון passkeys, טוקנים והגדרות (ללא מסד נתונים; מוחרג באמצעות <code>.gitignore</code>).</td></tr>
+</table>
+
+<h2 id="login">4. התחברות ו-passkeys</h2>
+<p>EZOS מבצע אימות באמצעות <strong>passkeys של WebAuthn</strong> (שניתן לאחסן בכלים כמו 1Password).</p>
+<ul>
+  <li><strong>התחברות</strong>: לחצו על "🔑 התחבר עם passkey" והציגו את ה-passkey שלכם באמצעות המדדים הביומטריים של המכשיר או דומיהם.</li>
+  <li><strong>הגדרה ראשונית</strong>: רשמו את ה-passkey הראשון שלכם לאחר פתיחת חלון הרישום על השרת.</li>
+  <li><strong>הוספת מכשיר חדש</strong>: ממכשיר שכבר מחובר, אתם יכולים להוסיף אחד ישירות דרך <a href="#settings">הגדרות ← ניהול מכשירי passkey</a>. אם אין לכם כלל מכשיר שיכול להתחבר, הריצו <code>node bin/open-register.js</code> על השרת כדי לפתוח את הרישום ל-15 דקות בלבד (break-glass).</li>
+</ul>
+<div class="note">מטעמי אבטחה, רישום passkey חדש ממצב לא מאומת אינו מתקבל כברירת מחדל. במקרה של נעילה בחוץ (אובדן כל המכשירים שלכם), רק מי שיכול להתחבר ב-SSH לשרת יכול לפתוח זמנית את הרישום.</div>
+
+<h2 id="header">5. המסך והכותרת</h2>
+<p>לאחר ההתחברות אתם רואים מסך יחיד, שמופעל מהכותרת בחלק העליון. הגוף הראשי מתחלף בין שלושה מצבים.</p>
+<table>
+<tr><th>רכיב בכותרת</th><th>תיאור</th></tr>
+<tr><td>אייקון <span class="tag">החלפת מצב</span> בקצה הימני</td><td>כל לחיצה עוברת במחזור בין <strong>EZterminal →<span class="emoji">🖥</span> EZbrowser →<span class="emoji">🗂</span> EZeditor</strong>. הצבע גם מציין את המצב הנוכחי (כחול = דפדפן / כתום = עורך).</td></tr>
+<tr><td>כפתור <span class="tag">טאבים</span> +</td><td>רשימת טאבי הטרמינל. השתמשו ב-<span class="key">+</span> כדי להוסיף טרמינל חדש (הפעלת tmux). הטאבים נקבעים בצד השרת ומשותפים לכל המכשירים.</td></tr>
+<tr><td>ווידג'ט <span class="tag">שימוש</span></td><td>מציג את השימוש של Claude (חלונות של 5 שעות ושבועיים) כפסים (מתעדכן רק בזמן ש-Claude רץ).</td></tr>
+<tr><td><span class="tag">חיבור</span> ●</td><td>מציג את מצב חיבור ה-WebSocket של הטרמינל באמצעות צבע.</td></tr>
+<tr><td>תפריט <span class="tag">☰</span></td><td>תפריט המבורגר שמרכז עזרה, שפה, הגדרות והתנתקות (הפרק הבא).</td></tr>
+</table>
+
+<h2 id="menu">6. תפריט המבורגר (☰)</h2>
+<p>נפתח כשלוחצים על <span class="key">☰</span> בקצה הימני של הכותרת.</p>
+<table>
+<tr><th>פריט</th><th>מה הוא עושה</th></tr>
+<tr><td><span class="emoji">❓</span> <strong>עזרה / מדריך</strong></td><td>מציג את המדריך למשתמש הזה בשפה שנבחרה, מוטמע בתוך המסך (ה-<span class="key">⤢</span> בפינה הימנית העליונה גם פותח אותו בטאב חדש).</td></tr>
+<tr><td><span class="emoji">🌐</span> <strong>שפה</strong></td><td>מחליף את שפת התצוגה בין <strong>יפנית / אנגלית</strong>. כל ה-UI והמדריך משתנים לשפה הנבחרת.</td></tr>
+<tr><td><span class="emoji">⚙️</span> <strong>הגדרות</strong></td><td>פותח את מסך ההגדרות (שפה, מצב תצוגה, צלילי התראה, ניהול מכשירי passkey). <a href="#settings">פרק 10</a>.</td></tr>
+<tr><td><span class="emoji">⏻</span> <strong>התנתקות</strong></td><td>מנתק אתכם. הפעלות ה-tmux של הטרמינל נשמרות, כך שתוכלו להמשיך מהמקום שבו הפסקתם בהתחברות הבאה.</td></tr>
+</table>
+
+<h2 id="terminal">7. EZterminal (טרמינל)</h2>
+<p>הדפדפן שלכם הופך לטרמינל של ה-VPS עצמו, ומאפשר לכם להריץ את <code>claude</code> באופן אינטראקטיבי. בנוי מ-xterm.js + WebSocket + node-pty + tmux, <strong>ההפעלות שורדות גם לאחר ניתוק</strong>, ואתם יכולים להתחבר לאותה הפעלה ממחשב או מנייד.</p>
+
+<h3>שדה קלט ומתג קלט</h3>
+<p>לכל טרמינל יש <strong>שדה קלט</strong> ייעודי, עם <strong>מתג "קלט"</strong> בפינה הימנית העליונה שלו.</p>
+<ul>
+  <li><strong>ON (עריכה בשדה הקלט)</strong>: אתם עורכים בשדה הקלט המקומי ושולחים לאחר שסיימתם את הטקסט. קלט ישיר לטרמינל נעול, כך ש<strong>ה-IME נשאר יציב</strong>. הקלט שלכם לא ייצא מסנכרון גם בחיבור איטי.</li>
+  <li><strong>OFF (קלט ישיר)</strong>: אתם מקלידים מקשים ישירות לתוך הטרמינל.</li>
+  <li>בשדה הקלט, <span class="key">Enter</span> = שורה חדשה / <span class="key">Ctrl+Enter</span> = שליחה. אתם יכולים גם לשלוח בעזרת כפתור <span class="key">Send ⏎</span>.</li>
+</ul>
+
+<h3>שורת מקשי הבקרה וכפתורים שונים</h3>
+<table>
+<tr><th>כפתור</th><th>תיאור</th></tr>
+<tr><td><span class="key">⏎</span><span class="key">Tab</span><span class="key">↑↓←→</span><span class="key">^C</span><span class="key">^D</span><span class="key">Esc</span> ועוד</td><td>שורת מקשים ששולחת מקשי בקרה לטרמינל.</td></tr>
+<tr><td><span class="key">G↓</span> / <span class="key">G↑</span></td><td>פעולות git. <strong>G↓</strong> = משיכה מ-GitHub, <strong>G↑</strong> = commit ו-push.</td></tr>
+<tr><td><span class="emoji">🎤</span> מיקרופון</td><td>קלט קולי. מכניס את הטקסט המזוהה לשדה הקלט (כאשר ON) או לטרמינל (כאשר OFF).</td></tr>
+<tr><td><span class="emoji">📎</span> צירוף</td><td>מעלה קובץ כגון תמונה לתיקייה הנוכחית ומכניס את הנתיב שלו לשדה הקלט. גם גרירה-ושחרור או הדבקה עובדים.</td></tr>
+<tr><td><span class="key">⇧</span> / <span class="key">⇩</span></td><td>מעבר לרשומה הקודמת / הבאה בהיסטוריית הקלט.</td></tr>
+</table>
+
+<h3>לחיצה על נתיבי קבצים והעתקת בחירות</h3>
+<ul>
+  <li>כאשר <strong>נתיב קובץ מופיע בטרמינל או בפלט של Claude, לחיצה עליו פותחת אותו ישירות ב-EZeditor</strong> (עובד בין אם מתג הקלט הוא ON ובין אם OFF).</li>
+  <li><strong>בחירת טקסט עם העכבר מעתיקה אותו</strong>. כשאתם רוצים לדווח על פעולות עכבר לאפליקציה במקום זאת, החזיקו את <span class="key">Alt</span> תוך כדי הפעולה.</li>
+</ul>
+
+<h3>חיבור והתחברות מחדש</h3>
+<ul>
+  <li>גם אם החיבור נופל, הוא <strong>מתחבר מחדש אוטומטית</strong> (מתאושש אפילו ב-Wi-Fi בטיסה וכדומה).</li>
+  <li>אם תפתחו את אותו טאב על מכשיר אחר, התצוגה עוברת לשם. במכשיר המקורי, תוכלו להתאושש בלחיצה על כפתור ההתחברות מחדש, על Enter, או בהקשה על הטאב.</li>
+</ul>
+
+<h2 id="browser">8. EZbrowser (ניהול קבצים)</h2>
+<p>מנהל קבצים מובנה לעבודה עם קבצי השרת בדפדפן שלכם. הוא נוצר כדי להזיז קבצים.</p>
+<table>
+<tr><th>תפריט / פעולה</th><th>תיאור</th></tr>
+<tr><td>תפריט <strong>קובץ</strong></td><td>תיקייה חדשה, קובץ טקסט חדש, העלאה.</td></tr>
+<tr><td>תפריט <strong>עריכה</strong></td><td>עריכה, מחיקה וכן הלאה לפריטים הנבחרים.</td></tr>
+<tr><td>תפריט <strong>תצוגה</strong></td><td>מעבר בין תצוגות אייקונים / רשימה / פרטים, והצגה או הסתרה של קבצים מוסתרים.</td></tr>
+<tr><td>תפריט <strong>טרמינל</strong></td><td>החלת התיקייה הנוכחית על צד הטרמינל.</td></tr>
+<tr><td>לחיצה ימנית / לחיצה ארוכה</td><td>שינוי שם, הרשאות (קריאה/כתיבה/הרצה), העתקת נתיב, הורדה, מחיקה.</td></tr>
+<tr><td>פתיחת קובץ</td><td>קבצי טקסט נפתחים ב-<strong>EZeditor</strong>. תמונות מוצגות כתמונות ממוזערות.</td></tr>
+<tr><td>העלאה</td><td>העברה לתיקייה הנוכחית באמצעות גרירה-ושחרור או כפתור ההעלאה.</td></tr>
+</table>
+
+<h2 id="editor">9. EZeditor (עורך)</h2>
+<p>ערכו קבצי טקסט על השרת מתוך הדפדפן שלכם. נפתח מנתיב קובץ ב-EZbrowser או בטרמינל.</p>
+<ul>
+  <li>תפריט <strong>קובץ</strong>: שמירה (מקביל ל-<span class="key">Ctrl+S</span>), שמירה בשם.</li>
+  <li>תפריט <strong>עריכה</strong>: גזירה / העתקה / הדבקה.</li>
+  <li>אתם יכולים לפתוח מספר קבצים כטאבים. אם תנסו לסגור עם שינויים שלא נשמרו, תתבקשו לאשר.</li>
+  <li>כולל הדגשת תחביר בסיסית.</li>
+</ul>
+
+<h2 id="settings">10. הגדרות</h2>
+<p>נפתח דרך תפריט המבורגר ← <span class="emoji">⚙️</span> הגדרות.</p>
+<table>
+<tr><th>הגדרה</th><th>מה היא עושה</th></tr>
+<tr><td><strong>שפה</strong></td><td>יפנית / אנגלית. בחירה באחת מחליפה את כל ה-UI ואת המדריך (הדף נטען מחדש).</td></tr>
+<tr><td><strong>מצב תצוגה</strong></td><td><strong>אוטומטי</strong> (מזוהה לפי המכשיר) / <strong>שולחני</strong> / <strong>נייד</strong>. השתמשו בזה כשאתם רוצים לנעול את הפריסה המותאמת לנייד.</td></tr>
+<tr><td><strong>צלילי התראה</strong></td><td><em>צליל המתנה לאישור</em> (שבירת מגבלה / יללת חתול / ללא) ו<em>צליל סיום עבודה</em> (מתנגן / ללא). צליל האישור מנגן תצוגה מקדימה כשבוחרים בו.</td></tr>
+<tr><td><strong>ניהול מכשירי passkey</strong></td><td>רשימה של ה-passkeys הרשומים שיכולים להתחבר ל-EZOS הזה. אתם יכולים למחוק אותם לכל מכשיר ולהוסיף passkey חדש במכשיר הזה (את האחרון שנותר אי אפשר למחוק, כדי למנוע נעילה בחוץ).</td></tr>
+</table>
+
+<h2 id="install">11. סקירת התקנה</h2>
+<p>EZOS פתוח בקוד פתוח ב-GitHub, כך שכל אחד יכול להתקין אותו בסביבה שלו. <a href="https://github.com/hezoe/EZOS">github.com/hezoe/EZOS</a></p>
+<p>התהליך הכללי הוא כדלקמן.</p>
+<pre><code>git clone https://github.com/hezoe/EZOS.git
+cd EZOS/app
+npm install --omit=dev
+node setup.js          # יוצר את config.json (rpID / origin / port וכו')
+node server.js         # הפעלה (בדרך כלל רץ כשירות systemd)</code></pre>
+<p>לצורך סיום TLS ופרוקסי הפוך בדומיין ציבורי, השתמשו ב-Caddy כדי לחבר שם מארח ציבורי כמו <code>ezos.ezoe.net</code> אל הפורט המאזין על localhost.</p>
+<div class="note"><strong>להוראות התקנה מפורטות, ראו את מדריך ההתקנה הנפרד</strong> (המכסה כיצד להחליט על ה-IP שלכם, שם המארח הציבורי, DNS, מכשיר רישום ה-passkey, פורט/שם שירות, וכן הגדרת Caddy, הרצה תחת systemd, והגדרת ה-hook).<br>
+← <a href="install.en.html">מדריך התקנה (אנגלית)</a> / <a href="../INSTALL.md">docs/INSTALL.md</a></div>
+
+<footer>
+EZOS — תא טייס אינטרנטי מוגן-passkey ל-Claude Code. המדריך הזה כלול ב-<code>docs/manual/</code> של המאגר וניתן לצפייה עצמאית לאחר שיבוט מ-GitHub.
+</footer>
+</div>
+
+<script>
+// Language switch. Standalone -> manual.xx.html; inside the app (/manual) -> ?lang=.
+// When embedded in an iframe, navigating to a real URL is blocked by X-Frame-Options,
+// so we postMessage the parent to swap the srcdoc instead. Other links open in a new tab.
+(function(){
+  var embedded; try { embedded = window.parent && window.parent !== window; } catch(e){ embedded = true; }
+  var inApp = /\/manual$/.test(location.pathname);
+  var cur = document.documentElement.lang; if (['ja','en','he'].indexOf(cur) < 0) cur = 'ja';
+  function a(l){
+    var on = (l === cur) ? ' class="on"' : '';
+    var label = (l === 'ja') ? '日本語' : (l === 'he') ? 'עברית' : 'English';
+    if (embedded) return '<a'+on+' href="#" data-lang="'+l+'">'+label+'</a>';
+    var href = inApp ? ('?lang='+l) : ('manual.'+l+'.html');
+    return '<a'+on+' href="'+href+'">'+label+'</a>';
+  }
+  var sw = document.getElementById('langsw');
+  if (sw) sw.innerHTML = a('ja') + a('en') + a('he');
+  if (embedded) {
+    if (sw) sw.addEventListener('click', function(e){
+      var el = e.target.closest ? e.target.closest('a[data-lang]') : null;
+      if (!el) return;
+      e.preventDefault();
+      try { window.parent.postMessage({ ezManualLang: el.getAttribute('data-lang') }, '*'); } catch(_){ }
+    });
+    var links = document.querySelectorAll('a[href]');
+    for (var i = 0; i < links.length; i++) {
+      var h = links[i].getAttribute('href');
+      if (h && h.charAt(0) !== '#' && !links[i].hasAttribute('data-lang')) { links[i].target = '_blank'; links[i].rel = 'noopener'; }
+    }
+    // In srcdoc the base URL is the parent page, so clicking a #anchor becomes an iframe
+    // navigation to the parent URL (refused by X-Frame-Options). Scroll manually instead.
+    document.addEventListener('click', function(e){
+      var el = e.target.closest ? e.target.closest('a[href^="#"]') : null;
+      if (!el || el.hasAttribute('data-lang')) return;
+      var id = el.getAttribute('href').slice(1);
+      var tgt = id ? document.getElementById(id) : null;
+      e.preventDefault();
+      if (tgt) tgt.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
+})();
+</script>
+</body>
+</html>

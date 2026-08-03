@@ -513,3 +513,19 @@ body.view-mobile .ez-modal, body.view-mobile .ez-modal.wide {
   bottom: -5px; border: 5px solid transparent; border-top-color: #0f1420; border-bottom: 0;
 }
 .ez-tip.below::after { bottom: auto; top: -5px; border-top: 0; border-bottom: 5px solid #0f1420; }
+
+/* ================= RTL(ヘブライ語など) ================= */
+/* html[dir="rtl"] でヘッダー・メニュー・設定・ログイン等の“枠”は右横書きにミラーされる
+   (flex/gap ベースのため多くは自動)。一方、ターミナル・コード・ファイル一覧・エディタの
+   “中身”は LTR のままにして表示崩れを防ぐ。 */
+html[dir="rtl"] #terminals,
+html[dir="rtl"] .term-wrap,
+html[dir="rtl"] .xterm,
+html[dir="rtl"] .tw-text,
+html[dir="rtl"] #ez-editor,
+html[dir="rtl"] .ezb-list,
+html[dir="rtl"] pre,
+html[dir="rtl"] code { direction: ltr; }
+html[dir="rtl"] pre, html[dir="rtl"] .xterm { text-align: left; }
+/* ツールチップの説明はRTL言語では右寄せに */
+html[dir="rtl"] .ez-tip { direction: rtl; }
