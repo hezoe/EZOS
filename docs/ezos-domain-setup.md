@@ -1,13 +1,13 @@
-# 実施記録: EZOS を ezos.ezoe.net で公開 (実例)
+# 実施記録: EZOS を ezos.example.com で公開 (実例)
 
 > これは特定サーバーでの **実施ログ(1つの実例)** です。
 > 新しいサーバーへ入れる汎用手順は **[INSTALL.md](INSTALL.md)** を参照してください。
 > 本書はその INSTALL.md の STEP 2/5/6(既存 Caddy 相乗り公開)を、基準機で実際に行った記録です。
 
-新インストール **EZOS** を `https://ezos.ezoe.net` で公開するために行った作業の記録。
-既存の **ezeditor** (`ezeditor.ezoe.net`、基準機の本番) はそのまま残す(無変更)。
+新インストール **EZOS** を `https://ezos.example.com` で公開するために行った作業の記録。
+既存の **ezeditor** (`ezeditor.example.com`、基準機の本番) はそのまま残す(無変更)。
 
-実施日: 2026-07-05 / 基準機: さくらVPS `160.16.105.64` (Debian 12, user debian)
+実施日: 2026-07-05 / 基準機: さくらVPS `203.0.113.10` (Debian 12, user debian)
 
 ---
 
@@ -21,22 +21,22 @@ EZOS と ezeditor は **それぞれ独立した Node アプリ + systemd サー
 | ディレクトリ | `/home/debian/workspace/EZeditor/app` | `/home/debian/EZOS/app` |
 | systemd サービス | `ezeditor` | `ezos` |
 | 待受ポート(localhost) | `3100` | `3101` |
-| 公開ドメイン | `ezeditor.ezoe.net` | `ezos.ezoe.net` |
+| 公開ドメイン | `ezeditor.example.com` | `ezos.example.com` |
 | Caddyサイト定義 | `sites/ezeditor.caddy` | `sites/ezos.caddy` |
 
-- 両アプリの `rpID` は **`ezoe.net`**(親ドメイン)。WebAuthn のパスキーは rpID 単位で有効なので、
+- 両アプリの `rpID` は **`example.com`**(親ドメイン)。WebAuthn のパスキーは rpID 単位で有効なので、
   **同じパスキーが両サブドメインで使える**(EZOS用にパスキーを作り直す必要はない)。
 - 各アプリの `origin`(WebAuthn の期待オリジン)は自分のドメイン単一で設定:
-  EZOS = `https://ezos.ezoe.net` / ezeditor = `https://ezeditor.ezoe.net`。
+  EZOS = `https://ezos.example.com` / ezeditor = `https://ezeditor.example.com`。
   → **ezeditor 側のコード/設定は変更不要**(ドメインごとに別アプリが応答するため)。
 
 ---
 
 ## 2. 前提(この作業の前に完了していたこと)
 
-- DNS: `ezos.ezoe.net` が VPS(160.16.105.64)へ解決すること(ワイルドカード or A レコード)。確認:
+- DNS: `ezos.example.com` が VPS(203.0.113.10)へ解決すること(ワイルドカード or A レコード)。確認:
   ```
-  getent hosts ezos.ezoe.net    # => 160.16.105.64 ezos.ezoe.net
+  getent hosts ezos.example.com    # => 203.0.113.10 ezos.example.com
   ```
 - EZOS アプリが稼働していること(別途セットアップ済み):
   ```
@@ -44,7 +44,7 @@ EZOS と ezeditor は **それぞれ独立した Node アプリ + systemd サー
   ss -tlnp | grep 3101           # => 127.0.0.1:3101 で node が待受
   ```
 - EZOS の `app/data/config.json` が自ドメイン向けに設定済み:
-  `rpID=ezoe.net`, `origin=https://ezos.ezoe.net`, `port=3101`。
+  `rpID=example.com`, `origin=https://ezos.example.com`, `port=3101`。
   (`app/data/` は `.gitignore` 対象=インストールごとの実行時設定)
 
 ---
@@ -59,7 +59,7 @@ Caddyの sites ディレクトリと saas ディレクトリは debian 所有、
 `/home/debian/saas/caddy/sites/ezos.caddy` を新規作成(ezeditor.caddy と同型、転送先だけ 3101):
 
 ```caddy
-ezos.ezoe.net {
+ezos.example.com {
   # 音声入力(getUserMedia/Web Speech API)のため microphone のみ自オリジン許可(=self)
   header {
     Strict-Transport-Security "max-age=31536000; includeSubDomains"
@@ -87,7 +87,7 @@ docker exec saas-caddy caddy validate --config /etc/caddy/Caddyfile   # => Valid
 docker exec saas-caddy caddy reload   --config /etc/caddy/Caddyfile   # => reload OK
 ```
 
-reload 後、Caddy が `ezos.ezoe.net` の Let's Encrypt 証明書を HTTP-01 で自動取得する(数秒)。
+reload 後、Caddy が `ezos.example.com` の Let's Encrypt 証明書を HTTP-01 で自動取得する(数秒)。
 
 ---
 
@@ -95,16 +95,16 @@ reload 後、Caddy が `ezos.ezoe.net` の Let's Encrypt 証明書を HTTP-01 �
 
 ```bash
 # EZOS: 200 かつ TLS 検証成功(証明書発行OK)
-curl -sS -o /dev/null -w "%{http_code} ssl=%{ssl_verify_result}\n" https://ezos.ezoe.net/
+curl -sS -o /dev/null -w "%{http_code} ssl=%{ssl_verify_result}\n" https://ezos.example.com/
 #   => 200 ssl=0
 
 # ezeditor が無変更で生きていること
-curl -sS -o /dev/null -w "%{http_code}\n" https://ezeditor.ezoe.net/
+curl -sS -o /dev/null -w "%{http_code}\n" https://ezeditor.example.com/
 #   => 200
 ```
 
-ブラウザで `https://ezos.ezoe.net` を開き、既存パスキーでログインできることを確認する
-(rpID=ezoe.net のため ezeditor で登録済みのパスキーがそのまま使える)。
+ブラウザで `https://ezos.example.com` を開き、既存パスキーでログインできることを確認する
+(rpID=example.com のため ezeditor で登録済みのパスキーがそのまま使える)。
 
 ---
 
@@ -124,7 +124,7 @@ docker exec saas-caddy caddy reload --config /etc/caddy/Caddyfile
 ## 6. 新ホストを増やすときの一般手順(参考)
 
 1. アプリを別ポート(例 3102…)で systemd サービス化し localhost bind。
-2. `app/data/config.json` の `origin` を自ドメイン、`rpID` は共有したいなら `ezoe.net`。
+2. `app/data/config.json` の `origin` を自ドメイン、`rpID` は共有したいなら `example.com`。
 3. `sites/<name>.caddy` を作成(`reverse_proxy host.docker.internal:<port>`)。
 4. `docker exec saas-caddy caddy reload --config /etc/caddy/Caddyfile`。
-5. DNS がワイルドカード `*.ezoe.net` なら DNS 変更不要。
+5. DNS がワイルドカード `*.example.com` なら DNS 変更不要。

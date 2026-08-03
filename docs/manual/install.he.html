@@ -126,9 +126,9 @@
 <p>אלו ערכים התלויים בסביבה שלכם ולא ניתן להחליט עליהם אוטומטית. אין להמשיך עד שכולם מולאו (‏#3 ו-#6–#9 ניתן להשאיר בברירת המחדל).</p>
 <table>
 <tr><th>#</th><th>פריט</th><th>דוגמה / ברירת מחדל</th><th>מטרה</th></tr>
-<tr><td>1</td><td>IP גלובלי של השרת</td><td><code>160.16.105.64</code></td><td>כדי לוודא ש-DNS מפנה לכאן</td></tr>
-<tr><td>2</td><td>שם מארח ציבורי (URL)</td><td><code>https://ezos.ezoe.net</code></td><td>שם אתר Caddy / origin של WebAuthn</td></tr>
-<tr><td>3</td><td>rpID של WebAuthn (דומיין אב)</td><td><code>ezoe.net</code></td><td>היקף ה-passkey</td></tr>
+<tr><td>1</td><td>IP גלובלי של השרת</td><td><code>203.0.113.10</code></td><td>כדי לוודא ש-DNS מפנה לכאן</td></tr>
+<tr><td>2</td><td>שם מארח ציבורי (URL)</td><td><code>https://ezos.example.com</code></td><td>שם אתר Caddy / origin של WebAuthn</td></tr>
+<tr><td>3</td><td>rpID של WebAuthn (דומיין אב)</td><td><code>example.com</code></td><td>היקף ה-passkey</td></tr>
 <tr><td>4</td><td>האם DNS מוגדר?</td><td>הושלם / להשלמה</td><td>אם לא, הפנו רשומת A ל-IP שב-#1</td></tr>
 <tr><td>5</td><td>מכשיר לרישום ה-passkey הראשון</td><td>מחשב נייד של המפעיל (Chrome)</td><td>רשמו מהדפדפן של אותו מכשיר</td></tr>
 <tr><td>6</td><td>שם שירות systemd</td><td><code>ezos</code></td><td>ברירת המחדל תקינה</td></tr>
@@ -137,9 +137,9 @@
 <tr><td>9</td><td>משתמש להרצה</td><td><code>debian</code></td><td>‏User= של systemd וכדומה</td></tr>
 </table>
 <p>הפקודות שלהלן מחליפות את מחזיקי המקום באופן הבא.</p>
-<pre><code>HOST=ezos.ezoe.net            # #2 hostname (no scheme)
-ORIGIN=https://ezos.ezoe.net  # #2 URL
-RPID=ezoe.net                 # #3
+<pre><code>HOST=ezos.example.com            # #2 hostname (no scheme)
+ORIGIN=https://ezos.example.com  # #2 URL
+RPID=example.com                 # #3
 PORT=3100                     # #7
 SERVICE=ezos                  # #6
 APPDIR=/home/debian/EZOS      # #8 (app/ lives directly under this)

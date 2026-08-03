@@ -125,9 +125,9 @@
 <p>These are values that depend on your environment and cannot be decided automatically. Do not proceed until they are all filled in (#3 and #6–#9 may be left at their defaults).</p>
 <table>
 <tr><th>#</th><th>Item</th><th>Example / default</th><th>Purpose</th></tr>
-<tr><td>1</td><td>Server's global IP</td><td><code>160.16.105.64</code></td><td>To confirm DNS points here</td></tr>
-<tr><td>2</td><td>Public hostname (URL)</td><td><code>https://ezos.ezoe.net</code></td><td>Caddy site name / WebAuthn origin</td></tr>
-<tr><td>3</td><td>WebAuthn rpID (parent domain)</td><td><code>ezoe.net</code></td><td>Passkey scope</td></tr>
+<tr><td>1</td><td>Server's global IP</td><td><code>203.0.113.10</code></td><td>To confirm DNS points here</td></tr>
+<tr><td>2</td><td>Public hostname (URL)</td><td><code>https://ezos.example.com</code></td><td>Caddy site name / WebAuthn origin</td></tr>
+<tr><td>3</td><td>WebAuthn rpID (parent domain)</td><td><code>example.com</code></td><td>Passkey scope</td></tr>
 <tr><td>4</td><td>Is DNS configured?</td><td>Done / to be done</td><td>If not, point an A record at the IP in #1</td></tr>
 <tr><td>5</td><td>Device used for the first passkey registration</td><td>Operator's laptop (Chrome)</td><td>Register from that device's browser</td></tr>
 <tr><td>6</td><td>systemd service name</td><td><code>ezos</code></td><td>Default is fine</td></tr>
@@ -136,9 +136,9 @@
 <tr><td>9</td><td>Run-as user</td><td><code>debian</code></td><td>systemd User=, etc.</td></tr>
 </table>
 <p>The commands below substitute the placeholders as follows.</p>
-<pre><code>HOST=ezos.ezoe.net            # #2 hostname (no scheme)
-ORIGIN=https://ezos.ezoe.net  # #2 URL
-RPID=ezoe.net                 # #3
+<pre><code>HOST=ezos.example.com            # #2 hostname (no scheme)
+ORIGIN=https://ezos.example.com  # #2 URL
+RPID=example.com                 # #3
 PORT=3100                     # #7
 SERVICE=ezos                  # #6
 APPDIR=/home/debian/EZOS      # #8 (app/ lives directly under this)

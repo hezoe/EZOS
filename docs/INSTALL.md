@@ -23,9 +23,9 @@ Claude は次の表を作業者に提示し、空欄を埋めてもらう。埋�
 
 | # | 確認項目 | 例 / 既定 | 用途 |
 |---|---|---|---|
-| 1 | サーバーのグローバルIP | `160.16.105.64` | DNS がここへ向いているかの確認 |
-| 2 | 公開ホスト名(URL) | `https://ezos.ezoe.net` | Caddy のサイト名 / WebAuthn origin |
-| 3 | WebAuthn の rpID(親ドメイン) | `ezoe.net` | パスキーの有効範囲。ホスト名の親ドメインを指定 |
+| 1 | サーバーのグローバルIP | `203.0.113.10` | DNS がここへ向いているかの確認 |
+| 2 | 公開ホスト名(URL) | `https://ezos.example.com` | Caddy のサイト名 / WebAuthn origin |
+| 3 | WebAuthn の rpID(親ドメイン) | `example.com` | パスキーの有効範囲。ホスト名の親ドメインを指定 |
 | 4 | DNS 設定は完了しているか | 済 / これから | 未なら A(またはワイルドカード)を #1 のIPへ。反映待ちも確認 |
 | 5 | 最初にパスキーを登録する端末名 | `作業者のノートPC(Chrome)` | 初回登録は **その端末のブラウザ**から `https://<host>` を開いて行う |
 | 6 | systemd サービス名 | `ezos` | 既定でよい |
@@ -38,9 +38,9 @@ Claude は次の表を作業者に提示し、空欄を埋めてもらう。埋�
 確認できたら、以降のコマンド内のプレースホルダをこう置き換える:
 
 ```
-HOST=ezos.ezoe.net            # #2 のホスト名(スキームなし)
-ORIGIN=https://ezos.ezoe.net  # #2 のURL
-RPID=ezoe.net                 # #3
+HOST=ezos.example.com            # #2 のホスト名(スキームなし)
+ORIGIN=https://ezos.example.com  # #2 のURL
+RPID=example.com                 # #3
 PORT=3100                     # #7
 SERVICE=ezos                  # #6
 APPDIR=/home/debian/EZOS      # #8 (この直下に app/ が入る)
@@ -236,5 +236,5 @@ sudo systemctl disable --now ${SERVICE}      # サービス停止(他ホスト�
 
 ### 参考: 実施記録
 
-`ezos.ezoe.net` を基準機の既存 Caddy に相乗りさせた具体的な実施ログは
+`ezos.example.com` を基準機の既存 Caddy に相乗りさせた具体的な実施ログは
 [ezos-domain-setup.md](ezos-domain-setup.md) を参照。

@@ -125,9 +125,9 @@
 <p>環境依存で勝手に決められない値です。埋まるまで先に進まないでください（#3・#6〜#9 は既定のままで可）。</p>
 <table>
 <tr><th>#</th><th>項目</th><th>例 / 既定</th><th>用途</th></tr>
-<tr><td>1</td><td>サーバーのグローバル IP</td><td><code>160.16.105.64</code></td><td>DNS がここへ向いているかの確認</td></tr>
-<tr><td>2</td><td>公開ホスト名(URL)</td><td><code>https://ezos.ezoe.net</code></td><td>Caddy のサイト名 / WebAuthn origin</td></tr>
-<tr><td>3</td><td>WebAuthn の rpID(親ドメイン)</td><td><code>ezoe.net</code></td><td>パスキーの有効範囲</td></tr>
+<tr><td>1</td><td>サーバーのグローバル IP</td><td><code>203.0.113.10</code></td><td>DNS がここへ向いているかの確認</td></tr>
+<tr><td>2</td><td>公開ホスト名(URL)</td><td><code>https://ezos.example.com</code></td><td>Caddy のサイト名 / WebAuthn origin</td></tr>
+<tr><td>3</td><td>WebAuthn の rpID(親ドメイン)</td><td><code>example.com</code></td><td>パスキーの有効範囲</td></tr>
 <tr><td>4</td><td>DNS 設定は完了しているか</td><td>済 / これから</td><td>未なら A レコードを #1 の IP へ</td></tr>
 <tr><td>5</td><td>最初にパスキーを登録する端末</td><td>作業者のノート PC(Chrome)</td><td>その端末のブラウザで登録</td></tr>
 <tr><td>6</td><td>systemd サービス名</td><td><code>ezos</code></td><td>既定でよい</td></tr>
@@ -136,9 +136,9 @@
 <tr><td>9</td><td>実行ユーザー</td><td><code>debian</code></td><td>systemd の User= 等</td></tr>
 </table>
 <p>以降のコマンドはプレースホルダを次のように置き換えます。</p>
-<pre><code>HOST=ezos.ezoe.net            # #2 のホスト名(スキームなし)
-ORIGIN=https://ezos.ezoe.net  # #2 のURL
-RPID=ezoe.net                 # #3
+<pre><code>HOST=ezos.example.com            # #2 のホスト名(スキームなし)
+ORIGIN=https://ezos.example.com  # #2 のURL
+RPID=example.com                 # #3
 PORT=3100                     # #7
 SERVICE=ezos                  # #6
 APPDIR=/home/debian/EZOS      # #8 (この直下に app/ が入る)

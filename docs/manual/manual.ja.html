@@ -107,7 +107,7 @@
   <text x="290" y="136" text-anchor="middle" font-size="11" fill="#5c6577">TLS / reverse proxy</text>
   <rect x="470" y="30" width="330" height="80" rx="10" fill="#fff" stroke="#c9d0de" stroke-width="1.5"/>
   <text x="490" y="58" font-size="12.5" font-weight="600">EZOS</text>
-  <text x="490" y="76" font-size="11" fill="#5c6577">ezos.ezoe.net</text>
+  <text x="490" y="76" font-size="11" fill="#5c6577">ezos.example.com</text>
   <text x="490" y="92" font-size="11" fill="#5c6577">Node cockpit &#8226; 127.0.0.1:3101</text>
   <rect x="470" y="140" width="330" height="86" rx="10" fill="#fff" stroke="#c9d0de" stroke-width="1.5"/>
   <text x="490" y="168" font-size="12.5" font-weight="600">Takikawa Airplane site</text>
@@ -120,7 +120,7 @@
 </svg>
 </div>
 <ul>
-  <li><code>ezos.ezoe.net</code> → EZOS（このコックピット）</li>
+  <li><code>ezos.example.com</code> → EZOS（このコックピット）</li>
   <li><code>www.takikawa-airplane.jp</code> → もう一つの Web サイト（別アプリ・別ポート）</li>
 </ul>
 <p>あなたは EZOS の EZterminal から Claude Code を動かして、その別サイトのコードを書き、<a href="#browser">EZbrowser</a>／<a href="#editor">EZeditor</a> でファイルを直接いじり、同じサーバー上でビルド・デプロイします。ブラウザ型なので、<strong>スマホから移動中でも「サイトのここを直して」と Claude に指示できます。</strong></p>
@@ -164,7 +164,7 @@
   <rect class="box" x="255" y="100" width="150" height="72" rx="10"/>
   <text class="lbl" x="330" y="130" text-anchor="middle">Caddy</text>
   <text class="sub" x="330" y="148" text-anchor="middle">TLS / リバースプロキシ</text>
-  <text class="sub" x="330" y="162" text-anchor="middle">ezos.ezoe.net</text>
+  <text class="sub" x="330" y="162" text-anchor="middle">ezos.example.com</text>
 
   <!-- server group -->
   <rect class="grp" x="470" y="30" width="410" height="250" rx="12"/>
@@ -214,7 +214,7 @@
 <table>
 <tr><th>要素</th><th>役割</th></tr>
 <tr><td><strong>ブラウザ（PC / スマホ）</strong></td><td>EZOS の画面。xterm.js でターミナルを描画し、WebSocket でサーバーと双方向通信。</td></tr>
-<tr><td><strong>Caddy</strong></td><td>公開ドメイン（例 <code>ezos.ezoe.net</code>）で待ち受け、TLS 証明書を自動取得し、localhost の Node アプリへリバースプロキシ。</td></tr>
+<tr><td><strong>Caddy</strong></td><td>公開ドメイン（例 <code>ezos.example.com</code>）で待ち受け、TLS 証明書を自動取得し、localhost の Node アプリへリバースプロキシ。</td></tr>
 <tr><td><strong>EZOS Node アプリ</strong></td><td><code>server.js</code>。HTTP/WebSocket サーバー、パスキー認証、UI 配信、ファイル API。<code>127.0.0.1</code> で待受（例: ポート 3101）。</td></tr>
 <tr><td><strong>node-pty + tmux</strong></td><td>WebSocket と擬似端末（pty）を橋渡し。各タブは tmux セッション <code>ez_&lt;sid&gt;</code> に attach するため、切断・別端末でも同じ画面が続く。</td></tr>
 <tr><td><strong>claude CLI</strong></td><td>tmux 内で対話実行される Claude Code 本体。Pro/Max アカウント認証が前提。</td></tr>
@@ -325,7 +325,7 @@ cd EZOS/app
 npm install --omit=dev
 node setup.js          # config.json を生成（rpID / origin / port など）
 node server.js         # 起動（通常は systemd サービスとして常駐）</code></pre>
-<p>公開ドメインでの TLS 終端・リバースプロキシには Caddy を使い、<code>ezos.ezoe.net</code> のような公開ホスト名を localhost の待受ポートへ繋ぎます。</p>
+<p>公開ドメインでの TLS 終端・リバースプロキシには Caddy を使い、<code>ezos.example.com</code> のような公開ホスト名を localhost の待受ポートへ繋ぎます。</p>
 <div class="note"><strong>詳しい導入手順は別冊のインストールマニュアルを参照してください</strong>（IP・公開ホスト名・DNS・パスキー登録端末・ポート/サービス名の決め方、Caddy 設定、systemd 常駐、フック設定まで）。<br>
 → <a href="install.ja.html">インストールマニュアル（日本語）</a> / <a href="../INSTALL.md">docs/INSTALL.md</a></div>
 

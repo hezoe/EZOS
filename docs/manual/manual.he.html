@@ -108,7 +108,7 @@
   <text x="290" y="136" text-anchor="middle" font-size="11" fill="#5c6577">TLS / פרוקסי הפוך</text>
   <rect x="470" y="30" width="330" height="80" rx="10" fill="#fff" stroke="#c9d0de" stroke-width="1.5"/>
   <text x="490" y="58" font-size="12.5" font-weight="600">EZOS</text>
-  <text x="490" y="76" font-size="11" fill="#5c6577">ezos.ezoe.net</text>
+  <text x="490" y="76" font-size="11" fill="#5c6577">ezos.example.com</text>
   <text x="490" y="92" font-size="11" fill="#5c6577">תא טייס Node &#8226; 127.0.0.1:3101</text>
   <rect x="470" y="140" width="330" height="86" rx="10" fill="#fff" stroke="#c9d0de" stroke-width="1.5"/>
   <text x="490" y="168" font-size="12.5" font-weight="600">אתר Takikawa Airplane</text>
@@ -121,7 +121,7 @@
 </svg>
 </div>
 <ul>
-  <li><code>ezos.ezoe.net</code> ← EZOS (תא הטייס הזה)</li>
+  <li><code>ezos.example.com</code> ← EZOS (תא הטייס הזה)</li>
   <li><code>www.takikawa-airplane.jp</code> ← אתר אינטרנט אחר (אפליקציה נפרדת על פורט נפרד)</li>
 </ul>
 <p>אתם מריצים את Claude Code מה-EZterminal של EZOS כדי לכתוב את הקוד של אותו אתר אחר, עורכים קבצים ישירות ב-<a href="#browser">EZbrowser</a> / <a href="#editor">EZeditor</a>, ובונים ופורסים אותו על אותו השרת. מכיוון שהוא מבוסס דפדפן, <strong>אתם יכולים לומר ל-Claude "תקן את החלק הזה באתר" מהנייד, אפילו בזמן נסיעה.</strong></p>
@@ -165,7 +165,7 @@
   <rect class="box" x="255" y="100" width="150" height="72" rx="10"/>
   <text class="lbl" x="330" y="130" text-anchor="middle">Caddy</text>
   <text class="sub" x="330" y="148" text-anchor="middle">TLS / פרוקסי הפוך</text>
-  <text class="sub" x="330" y="162" text-anchor="middle">ezos.ezoe.net</text>
+  <text class="sub" x="330" y="162" text-anchor="middle">ezos.example.com</text>
 
   <!-- server group -->
   <rect class="grp" x="470" y="30" width="410" height="250" rx="12"/>
@@ -215,7 +215,7 @@
 <table>
 <tr><th>רכיב</th><th>תפקיד</th></tr>
 <tr><td><strong>דפדפן (מחשב / נייד)</strong></td><td>מסך EZOS. מציג את הטרמינל באמצעות xterm.js ומתקשר דו-כיוונית עם השרת מעל WebSocket.</td></tr>
-<tr><td><strong>Caddy</strong></td><td>מאזין על הדומיין הציבורי שלכם (למשל <code>ezos.ezoe.net</code>), משיג אוטומטית תעודת TLS, ומבצע פרוקסי הפוך אל אפליקציית Node על localhost.</td></tr>
+<tr><td><strong>Caddy</strong></td><td>מאזין על הדומיין הציבורי שלכם (למשל <code>ezos.example.com</code>), משיג אוטומטית תעודת TLS, ומבצע פרוקסי הפוך אל אפליקציית Node על localhost.</td></tr>
 <tr><td><strong>אפליקציית EZOS Node</strong></td><td><code>server.js</code>. שרת ה-HTTP/WebSocket, אימות passkey, אספקת ה-UI, ו-API הקבצים. מאזין על <code>127.0.0.1</code> (למשל פורט 3101).</td></tr>
 <tr><td><strong>node-pty + tmux</strong></td><td>מגשר בין WebSocket לפסאודו-טרמינל (pty). כל טאב מתחבר להפעלת tmux <code>ez_&lt;sid&gt;</code>, כך שאותו מסך ממשיך גם לאחר ניתוק או החלפת מכשירים.</td></tr>
 <tr><td><strong>claude CLI</strong></td><td>Claude Code עצמו, שרץ באופן אינטראקטיבי בתוך tmux. דורש חשבון Pro/Max לצורך אימות.</td></tr>
@@ -326,7 +326,7 @@ cd EZOS/app
 npm install --omit=dev
 node setup.js          # יוצר את config.json (rpID / origin / port וכו')
 node server.js         # הפעלה (בדרך כלל רץ כשירות systemd)</code></pre>
-<p>לצורך סיום TLS ופרוקסי הפוך בדומיין ציבורי, השתמשו ב-Caddy כדי לחבר שם מארח ציבורי כמו <code>ezos.ezoe.net</code> אל הפורט המאזין על localhost.</p>
+<p>לצורך סיום TLS ופרוקסי הפוך בדומיין ציבורי, השתמשו ב-Caddy כדי לחבר שם מארח ציבורי כמו <code>ezos.example.com</code> אל הפורט המאזין על localhost.</p>
 <div class="note"><strong>להוראות התקנה מפורטות, ראו את מדריך ההתקנה הנפרד</strong> (המכסה כיצד להחליט על ה-IP שלכם, שם המארח הציבורי, DNS, מכשיר רישום ה-passkey, פורט/שם שירות, וכן הגדרת Caddy, הרצה תחת systemd, והגדרת ה-hook).<br>
 ← <a href="install.en.html">מדריך התקנה (אנגלית)</a> / <a href="../INSTALL.md">docs/INSTALL.md</a></div>
 

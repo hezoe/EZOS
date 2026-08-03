@@ -107,7 +107,7 @@
   <text x="290" y="136" text-anchor="middle" font-size="11" fill="#5c6577">TLS / reverse proxy</text>
   <rect x="470" y="30" width="330" height="80" rx="10" fill="#fff" stroke="#c9d0de" stroke-width="1.5"/>
   <text x="490" y="58" font-size="12.5" font-weight="600">EZOS</text>
-  <text x="490" y="76" font-size="11" fill="#5c6577">ezos.ezoe.net</text>
+  <text x="490" y="76" font-size="11" fill="#5c6577">ezos.example.com</text>
   <text x="490" y="92" font-size="11" fill="#5c6577">Node cockpit &#8226; 127.0.0.1:3101</text>
   <rect x="470" y="140" width="330" height="86" rx="10" fill="#fff" stroke="#c9d0de" stroke-width="1.5"/>
   <text x="490" y="168" font-size="12.5" font-weight="600">Takikawa Airplane site</text>
@@ -120,7 +120,7 @@
 </svg>
 </div>
 <ul>
-  <li><code>ezos.ezoe.net</code> → EZOS (this cockpit)</li>
+  <li><code>ezos.example.com</code> → EZOS (this cockpit)</li>
   <li><code>www.takikawa-airplane.jp</code> → another website (a separate app on a separate port)</li>
 </ul>
 <p>You run Claude Code from EZOS's EZterminal to write that other site's code, edit files directly in <a href="#browser">EZbrowser</a> / <a href="#editor">EZeditor</a>, and build and deploy it on the same server. Because it's browser-based, <strong>you can tell Claude "fix this part of the site" from your phone, even while traveling.</strong></p>
@@ -164,7 +164,7 @@
   <rect class="box" x="255" y="100" width="150" height="72" rx="10"/>
   <text class="lbl" x="330" y="130" text-anchor="middle">Caddy</text>
   <text class="sub" x="330" y="148" text-anchor="middle">TLS / reverse proxy</text>
-  <text class="sub" x="330" y="162" text-anchor="middle">ezos.ezoe.net</text>
+  <text class="sub" x="330" y="162" text-anchor="middle">ezos.example.com</text>
 
   <!-- server group -->
   <rect class="grp" x="470" y="30" width="410" height="250" rx="12"/>
@@ -214,7 +214,7 @@
 <table>
 <tr><th>Component</th><th>Role</th></tr>
 <tr><td><strong>Browser (PC / phone)</strong></td><td>The EZOS screen. Renders the terminal with xterm.js and communicates bidirectionally with the server over WebSocket.</td></tr>
-<tr><td><strong>Caddy</strong></td><td>Listens on your public domain (e.g. <code>ezos.ezoe.net</code>), automatically obtains a TLS certificate, and reverse-proxies to the Node app on localhost.</td></tr>
+<tr><td><strong>Caddy</strong></td><td>Listens on your public domain (e.g. <code>ezos.example.com</code>), automatically obtains a TLS certificate, and reverse-proxies to the Node app on localhost.</td></tr>
 <tr><td><strong>EZOS Node app</strong></td><td><code>server.js</code>. The HTTP/WebSocket server, passkey authentication, UI delivery, and file API. Listens on <code>127.0.0.1</code> (e.g. port 3101).</td></tr>
 <tr><td><strong>node-pty + tmux</strong></td><td>Bridges WebSocket and a pseudo-terminal (pty). Each tab attaches to the tmux session <code>ez_&lt;sid&gt;</code>, so the same screen continues even after disconnecting or switching devices.</td></tr>
 <tr><td><strong>claude CLI</strong></td><td>Claude Code itself, run interactively inside tmux. Requires a Pro/Max account for authentication.</td></tr>
@@ -325,7 +325,7 @@ cd EZOS/app
 npm install --omit=dev
 node setup.js          # generates config.json (rpID / origin / port, etc.)
 node server.js         # start it (normally runs as a systemd service)</code></pre>
-<p>For TLS termination and reverse proxying on a public domain, use Caddy to connect a public hostname like <code>ezos.ezoe.net</code> to the listening port on localhost.</p>
+<p>For TLS termination and reverse proxying on a public domain, use Caddy to connect a public hostname like <code>ezos.example.com</code> to the listening port on localhost.</p>
 <div class="note"><strong>For detailed setup instructions, see the separate installation manual</strong> (covering how to decide on your IP, public hostname, DNS, passkey registration device, port/service name, plus Caddy configuration, running under systemd, and hook setup).<br>
 → <a href="install.en.html">Installation manual (English)</a> / <a href="../INSTALL.md">docs/INSTALL.md</a></div>
 

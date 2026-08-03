@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 /**
  * 初期セットアップ (CLI専用): 秘密情報を生成して data/config.json を作る
- *   ssh ezoe.net 'cd www/ezoe/EZOS && php setup.php'
+ *   ssh example.com 'cd path/to/EZOS && php setup.php'
  * 再実行しても既存の設定は上書きしない。--regen-setup-key でセットアップキーだけ再生成。
  */
 
@@ -26,7 +26,7 @@ $regen = in_array('--regen-setup-key', $argv, true);
 
 if ($cfg === null) {
     $cfg = [
-        'rp_id'     => 'ezoe.net',
+        'rp_id'     => 'example.com',
         'user_id'   => bin2hex(random_bytes(16)),
         'user_name' => 'hiroshi',
         'setup_key' => bin2hex(random_bytes(16)),

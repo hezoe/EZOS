@@ -31,7 +31,7 @@
 | アプリ | `app/`（Node 20, `type:module`, ESM） |
 | systemd サービス | `ezos`（`WorkingDirectory=app/`, `ExecStart=/usr/bin/node server.js`, `Restart=always`, `RestartSec=3`, `KillMode=process`） |
 | 待受 | `127.0.0.1:<port>` と `172.17.0.1:<port>`（docker0。Caddyコンテナから `host.docker.internal` 経由で到達） |
-| 公開 | Caddy が reverse_proxy + TLS 自動（例 `ezos.ezoe.net`） |
+| 公開 | Caddy が reverse_proxy + TLS 自動（例 `ezos.example.com`） |
 | DB | 不使用。`app/data/*.json`（`.gitignore` 対象） |
 
 - **ポート／ホスト bind**: `config.port`（既定3100）と `config.hosts`（既定 `["127.0.0.1","172.17.0.1"]`）。docker0 が未出現なら `EADDRNOTAVAIL` を検知し3秒ごとにリトライ。

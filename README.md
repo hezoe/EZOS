@@ -32,7 +32,7 @@
 | アプリ | `app/`(Node 20、`type:module`) |
 | systemd サービス | `ezos`(WorkingDirectory=作業ツリーの `app/` を直接起動) |
 | 待受(localhost) | `127.0.0.1:3100` |
-| 公開ドメイン | `ezos.ezoe.net`(Caddy がreverse_proxy、証明書自動) |
+| 公開ドメイン | `ezos.example.com`(Caddy がreverse_proxy、証明書自動) |
 | 認証設定 | `rpID`・`origin`・`port`・`setupKey` を `app/data/config.json` に保持 |
 
 - **データ**: `app/data/*.json`（DB不使用、`.gitignore` 対象）。`config.json` にセットアップキー等の実行時設定
@@ -62,7 +62,7 @@ app/
   Claude Codeにこのリポジトリを渡せば対話的に確認しながらほぼ自動で導入できる。
 - **既存の基準機での更新**: 作業ツリーを直接編集 → `sudo systemctl restart <サービス名>` で反映 → commit/push。
   依存追加時は `cd app && npm install --omit=dev` の後に restart。
-- **実施記録の例**: `ezos.ezoe.net` を既存Caddyへ相乗りさせた実例は [docs/ezos-domain-setup.md](docs/ezos-domain-setup.md)。
+- **実施記録の例**: `ezos.example.com` を既存Caddyへ相乗りさせた実例は [docs/ezos-domain-setup.md](docs/ezos-domain-setup.md)。
 
 ## セッション状態の判定（フック→状態マップ）
 

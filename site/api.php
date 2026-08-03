@@ -428,7 +428,7 @@ case 'session_delete': {
 case 'conninfo': {
     // ハートビート連携用の情報(ログイン済みの人にだけ見せる)
     $scheme = 'https';
-    $host = $_SERVER['HTTP_HOST'] ?? 'www.ezoe.net';
+    $host = $_SERVER['HTTP_HOST'] ?? 'www.example.com';
     $base = $scheme . '://' . $host . dirname($_SERVER['SCRIPT_NAME']);
     out([
         'endpoint' => rtrim($base, '/') . '/api.php?action=beat',
