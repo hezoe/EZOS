@@ -1,84 +1,78 @@
 # EZOS
 
-**ブラウザからClaude Codeを使うための自分専用コックピット。** パスキー認証付きで、どの端末のブラウザからでもVPS上の `claude` を対話実行できる。
+🌐 **English** ・ [日本語](README.ja.md)
 
-> **EZOS** はアプリ全体の名前。中に3つのモードを持つ:
-> **EZterminal**(ターミナル) / **EZbrowser**(内蔵ブラウザ) / **EZeditor**(ファイル編集)。
-> 新しいサーバーへ入れるときは **[docs/INSTALL.md](docs/INSTALL.md)** を参照(Claude Codeに読ませればほぼ自動で導入できる)。
+**Your own personal cockpit for running Claude Code from a browser.** With passkey authentication, you can drive `claude` interactively on your VPS from any device's browser — PC or phone.
 
-- 🖥 **EZterminal**: xterm.js + WebSocket + node-pty + tmux。ブラウザがVPSのターミナルそのものになり、`claude` を対話実行できる。切断してもtmuxでセッション永続、PC/スマホで同一セッションに接続可。ターミナル/Claude出力中のファイルパスはクリックで**EZeditorに直接開く**(入力切替ON/OFFどちらでも動作。テキストの選択コピーも同様。アプリへマウス報告したい時はAlt+操作)
-- 🗼 **開発ハブ**: 並列AI開発ダッシュボード
-  - **セッション管制塔**: VPS上の全Claude Codeセッションの状態（🛑止まった/🔔あなた待ち/⚙️作業中/▶️処理中/⏳待機中）をフック経由で自動追跡。名札・色はセッションIDに紐づき永続。あなた待ちは待たせ時間が長い順
-  - **カンバン**: 未着手/作業中/確認待ち/完了、D&D移動、プロジェクト横断、💬議論中/✋保留フラグ
-  - **確認待ち受信箱**: 説明の「確認URL: …」を🔗ボタン化、✓完了ワンクリック+取り消しトースト、NEWバッジ
-  - **自動追従**: セッションカードをクリックするとカンバンがそのプロジェクトに切替
-- 🔑 **認証**: WebAuthnパスキー（1Password対応）。初回登録はセットアップキー必須
-- 📱 **スマホ最適化**: サーバー側UA判定でレイアウト切替（`?view=mobile|desktop|auto`）
+> **EZOS** is the name of the whole app. It has three modes inside:
+> **EZterminal** (terminal) / **EZbrowser** (built-in file manager) / **EZeditor** (file editing).
+> To install it on a new server, see **[docs/manual/install.en.html](docs/manual/install.en.html)** (or [INSTALL.md](docs/INSTALL.md)) — hand the repo to Claude Code and it can set things up almost automatically.
 
-## ドキュメント / マニュアル
+- 🖥 **EZterminal**: xterm.js + WebSocket + node-pty + tmux. Your browser becomes the VPS terminal itself, where you run `claude` interactively. Sessions persist through tmux even after disconnects, and PC/phone can attach to the same session. File paths printed in the terminal or by Claude are **clickable and open directly in EZeditor** (works with the input toggle on or off; text selection-copy works too — hold Alt when you want to report the mouse to the app).
+- 🔑 **Authentication**: WebAuthn passkeys (works with 1Password, etc.). The first registration requires a one-time unlock on the server (break-glass).
+- 📱 **Mobile-optimized**: server-side UA detection switches the layout (`?view=mobile|desktop|auto`).
+- 🌐 **Multilingual UI**: Japanese / English / Hebrew (with RTL), switchable from the ☰ menu.
 
-- 📖 **取扱説明書（多言語 / 日本語・English）**: [docs/manual/index.html](docs/manual/index.html)
-  なぜ EZOS が必要なのか、全 GUI の使い方、システム構成図を収録。アプリ内でもヘッダーの **☰ → ヘルプ・マニュアル** から言語に応じて表示できる。GitHub からクローンすれば `docs/manual/*.html` を単体（`file://`）でも閲覧可能。
-- 🛠 **インストールマニュアル（別冊 / 日本語・English）**: [docs/manual/install.ja.html](docs/manual/install.ja.html) ／ [install.en.html](docs/manual/install.en.html)（Markdown 版: [docs/INSTALL.md](docs/INSTALL.md)）
+## Documentation / Manual
 
-## 構成
+- 📖 **User manual (multilingual: English / 日本語 / עברית)**: [docs/manual/index.html](docs/manual/index.html)
+  Covers why EZOS exists, how every part of the GUI works, and the system architecture. You can also open it in-app from the header **☰ → Help & Manual** in your chosen language. After cloning from GitHub, the `docs/manual/*.html` files are self-contained and viewable directly (`file://`).
+- 🛠 **Installation guide (separate booklet: English / 日本語 / עברית)**: [install.en.html](docs/manual/install.en.html) / [install.ja.html](docs/manual/install.ja.html) (Markdown version: [docs/INSTALL.md](docs/INSTALL.md))
 
-各インストールは **1つの Node アプリ + systemd サービス + Caddy のサイト定義** で成り立つ。
-下表はこのリポジトリの基準デプロイ例(値はインストールごとに変わる。実値は `app/data/config.json` と systemd/Caddy 側で決まる)。
+## Requirements (in brief)
 
-| 項目 | 例(基準機) |
+- **Server (host)**: Linux with systemd (verified on Debian 12/11; Ubuntu, etc. expected to work), Node.js 20+, **tmux** (required), `git`, a reverse proxy for TLS (**Caddy** recommended), and **Claude Code CLI installed globally and signed in with a Pro/Max account**. Public use needs a hostname + DNS, since passkeys require an HTTPS secure context.
+- **Client (browser)**: a modern browser with WebAuthn/passkey support (Chrome / Edge / Safari / Firefox), over HTTPS.
+
+See the [installation guide](docs/manual/install.en.html) for the full, detailed requirements.
+
+## Architecture
+
+Each installation is made of **one Node app + a systemd service + a Caddy site definition**. The table below is a reference deployment example from this repository (values differ per installation; the real values live in `app/data/config.json` and on the systemd/Caddy side).
+
+| Item | Example |
 |---|---|
-| リポジトリ | `github.com/hezoe/EZOS` |
-| アプリ | `app/`(Node 20、`type:module`) |
-| systemd サービス | `ezos`(WorkingDirectory=作業ツリーの `app/` を直接起動) |
-| 待受(localhost) | `127.0.0.1:3100` |
-| 公開ドメイン | `ezos.example.com`(Caddy がreverse_proxy、証明書自動) |
-| 認証設定 | `rpID`・`origin`・`port`・`setupKey` を `app/data/config.json` に保持 |
+| Repository | `github.com/hezoe/EZOS` |
+| App | `app/` (Node 20, `type:module`) |
+| systemd service | `ezos` (WorkingDirectory launches the working tree's `app/` directly) |
+| Listen (localhost) | `127.0.0.1:3100` |
+| Public domain | `ezos.example.com` (Caddy reverse-proxies, certificate automatic) |
+| Auth config | `rpID` / `origin` / `port` / `setupKey` kept in `app/data/config.json` |
 
-- **データ**: `app/data/*.json`（DB不使用、`.gitignore` 対象）。`config.json` にセットアップキー等の実行時設定
-- **Claude Code**: グローバルインストール＋Pro/Maxアカウント認証（`~/.claude/.credentials.json`）が前提
-- **セッション追跡**: `~/.claude/settings.json` のフック → `app/bin/ez-hook.sh` → `POST http://127.0.0.1:<port>/api/beat`（localhost限定・認証不要。ポートは同梱 `config.json` から自動取得）
+- **Data**: `app/data/*.json` (no database; excluded via `.gitignore`). `config.json` holds runtime settings such as the setup key.
+- **Claude Code**: a global install + Pro/Max account authentication (`~/.claude/.credentials.json`) is assumed.
 
 ```
 app/
-  server.js        HTTP/WSサーバー・ルーティング・ページ描画(UA判定)
-  setup.js         初期セットアップ(config.json 生成・セットアップキー発行。環境変数で値指定可)
-  lib/store.js     JSONストレージ・config読込
-  lib/term.js      WebSocket⇔pty(tmux)ブリッジ
-  lib/termstate.js tmuxセッション状態の取得
-  lib/hub.js       開発ハブの状態ロジック(UI非依存)
-  lib/filemgr.js   EZeditor(ファイル操作)のバックエンド
-  lib/claude.js    claudeヘッドレス実行(旧チャットAPI用、現在UIなし)
-  bin/ez-hook.sh   Claude Codeフック→ハートビート(送信先ポートはconfig.jsonから)
-  public/          フロントエンド。EZterminal=term.js / EZbrowser=ezbrowser.js /
-                   EZeditor=ezeditor.js(+シンタックスハイライタ ezhl.js, ezeditor.css) /
-                   app.css / hub.js / app.js 等。EZeditorはEZbrowserからwindow.EZEditor経由で利用
+  server.js        HTTP/WS server, routing, page rendering (UA detection)
+  setup.js         initial setup (generates config.json, issues a setup key; values via env vars)
+  lib/store.js     JSON storage, config loading
+  lib/term.js      WebSocket <-> pty (tmux) bridge
+  lib/termstate.js reads tmux session state
+  lib/filemgr.js   backend for EZeditor (file operations)
+  bin/ez-hook.sh   Claude Code hook -> heartbeat (target port taken from config.json)
+  public/          frontend: EZterminal=term.js / EZbrowser=ezbrowser.js /
+                   EZeditor=ezeditor.js (+ syntax highlighter ezhl.js, ezeditor.css) /
+                   i18n.js, menu.js, tooltip.js, app.css, app.js, etc.
 ```
 
-## インストール / デプロイ
+## Install / Deploy
 
-- **新規サーバーへの導入**: **[docs/INSTALL.md](docs/INSTALL.md)** を参照。
-  作業者に確認すべき項目(IP・公開ホスト名・DNS・パスキー登録端末・ポート/サービス名)を先頭でまとめており、
-  Claude Codeにこのリポジトリを渡せば対話的に確認しながらほぼ自動で導入できる。
-- **既存の基準機での更新**: 作業ツリーを直接編集 → `sudo systemctl restart <サービス名>` で反映 → commit/push。
-  依存追加時は `cd app && npm install --omit=dev` の後に restart。
-- **実施記録の例**: `ezos.example.com` を既存Caddyへ相乗りさせた実例は [docs/ezos-domain-setup.md](docs/ezos-domain-setup.md)。
+- **New server**: see **[docs/manual/install.en.html](docs/manual/install.en.html)** (or [docs/INSTALL.md](docs/INSTALL.md)). It summarizes the values to confirm up front (IP, public hostname, DNS, passkey device, port/service name) and, given the repo, Claude Code can install it interactively and almost automatically.
+- **Updating an existing instance**: edit the working tree directly → `sudo systemctl restart <service>` to apply → commit/push. When adding dependencies, run `cd app && npm install --omit=dev` then restart.
 
-## セッション状態の判定（フック→状態マップ）
+## Session state mapping (hook → state)
 
-| フック | 状態 |
+| Hook | State |
 |--------|------|
 | SessionStart / Stop | ⏳ idle |
 | UserPromptSubmit / PostToolUse | ⚙️ working |
-| PreToolUse (Bash系) | ▶️ running |
-| PreToolUse (その他) | ⚙️ working |
+| PreToolUse (Bash-like) | ▶️ running |
+| PreToolUse (other) | ⚙️ working |
 | Notification | 🔔 waiting_user |
-| SessionEnd | 削除 |
-| working/runningのまま6分無応答 | 🛑 stopped (導出) |
+| SessionEnd | removed |
+| working/running with no response for 6 min | 🛑 stopped (derived) |
 
-## 将来拡張のメモ
+## License
 
-- GitHub Issue同期（要PAT。lib/hub.jsの保存系に中継を挟む形で追加可能）
-- パネルの自由レイアウト（ステップ④）
-- 複数ターミナルタブ（tmuxセッション切替、`/ws/term?s=名前` は実装済み）
-- チャットUIの復活（`/api/chat` はサーバーに残存）
+Released under the [MIT License](LICENSE). You are free to use, modify, and redistribute it. See the `LICENSE` file for details.
