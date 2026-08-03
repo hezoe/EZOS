@@ -573,6 +573,11 @@
     "help.browserTerminal": "שילוב עם הטרמינל, למשל סנכרון התיקייה הנוכחית אל הטרמינל."
   };
 
+  // メニュー: リリースノーツ(全言語)
+  Object.assign(DICT.ja, { 'menu.releases': 'リリースノーツ' });
+  Object.assign(DICT.en, { 'menu.releases': 'Release notes' });
+  if (DICT.he) Object.assign(DICT.he, { 'menu.releases': 'הערות מהדורה' });
+
   function pickLang() {
     let l = window.EZ.lang || localStorage.getItem('ez_lang') || 'ja';
     if (LANGS.indexOf(l) < 0) l = 'ja';

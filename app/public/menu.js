@@ -35,6 +35,7 @@
   function buildRoot() {
     const items = [
       ['❓', t('menu.help'), openManual],
+      ['📝', t('menu.releases'), openReleases],
       ['🌐', t('menu.language'), showLangSubmenu],
       ['⚙️', t('menu.settings'), openSettings],
       ['⏻', t('menu.logout'), doLogout],
@@ -147,6 +148,39 @@
     window.addEventListener('message', onMsg);
     overlay(t('menu.help'), cont, { wide: true, headExtra: openTab, onClose: () => window.removeEventListener('message', onMsg) });
     load(curLang);
+  }
+
+  /* ---------- リリースノーツ ---------- */
+  function openReleases() {
+    closeMenu();
+    const cont = document.createElement('div');
+    cont.className = 'ez-releases';
+    overlay(t('menu.releases'), cont);
+    fetch('/assets/releases.json', { credentials: 'same-origin' })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error('http ' + r.status))))
+      .then((data) => {
+        const lg = lang();
+        cont.innerHTML = '';
+        const cur = document.createElement('div');
+        cur.className = 'ez-rel-cur';
+        cur.textContent = 'EZOS v' + (data.current || '');
+        cont.appendChild(cur);
+        (data.releases || []).forEach((rel) => {
+          const sec = document.createElement('section');
+          sec.className = 'ez-rel';
+          const h = document.createElement('h3');
+          h.className = 'ez-rel-h';
+          h.textContent = 'v' + rel.version + (rel.date ? '  ·  ' + rel.date : '');
+          sec.appendChild(h);
+          const notes = (rel.notes && (rel.notes[lg] || rel.notes.en || rel.notes.ja)) || [];
+          const ul = document.createElement('ul');
+          ul.className = 'ez-rel-list';
+          notes.forEach((n) => { const li = document.createElement('li'); li.textContent = n; ul.appendChild(li); });
+          sec.appendChild(ul);
+          cont.appendChild(sec);
+        });
+      })
+      .catch(() => { cont.textContent = t('common.serverError'); });
   }
 
   /* ---------- 設定ビュー ---------- */

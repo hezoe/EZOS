@@ -1,0 +1,44 @@
+{
+  "current": "1.0.0",
+  "releases": [
+    {
+      "version": "1.0.0",
+      "date": "2026-08-03",
+      "notes": {
+        "ja": [
+          "初回リリース。ブラウザから Claude Code を使い込むための自分専用コックピット(EZterminal / EZbrowser / EZeditor)。",
+          "パスキー(WebAuthn)認証。新規登録はサーバー上の break-glass 解錠方式。",
+          "多言語 UI(日本語 / English / עברית)。ヘブライ語は RTL 表示に対応。☰ メニューと設定から切替。",
+          "各 GUI にホバー説明バルーン(対応言語)。ヘッダー・EZbrowser メニュー等に説明を付与。",
+          "☰ ハンバーガーメニュー(ヘルプ・マニュアル / 言語 / 設定 / ログオフ)と設定ビュー(言語・表示モード・通知音・パスキー端末管理)。",
+          "通知音を選択式に(確認音: リミットブレイク / 猫 / なし、完了音 ON/OFF)。",
+          "多言語 HTML マニュアル(取扱説明書・インストールマニュアル)を同梱。構成図・動作環境・前提条件を明記。",
+          "スマホ最適化(mobile/desktop/auto)。tmux によるセッション永続。",
+          "MIT ライセンスで公開。README を英語主体化(日本語は README.ja.md)。"
+        ],
+        "en": [
+          "First release. Your own cockpit for getting the most out of Claude Code from a browser (EZterminal / EZbrowser / EZeditor).",
+          "Passkey (WebAuthn) authentication. New registration uses a break-glass unlock on the server.",
+          "Multilingual UI (日本語 / English / עברית). Hebrew renders right-to-left. Switch from the ☰ menu or Settings.",
+          "Hover tooltips (in your language) on every GUI element, including the header and EZbrowser menus.",
+          "☰ hamburger menu (Help & Manual / Language / Settings / Log off) and a Settings view (language, display mode, notification sound, passkey devices).",
+          "Selectable notification sounds (confirm: Limit Break / cat / none; idle sound on/off).",
+          "Bundled multilingual HTML manual (user manual + installation guide) with architecture diagram and detailed system requirements.",
+          "Mobile-optimized (mobile/desktop/auto). Persistent sessions via tmux.",
+          "Released under the MIT License. English-first README (Japanese moved to README.ja.md)."
+        ],
+        "he": [
+          "מהדורה ראשונה. תא הטייס האישי שלכם למיצוי Claude Code מהדפדפן (EZterminal / EZbrowser / EZeditor).",
+          "אימות מפתח גישה (WebAuthn). רישום חדש משתמש בשחרור break-glass בשרת.",
+          "ממשק רב-לשוני (日本語 / English / עברית). עברית מוצגת מימין לשמאל. החלפה מתפריט ה-☰ או מההגדרות.",
+          "בועות הסבר במעבר עכבר (בשפה שלכם) על כל רכיב GUI, כולל הכותרת ותפריטי EZbrowser.",
+          "תפריט המבורגר ☰ (עזרה ומדריך / שפה / הגדרות / התנתקות) ותצוגת הגדרות (שפה, מצב תצוגה, צליל התראה, מכשירי מפתח גישה).",
+          "צלילי התראה ניתנים לבחירה (אישור: Limit Break / חתול / ללא; צליל סיום מופעל/כבוי).",
+          "מדריך HTML רב-לשוני מצורף (מדריך למשתמש + מדריך התקנה) עם תרשים ארכיטקטורה ודרישות מערכת מפורטות.",
+          "מותאם לנייד (mobile/desktop/auto). הפעלות מתמשכות באמצעות tmux.",
+          "משוחרר תחת רישיון MIT. README באנגלית תחילה (יפנית הועברה ל-README.ja.md)."
+        ]
+      }
+    }
+  ]
+}

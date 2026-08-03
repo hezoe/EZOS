@@ -529,3 +529,11 @@ html[dir="rtl"] code { direction: ltr; }
 html[dir="rtl"] pre, html[dir="rtl"] .xterm { text-align: left; }
 /* ツールチップの説明はRTL言語では右寄せに */
 html[dir="rtl"] .ez-tip { direction: rtl; }
+
+/* ================= リリースノーツ ================= */
+.ez-releases { display: flex; flex-direction: column; gap: 4px; }
+.ez-rel-cur { font-size: 13px; color: var(--accent); font-weight: 700; margin-bottom: 8px; }
+.ez-rel { margin-bottom: 18px; }
+.ez-rel-h { margin: 0 0 8px; font-size: 15px; color: var(--text); border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+.ez-rel-list { margin: 0; padding-inline-start: 20px; display: flex; flex-direction: column; gap: 6px; }
+.ez-rel-list li { font-size: 13.5px; line-height: 1.55; color: var(--text); }
