@@ -491,8 +491,11 @@
     body.className = 'ez-modal-body';
     const hint = document.createElement('div');
     hint.className = 'tw-sel-hint'; hint.textContent = t('term.selectHint');
-    const pre = document.createElement('pre');
-    pre.className = 'tw-selpre'; pre.textContent = text;
+    // iOS で長押し選択→コピーが最も確実に効くのは読み取り専用 textarea。value に画面テキストを入れる。
+    const pre = document.createElement('textarea');
+    pre.className = 'tw-selpre'; pre.readOnly = true; pre.value = text;
+    pre.setAttribute('autocapitalize', 'off'); pre.setAttribute('autocorrect', 'off');
+    pre.setAttribute('spellcheck', 'false'); pre.setAttribute('wrap', 'soft');
     body.append(hint, pre);
     modal.append(head, body);
     wrap.appendChild(modal);
@@ -921,13 +924,28 @@
     // 指を下げる=過去(上)へ、上げる=最新(下)へ。閾値未満のタップは素通り(フォーカス等)。
     let touchY = null; let touchAcc = 0;
     const TOUCH_STEP = 24; // この画素数ドラッグごとに1行スクロール
+    // 長押し検出: iPhone等では xterm を直接タッチしても選択できないため、コンソールを
+    // 長押ししたら選択コピー用オーバーレイ(openTermSelect)を開く。指が動いたら(=スクロール)
+    // 取り消す。
+    let lpTimer = null; let lpX = 0; let lpY = 0;
+    const clearLP = () => { if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; } };
     view.addEventListener('touchstart', (ev) => {
       // 右端スクロールバー上のタッチは専用ドラッグ(pointer)に任せ、view側の履歴スクロールは無効化
       // (両方が反応して二重スクロールするのを防ぐ)。
-      if (ev.target.closest && ev.target.closest('.tw-scroll')) { touchY = null; return; }
-      if (ev.touches.length === 1) { touchY = ev.touches[0].clientY; touchAcc = 0; } else { touchY = null; }
+      if (ev.target.closest && ev.target.closest('.tw-scroll')) { touchY = null; clearLP(); return; }
+      if (ev.touches.length === 1) {
+        touchY = ev.touches[0].clientY; touchAcc = 0;
+        lpX = ev.touches[0].clientX; lpY = ev.touches[0].clientY;
+        clearLP();
+        lpTimer = setTimeout(() => { lpTimer = null; touchY = null; openTermSelect(tab); }, 480);
+      } else { touchY = null; clearLP(); }
     }, { passive: true });
     view.addEventListener('touchmove', (ev) => {
+      // 指が一定以上動いたら長押し(選択)ではなくスクロール操作 → 長押しを取り消す
+      if (lpTimer && ev.touches.length === 1) {
+        const p0 = ev.touches[0];
+        if (Math.abs(p0.clientX - lpX) > 10 || Math.abs(p0.clientY - lpY) > 10) clearLP();
+      }
       if (touchY === null || ev.touches.length !== 1) return;
       const y = ev.touches[0].clientY;
       touchAcc += y - touchY; touchY = y;
@@ -948,7 +966,8 @@
       ev.preventDefault();
       ev.stopPropagation();
     }, { capture: true, passive: false });
-    view.addEventListener('touchend', () => { touchY = null; }, { passive: true });
+    view.addEventListener('touchend', () => { touchY = null; clearLP(); }, { passive: true });
+    view.addEventListener('touchcancel', () => { touchY = null; clearLP(); }, { passive: true });
 
     // ---- 右端スクロールバー(tmuxのスクロール位置に連動) ----
     // つまみの高さ=表示行数/総行数、位置=最下部からの遡り量(pos)で決まる。
