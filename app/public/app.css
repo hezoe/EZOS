@@ -237,8 +237,13 @@ code { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-siz
 }
 .tw-keyrow button:hover { background: var(--card-hover); }
 .tw-keyrow button:active { background: var(--accent); }
-/* Git操作ボタン(G↓/G↑)はアクセント色で区別 */
-.tw-keyrow button.gitkey { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+/* Git操作ボタン(Octocat↓/↑)はアクセント色で区別 */
+.tw-keyrow button.gitkey {
+  border-color: var(--accent); color: var(--accent); font-weight: 600;
+  display: inline-flex; align-items: center; gap: 3px;
+}
+.tw-keyrow button.gitkey .gh-ico { width: 15px; height: 15px; display: block; }
+.tw-keyrow button.gitkey .gh-arrow { line-height: 1; }
 
 /* 高さ変更ハンドル */
 .tw-resize { flex: none; height: 7px; cursor: ns-resize; background: var(--panel); }

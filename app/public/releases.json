@@ -1,6 +1,18 @@
 {
-  "current": "1.0.2",
+  "current": "1.0.3",
   "releases": [
+    {
+      "version": "1.0.3",
+      "date": "2026-08-11",
+      "notes": {
+        "ja": [
+          "G↓/G↑ ボタンの「G」を GitHub の Octocat アイコンに変更"
+        ],
+        "en": [
+          "Replace the 'G' on the G↓/G↑ buttons with the GitHub Octocat icon"
+        ]
+      }
+    },
     {
       "version": "1.0.2",
       "date": "2026-08-11",
