@@ -370,7 +370,7 @@
           const m = JSON.parse(ev.data);
           if (m.t === 'pong') return; // ハートビート応答(lastRecv更新のみ)
           if (m.t === 'scr') { // 右端スクロールバー: tmuxの現在スクロール位置を反映
-            tab.scr = { pos: +m.pos || 0, hist: +m.hist || 0, h: +m.h || tab.term.rows || 0 };
+            tab.scr = { pos: +m.pos || 0, hist: +m.hist || 0, h: +m.h || tab.term.rows || 0, mouse: +m.mouse || 0 };
             tab.applyScroll?.();
             return;
           }
@@ -670,6 +670,17 @@
     // ファイルパスをクリックでEZeditorに開く(URLは上のWebLinksが担当)。
     // mouseEventsRequireAlt=true により入力ON/OFFのどちらでもクリックが届く。
     try { term.registerLinkProvider({ provideLinks: (n, cb) => provideFileLinks(term, tab, n, cb) }); } catch { /* 未対応環境では無視 */ }
+    // Shift+↑/↓ で履歴を1行ずつスクロール。コンソール(xterm)にフォーカスがあっても
+    // 入力欄にあっても効くよう、この端末ブロック(wrap)全体の capture フェーズで先取りする
+    // (xterm/入力欄/シェルが処理する前に奪う)。素の↑/↓はシェル履歴やClaudeの選択移動に
+    // 使うため、Shift付きだけをスクロール専用にする。
+    wrap.addEventListener('keydown', (e) => {
+      if (e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey && !e.isComposing
+          && (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'Up' || e.key === 'Down')) {
+        e.preventDefault(); e.stopPropagation();
+        tab.scrollLine?.(/Up$|^Up$/.test(e.key) ? 'up' : 'down');
+      }
+    }, { capture: true });
 
     // このターミナル専用の制御キー行(右端に入力欄ON/OFFスイッチを同居させ省スペース化)
     const keyrow = document.createElement('div');
@@ -764,6 +775,7 @@
       if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !e.altKey && !e.isComposing) {
         e.preventDefault(); submitTab(tab);
       }
+      // Shift+↑/↓(履歴スクロール)は wrap の capture ハンドラで先取りされるためここでは扱わない
     });
     const ctrls = document.createElement('div');
     ctrls.className = 'tw-ctrls';
@@ -806,15 +818,31 @@
     // マウスホイールで tmux の履歴をスクロール(tmux mouse on 前提)。入力欄ON時は xterm の
     // stdin が無効で転送されないため、capture で先取りして SGR ホイール列を直接 tmux へ送る
     // (xterm 側にも渡さないことで二重送出を防ぐ)。
+    // タッチパッドの慣性スクロールが強すぎて位置を見失う問題への対策。
+    // deltaを画素に正規化して貯め、一定量(WHEEL_PX_PER_NOTCH)たまるごとに1ノッチだけ送る。
+    // 従来は微小イベントごとに最低1ノッチ(=数行)を強制していたため、タッチパッドが吐く
+    // 多数の微小イベントで一気に飛んでいた。端数は持ち越し、1イベントの上限も設ける。
+    let wheelAcc = 0;
+    const WHEEL_PX_PER_NOTCH = 50; // 大きいほど鈍く(控えめ)になる
+    const WHEEL_MAX_NOTCHES = 3;   // 1イベントで送る最大ノッチ数(強いフリックの暴走を抑える)
     view.addEventListener('wheel', (ev) => {
-      const btn = ev.deltaY < 0 ? 64 : 65; // 64=上へ / 65=下へ (SGRマウス wheel)
-      const steps = Math.min(5, Math.max(1, Math.round(Math.abs(ev.deltaY) / 40)));
-      let seq = '';
-      for (let i = 0; i < steps; i += 1) seq += `\x1b[<${btn};1;1M`;
-      tabSendRaw(tab, seq);
-      tab.scr.pos = Math.max(0, (tab.scr.pos || 0) + (btn === 64 ? 1 : -1) * steps * LINES_PER_NOTCH); // 楽観更新
-      tab.applyScroll?.();
-      clearTimeout(tab._scrTimer); tab._scrTimer = setTimeout(() => tab.requestScr?.(), 90);
+      let dy = ev.deltaY;
+      if (ev.deltaMode === 1) dy *= 16;                    // 行単位 → 概算px
+      else if (ev.deltaMode === 2) dy *= view.clientHeight; // ページ単位 → px
+      wheelAcc += dy;
+      const notches = Math.trunc(wheelAcc / WHEEL_PX_PER_NOTCH);
+      if (notches !== 0) {
+        wheelAcc -= notches * WHEEL_PX_PER_NOTCH; // 消費(超過分は捨てて暴走を抑える)、端数は持ち越し
+        const capped = Math.max(-WHEEL_MAX_NOTCHES, Math.min(WHEEL_MAX_NOTCHES, notches));
+        const btn = capped < 0 ? 64 : 65; // 上(負=deltaY<0)=64 / 下(正)=65
+        const count = Math.abs(capped);
+        let seq = '';
+        for (let i = 0; i < count; i += 1) seq += `\x1b[<${btn};1;1M`;
+        tabSendRaw(tab, seq);
+        tab.scr.pos = Math.max(0, (tab.scr.pos || 0) + (btn === 64 ? 1 : -1) * count * LINES_PER_NOTCH); // 楽観更新
+        tab.applyScroll?.();
+        clearTimeout(tab._scrTimer); tab._scrTimer = setTimeout(() => tab.requestScr?.(), 90);
+      }
       ev.preventDefault();
       ev.stopPropagation();
     }, { capture: true, passive: false });
@@ -872,6 +900,23 @@
       }
     }
     tab.requestScr = requestScr;
+    // Shift+↑/↓ で1段スクロール。相手が代替画面のマウス対応アプリ(Claude等)か素のシェルかで
+    // 手段を切り替える(前者はtmux履歴が無く copy-mode に入っても [0/0] になるだけのため)。
+    function scrollLine(dir) {
+      if (!(tab.ws && tab.ws.readyState === WebSocket.OPEN)) return;
+      const up = dir === 'up';
+      if (tab.scr && tab.scr.mouse) {
+        // Claude等: ホイール1ノッチをアプリへ転送し、アプリ自身にスクロールさせる。
+        // (copy-modeには入らない。tmux履歴は動かないのでスクロールバーは変えない)
+        tabSendRaw(tab, `\x1b[<${up ? 64 : 65};1;1M`);
+        return;
+      }
+      // 素のシェル: サーバがtmux履歴を精密に1行スクロールし、{t:'scr'}で実位置を返す。
+      try { tab.ws.send(JSON.stringify({ t: 'scrline', dir, n: 1 })); } catch { /* noop */ }
+      tab.scr.pos = Math.max(0, (tab.scr.pos || 0) + (up ? 1 : -1)); // 楽観更新
+      applyScroll();
+    }
+    tab.scrollLine = scrollLine;
     // 目標posへスクロール。tmuxへは相対的なホイール列しか送れないため、現在posとの
     // 差分行数をノッチ数(1ノッチ=LINES_PER_NOTCH行)に換算して送る。端数や設定差は
     // 直後の requestScr で実値に補正されるため、掴んだ位置へ十分正確に飛ぶ。

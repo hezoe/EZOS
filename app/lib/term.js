@@ -81,6 +81,29 @@ export function createTermServer({ isAuthed, origin }) {
       }
     });
 
+    // 右端スクロールバー用: tmuxの現在のスクロール位置/履歴行数/画面高を返す。
+    // scroll_position は copy-mode 中のみ値を持ち(=最下部から遡った行数)、通常時は空=0。
+    // history_size は履歴(スクロールバック)の総行数、pane_height は表示行数。
+    const sendScrollInfo = () => {
+      if (!HAS_TMUX) return;
+      execFile('tmux', txa(['display-message', '-p', '-t', `ez_${name}`,
+        '#{scroll_position}\t#{history_size}\t#{pane_height}\t#{mouse_any_flag}']), (err, stdout) => {
+        if (err || ws.readyState !== ws.OPEN) return;
+        // 非copy-mode時 scroll_position は空。trim()すると先頭空フィールドが消えて
+        // 各値がズレるため、末尾の改行だけ落として split する。
+        // mouse は mouse_any_flag(=Claude等がマウス入力を自前処理=1)。1なら履歴スクロールでなく
+        // アプリへホイールを転送すべきことをクライアントに伝える。
+        const [p0, h0, ph, mf] = String(stdout).replace(/[\r\n]+$/, '').split('\t');
+        ws.send(JSON.stringify({
+          t: 'scr',
+          pos: parseInt(p0, 10) || 0,
+          hist: parseInt(h0, 10) || 0,
+          h: parseInt(ph, 10) || 0,
+          mouse: parseInt(mf, 10) || 0,
+        }));
+      });
+    };
+
     ws.on('message', (msg, isBinary) => {
       if (isBinary) return;
       let m;
@@ -100,22 +123,16 @@ export function createTermServer({ isAuthed, origin }) {
           p.resize(Math.max(20, Math.min(500, m.c | 0)), Math.max(5, Math.min(200, m.r | 0)));
         } catch { /* resize race */ }
       } else if (m.t === 'scr') {
-        // 右端スクロールバー用: tmuxの現在のスクロール位置/履歴行数/画面高を返す。
-        // scroll_position は copy-mode 中のみ値を持ち(=最下部から遡った行数)、通常時は空=0。
-        // history_size は履歴(スクロールバック)の総行数、pane_height は表示行数。
+        sendScrollInfo(); // 右端スクロールバーの現在位置を返す
+      } else if (m.t === 'scrline') {
+        // 1行ずつスクロール(Shift+↑/↓用)。ホイールの1ノッチ=複数行と違い、tmuxの
+        // copy-mode を精密に1行動かす。-e で最下部まで下げると自動的にcopy-modeを抜ける。
         if (HAS_TMUX) {
-          execFile('tmux', txa(['display-message', '-p', '-t', `ez_${name}`,
-            '#{scroll_position}\t#{history_size}\t#{pane_height}']), (err, stdout) => {
-            if (err || ws.readyState !== ws.OPEN) return;
-            // 非copy-mode時 scroll_position は空。trim()すると先頭空フィールドが消えて
-            // 各値がズレるため、末尾の改行だけ落として split する。
-            const [p0, h0, ph] = String(stdout).replace(/[\r\n]+$/, '').split('\t');
-            ws.send(JSON.stringify({
-              t: 'scr',
-              pos: parseInt(p0, 10) || 0,
-              hist: parseInt(h0, 10) || 0,
-              h: parseInt(ph, 10) || 0,
-            }));
+          const dir = m.dir === 'down' ? 'scroll-down' : 'scroll-up';
+          const n = Math.max(1, Math.min(200, m.n | 0 || 1));
+          execFile('tmux', txa(['copy-mode', '-e', '-t', `ez_${name}`]), () => {
+            execFile('tmux', txa(['send-keys', '-t', `ez_${name}`, '-X', '-N', String(n), dir]),
+              () => sendScrollInfo());
           });
         }
       } else if (m.t === 'kill') {

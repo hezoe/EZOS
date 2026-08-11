@@ -1,6 +1,22 @@
 {
-  "current": "1.0.1",
+  "current": "1.0.2",
   "releases": [
+    {
+      "version": "1.0.2",
+      "date": "2026-08-11",
+      "notes": {
+        "ja": [
+          "Shift+↑/↓ でコンソールを1段ずつスクロール可能に(Claude等のアプリ実行中はアプリ自身を、素のシェルではtmux履歴を遡る)",
+          "タッチパッド/ホイールのスクロールの勢いを控えめに調整(見失いにくく)",
+          "マニュアルに『画面のスクロール』の説明を追加"
+        ],
+        "en": [
+          "Scroll the console one step at a time with Shift+Up/Down (scrolls the running app like Claude, or the tmux scrollback at a plain shell)",
+          "Tone down touchpad/wheel scroll momentum so it's easier to follow",
+          "Add a 'Scrolling the screen' section to the manual"
+        ]
+      }
+    },
     {
       "version": "1.0.1",
       "date": "2026-08-11",
