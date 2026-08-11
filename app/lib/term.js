@@ -99,6 +99,25 @@ export function createTermServer({ isAuthed, origin }) {
         try {
           p.resize(Math.max(20, Math.min(500, m.c | 0)), Math.max(5, Math.min(200, m.r | 0)));
         } catch { /* resize race */ }
+      } else if (m.t === 'scr') {
+        // 右端スクロールバー用: tmuxの現在のスクロール位置/履歴行数/画面高を返す。
+        // scroll_position は copy-mode 中のみ値を持ち(=最下部から遡った行数)、通常時は空=0。
+        // history_size は履歴(スクロールバック)の総行数、pane_height は表示行数。
+        if (HAS_TMUX) {
+          execFile('tmux', txa(['display-message', '-p', '-t', `ez_${name}`,
+            '#{scroll_position}\t#{history_size}\t#{pane_height}']), (err, stdout) => {
+            if (err || ws.readyState !== ws.OPEN) return;
+            // 非copy-mode時 scroll_position は空。trim()すると先頭空フィールドが消えて
+            // 各値がズレるため、末尾の改行だけ落として split する。
+            const [p0, h0, ph] = String(stdout).replace(/[\r\n]+$/, '').split('\t');
+            ws.send(JSON.stringify({
+              t: 'scr',
+              pos: parseInt(p0, 10) || 0,
+              hist: parseInt(h0, 10) || 0,
+              h: parseInt(ph, 10) || 0,
+            }));
+          });
+        }
       } else if (m.t === 'kill') {
         // タブを閉じたときの明示終了: tmuxセッションごと破棄する
         if (HAS_TMUX) {

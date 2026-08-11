@@ -1,6 +1,18 @@
 {
-  "current": "1.0.0",
+  "current": "1.0.1",
   "releases": [
+    {
+      "version": "1.0.1",
+      "date": "2026-08-11",
+      "notes": {
+        "ja": [
+          "ターミナル右端にスクロールバーを追加。ドラッグ/クリックで過去履歴を遡れます(tmuxのスクロール位置に連動)"
+        ],
+        "en": [
+          "Add a scrollbar on the right edge of the terminal; drag/click to scroll back through history (synced with tmux scroll position)"
+        ]
+      }
+    },
     {
       "version": "1.0.0",
       "date": "2026-08-03",

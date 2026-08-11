@@ -117,6 +117,9 @@
   ];
   const HIST_KEY = 'ez_input_history';
   const INPUT_H_KEY = 'ez_input_h';
+  // tmuxのマウスホイール1ノッチあたりのスクロール行数(既定)。右端スクロールバーの
+  // ドラッグ量→送出ノッチ数の換算に使う(実測5行/ノッチ)。ズレは直後の再問い合わせで補正。
+  const LINES_PER_NOTCH = 5;
   let history = [];
   try { const h = JSON.parse(localStorage.getItem(HIST_KEY) || '[]'); if (Array.isArray(h)) history = h; } catch { /* noop */ }
   const applyInputHeight = (px) => document.documentElement.style.setProperty('--tw-input-h', px + 'px');
@@ -358,6 +361,7 @@
       sendResize(tab); // 復帰直後にサイズを再通知(端末が縮小フレームのままにならないよう)
       updateConn();
       if (tab === active) { fitActive(); (tab.inputOn ? tab.inputEl : tab.term)?.focus(); }
+      tab.requestScr?.(); // 右端スクロールバーの初期状態を取得
     };
     ws.onmessage = (ev) => {
       tab.lastRecv = Date.now(); // 受信があった=生存。ハートビート判定の基準
@@ -365,6 +369,11 @@
         try {
           const m = JSON.parse(ev.data);
           if (m.t === 'pong') return; // ハートビート応答(lastRecv更新のみ)
+          if (m.t === 'scr') { // 右端スクロールバー: tmuxの現在スクロール位置を反映
+            tab.scr = { pos: +m.pos || 0, hist: +m.hist || 0, h: +m.h || tab.term.rows || 0 };
+            tab.applyScroll?.();
+            return;
+          }
           if (m.t === 'exit') {
             tab.gotExit = true; // セッション終了/別デバイスへ切替 → 自動再接続しない
             tab.term.write(`\r\n\x1b[90m[${t('term.sessionEnded', { code: m.code })}]\x1b[0m\r\n`);
@@ -596,6 +605,16 @@
     view.className = 'tw-view';
     wrap.appendChild(view);
 
+    // 右端スクロールバー。履歴はtmuxが管理するため、xterm自身のスクロールバーではなく
+    // tmuxのスクロール位置(サーバから { t:'scr' } で取得)に連動する専用バーを重ねる。
+    // つまみをドラッグ/クリックすると、ホイールスクロールと同じSGR列をtmuxへ送って遡る。
+    const sb = document.createElement('div');
+    sb.className = 'tw-scroll';
+    const thumb = document.createElement('div');
+    thumb.className = 'tw-scroll-thumb';
+    sb.appendChild(thumb);
+    view.appendChild(sb);
+
     const term = new Terminal({
       cursorBlink: true,
       fontSize: isMobile ? 13 : 15,
@@ -638,6 +657,7 @@
 
     const tab = {
       sid: meta.sid, title: meta.title, term, fit, wrap, view, tabBtn, nameEl, dotEl,
+      sb, thumb, scr: { pos: 0, hist: 0, h: 0 }, // 右端スクロールバーの表示要素と現在のtmuxスクロール状態
       inputEl: null, histIndex: history.length, histDraft: '',
       ws: null, connected: false, closedByUser: false,
       // 回線耐性用の状態(自動再接続・ハートビート・送信キュー)
@@ -792,6 +812,9 @@
       let seq = '';
       for (let i = 0; i < steps; i += 1) seq += `\x1b[<${btn};1;1M`;
       tabSendRaw(tab, seq);
+      tab.scr.pos = Math.max(0, (tab.scr.pos || 0) + (btn === 64 ? 1 : -1) * steps * LINES_PER_NOTCH); // 楽観更新
+      tab.applyScroll?.();
+      clearTimeout(tab._scrTimer); tab._scrTimer = setTimeout(() => tab.requestScr?.(), 90);
       ev.preventDefault();
       ev.stopPropagation();
     }, { capture: true, passive: false });
@@ -800,6 +823,9 @@
     let touchY = null; let touchAcc = 0;
     const TOUCH_STEP = 24; // この画素数ドラッグごとに1行スクロール
     view.addEventListener('touchstart', (ev) => {
+      // 右端スクロールバー上のタッチは専用ドラッグ(pointer)に任せ、view側の履歴スクロールは無効化
+      // (両方が反応して二重スクロールするのを防ぐ)。
+      if (ev.target.closest && ev.target.closest('.tw-scroll')) { touchY = null; return; }
       if (ev.touches.length === 1) { touchY = ev.touches[0].clientY; touchAcc = 0; } else { touchY = null; }
     }, { passive: true });
     view.addEventListener('touchmove', (ev) => {
@@ -812,7 +838,10 @@
         seq += `\x1b[<${up ? 64 : 65};1;1M`;
         touchAcc -= up ? TOUCH_STEP : -TOUCH_STEP;
       }
-      if (seq) tabSendRaw(tab, seq);
+      if (seq) {
+        tabSendRaw(tab, seq);
+        clearTimeout(tab._scrTimer); tab._scrTimer = setTimeout(() => tab.requestScr?.(), 90);
+      }
       // 単指ドラッグ(スクロール操作)中は毎回抑止する。しきい値未満でも必ず preventDefault する
       // ことで、タッチ由来の「合成マウスイベント」の発生を止める(最初の touchmove で防げば
       // 以降のmousedown/up/clickも出ない)。これを怠るとxtermがマウスレポート列に変換して
@@ -821,6 +850,81 @@
       ev.stopPropagation();
     }, { capture: true, passive: false });
     view.addEventListener('touchend', () => { touchY = null; }, { passive: true });
+
+    // ---- 右端スクロールバー(tmuxのスクロール位置に連動) ----
+    // つまみの高さ=表示行数/総行数、位置=最下部からの遡り量(pos)で決まる。
+    // pos=0(最新)でつまみは最下、pos=hist(履歴の先頭)でつまみは最上。
+    function applyScroll() {
+      const { pos = 0, hist = 0, h = 0 } = tab.scr || {};
+      const total = hist + h;
+      if (total <= 0) { thumb.style.top = '0'; thumb.style.height = '100%'; sb.classList.add('inert'); return; }
+      const heightPct = Math.max(8, (h / total) * 100); // 最小サイズを確保してつまみを掴みやすく
+      const maxTop = 100 - heightPct;
+      const topPct = ((hist - pos) / total) * 100;
+      thumb.style.height = `${heightPct}%`;
+      thumb.style.top = `${Math.max(0, Math.min(maxTop, topPct))}%`;
+      sb.classList.toggle('inert', hist <= 0); // 履歴が無ければ遡れない=淡色表示
+    }
+    tab.applyScroll = applyScroll;
+    function requestScr() {
+      if (tab.ws && tab.ws.readyState === WebSocket.OPEN) {
+        try { tab.ws.send(JSON.stringify({ t: 'scr' })); } catch { /* noop */ }
+      }
+    }
+    tab.requestScr = requestScr;
+    // 目標posへスクロール。tmuxへは相対的なホイール列しか送れないため、現在posとの
+    // 差分行数をノッチ数(1ノッチ=LINES_PER_NOTCH行)に換算して送る。端数や設定差は
+    // 直後の requestScr で実値に補正されるため、掴んだ位置へ十分正確に飛ぶ。
+    function scrollToPos(target) {
+      const cur = (tab.scr && tab.scr.pos) || 0;
+      const deltaLines = Math.round(target) - cur; // >0: 履歴(上)へ / <0: 最新(下)へ
+      if (!deltaLines) return;
+      const up = deltaLines > 0;
+      let notches = Math.ceil(Math.abs(deltaLines) / LINES_PER_NOTCH);
+      if (up && cur === 0) notches += 1; // liveからの初回ノッチはcopy-mode移行のみで動かない分
+      const btn = up ? 64 : 65;
+      const n = Math.min(700, notches);
+      let seq = '';
+      for (let i = 0; i < n; i += 1) seq += `\x1b[<${btn};1;1M`;
+      tabSendRaw(tab, seq);
+      tab.scr.pos = Math.max(0, Math.round(target)); // 楽観更新(直後のrequestScrで実値に補正)
+      applyScroll();
+      clearTimeout(tab._scrTimer); tab._scrTimer = setTimeout(requestScr, 90);
+    }
+    // ポインタ位置(トラック内の縦割合)から目標posを算出。つまみ中心がポインタに来るようにする。
+    function posFromPointer(clientY) {
+      const r = sb.getBoundingClientRect();
+      const { hist = 0, h = 0 } = tab.scr || {};
+      const total = hist + h;
+      if (total <= 0 || hist <= 0) return 0;
+      const f = h / total;            // つまみの高さ割合
+      const travel = 1 - f;           // つまみが動ける範囲(上端割合)
+      let frac = (clientY - r.top) / r.height;
+      frac = Math.max(0, Math.min(1, frac));
+      let topFrac = frac - f / 2;
+      topFrac = Math.max(0, Math.min(travel, topFrac));
+      return travel > 0 ? hist * (1 - topFrac / travel) : 0;
+    }
+    let sbDragging = false;
+    sb.addEventListener('pointerdown', (ev) => {
+      sbDragging = true;
+      try { sb.setPointerCapture(ev.pointerId); } catch { /* noop */ }
+      scrollToPos(posFromPointer(ev.clientY));
+      ev.preventDefault(); ev.stopPropagation();
+    });
+    sb.addEventListener('pointermove', (ev) => {
+      if (!sbDragging) return;
+      scrollToPos(posFromPointer(ev.clientY));
+      ev.preventDefault(); ev.stopPropagation();
+    });
+    const endSbDrag = (ev) => {
+      if (!sbDragging) return;
+      sbDragging = false;
+      try { sb.releasePointerCapture(ev.pointerId); } catch { /* noop */ }
+      requestScr();
+    };
+    sb.addEventListener('pointerup', endSbDrag);
+    sb.addEventListener('pointercancel', endSbDrag);
 
     tab.inputOn = inputOnDefault;
     applyInputMode(tab); // 初期状態(表示/ロック/チェック)を反映
@@ -870,7 +974,14 @@
     if (opts.focus !== false) (tab.inputOn ? tab.inputEl : tab.term)?.focus();
     updateConn();
     renderConfirm(lastView);
+    tab.requestScr?.(); // 右端スクロールバーを表示中タブの状態に更新
   }
+
+  // 表示中タブのtmuxスクロール位置を定期取得し、右端スクロールバーのつまみを追従させる
+  // (ホイール/タッチ/他デバイス操作による移動も反映)。非表示タブや切断中は問い合わせない。
+  setInterval(() => {
+    if (active && active.connected && document.visibilityState === 'visible') active.requestScr?.();
+  }, 700);
 
   /* ---- タブ操作 (サーバーへ反映 → 再同期) ---- */
   async function closeTab(tab) {

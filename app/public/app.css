@@ -203,12 +203,27 @@ code { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-siz
 /* 下に1行分の余白。端数行のクリップを吸収し、Claude Code終了後の素のシェルでも
    最下行(プロンプト)が切れず必ず1行空いて見えるようにする(FitAddonはこの余白を
    除いた領域で行数を算出するため、常に空きが確保される)。 */
-.tw-view { flex: 1; min-height: 0; padding: 4px 0 1.5em 6px; background: var(--bg); }
+/* 右端に専用スクロールバー(.tw-scroll)を重ねるぶん、右パディングでテキストが隠れないようにする */
+.tw-view { position: relative; flex: 1; min-height: 0; padding: 4px 12px 1.5em 6px; background: var(--bg); }
 .tw-view .xterm { height: 100%; }
 /* 履歴はtmuxが管理するためxterm自身のスクロールバーは非表示(位置が連携できず誤解を招く)。
-   過去履歴はマウスホイールで読む(tmux mouse on)。 */
+   代わりに tmux のスクロール位置に連動する専用バー(.tw-scroll)を右端に重ねる。 */
 .xterm .xterm-viewport { scrollbar-width: none; }
 .xterm .xterm-viewport::-webkit-scrollbar { width: 0; height: 0; }
+
+/* tmuxのスクロール位置に連動する右端スクロールバー。ドラッグ/クリックで履歴を遡れる。 */
+.tw-scroll {
+  position: absolute; top: 4px; right: 2px; bottom: 1.5em; width: 10px;
+  z-index: 20; border-radius: 6px; background: rgba(255, 255, 255, .04);
+  touch-action: none; cursor: pointer;
+}
+.tw-scroll-thumb {
+  position: absolute; left: 1px; right: 1px; top: 0; height: 100%;
+  border-radius: 6px; background: rgba(255, 255, 255, .28);
+  transition: background .12s;
+}
+.tw-scroll:hover .tw-scroll-thumb { background: rgba(255, 255, 255, .45); }
+.tw-scroll.inert .tw-scroll-thumb { background: rgba(255, 255, 255, .12); } /* 履歴が無い=遡れない */
 
 /* 制御キー行(各ターミナル一体。右端に入力欄ON/OFFスイッチ)。
    幅が狭い場合は横スクロールせず複数段に折り返す(flex-wrap)。タブバーと同じ挙動。 */
