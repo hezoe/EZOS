@@ -1,6 +1,18 @@
 {
-  "current": "1.0.3",
+  "current": "1.0.4",
   "releases": [
+    {
+      "version": "1.0.4",
+      "date": "2026-08-12",
+      "notes": {
+        "ja": [
+          "コンソール内容を選択コピーできる📋ボタンを追加(iPhone等でxtermを直接タッチしても選択できない問題に対応。長押し選択/全文コピー対応)"
+        ],
+        "en": [
+          "Add a 📋 button to select & copy console text (works around iPhone not selecting xterm on touch; long-press select / copy all)"
+        ]
+      }
+    },
     {
       "version": "1.0.3",
       "date": "2026-08-11",

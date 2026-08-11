@@ -455,6 +455,61 @@
     } catch { /* noop */ }
   }
 
+  /* ---- コンソール内容の選択コピー ----
+     iPhone等では xterm(canvas/DOM描画)を直接タッチしても iOS標準の選択ポップアップが
+     出ない(タッチはスクロールに割り当て済み)。そこで現在の画面テキストを、ネイティブ選択が
+     効く <pre>(user-select:text)に写して長押し選択→コピーできるようにする。ワンタップで
+     全文コピーするボタンも用意する。 */
+  function buildTermText(term) {
+    const buf = term.buffer.active;
+    const lines = [];
+    for (let i = 0; i < buf.length; i += 1) {
+      const line = buf.getLine(i);
+      lines.push(line ? line.translateToString(true) : '');
+    }
+    // 先頭・末尾の空行を落とす(見やすさのため)
+    let start = 0; let end = lines.length;
+    while (start < end && lines[start].trim() === '') start += 1;
+    while (end > start && lines[end - 1].trim() === '') end -= 1;
+    return lines.slice(start, end).join('\n');
+  }
+  function openTermSelect(tab) {
+    const text = buildTermText(tab.term);
+    const wrap = document.createElement('div');
+    wrap.className = 'ez-overlay';
+    const modal = document.createElement('div');
+    modal.className = 'ez-modal wide tw-sel-modal';
+    const head = document.createElement('div');
+    head.className = 'ez-modal-head';
+    const h = document.createElement('h2'); h.textContent = t('term.selectTitle');
+    const copyAll = document.createElement('button');
+    copyAll.className = 'btn'; copyAll.textContent = t('term.copyAll');
+    const x = document.createElement('button');
+    x.className = 'ez-modal-x'; x.textContent = '✕'; x.setAttribute('aria-label', t('common.close'));
+    head.append(h, copyAll, x);
+    const body = document.createElement('div');
+    body.className = 'ez-modal-body';
+    const hint = document.createElement('div');
+    hint.className = 'tw-sel-hint'; hint.textContent = t('term.selectHint');
+    const pre = document.createElement('pre');
+    pre.className = 'tw-selpre'; pre.textContent = text;
+    body.append(hint, pre);
+    modal.append(head, body);
+    wrap.appendChild(modal);
+    const close = () => { wrap.remove(); document.removeEventListener('keydown', onEsc); };
+    function onEsc(ev) { if (ev.key === 'Escape') close(); }
+    x.addEventListener('click', close);
+    wrap.addEventListener('mousedown', (e) => { if (e.target === wrap) close(); });
+    document.addEventListener('keydown', onEsc);
+    copyAll.addEventListener('click', () => {
+      copyText(text);
+      copyAll.textContent = t('term.copied');
+      setTimeout(() => { copyAll.textContent = t('term.copyAll'); }, 1500);
+    });
+    document.body.appendChild(wrap);
+    pre.scrollTop = pre.scrollHeight; // 最新(末尾)を表示
+  }
+
   /* ---- 音声入力(Web Speech API)。マイクボタンで開始/停止し、認識結果を入力欄へ ---- */
   function setupMic(tab, btn) {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -730,6 +785,13 @@
       mkGit('↓', t('term.gitPull'), GIT_PULL),
       mkGit('↑', t('term.gitPush'), GIT_PUSH),
     );
+
+    // 選択コピー(📋): コンソール内容を選択可能なオーバーレイで開く。iPhone等で xterm を
+    // 直接タッチしても選択ポップアップが出ないため、この経路で長押し選択/全文コピーする。
+    const selBtn = document.createElement('button');
+    selBtn.className = 'selkey'; selBtn.textContent = '📋'; selBtn.title = t('term.selectCopy');
+    selBtn.addEventListener('click', () => openTermSelect(tab));
+    keyrow.appendChild(selBtn);
 
     // 入力欄下の丸ボタン生成ヘルパ(マイクもこれで作り、スマホではキー行へ置く)
     const mkIb = (label, title, cls) => {
