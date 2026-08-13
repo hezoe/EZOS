@@ -1,6 +1,21 @@
 {
-  "current": "1.0.5",
+  "current": "1.0.6",
   "releases": [
+    {
+      "version": "1.0.6",
+      "date": "2026-08-13",
+      "notes": {
+        "ja": [
+          "コンソール直接入力(入力OFF)時に Ctrl+V で貼り付け・Ctrl+C で選択コピーができるように修正(^Vの文字化けと二重貼り付けを解消)"
+        ],
+        "en": [
+          "Terminal direct-input (input OFF): Ctrl+V now pastes and Ctrl+C copies the selection (fixed garbled ^V and double-paste)"
+        ],
+        "he": [
+          "קלט ישיר במסוף (קלט כבוי): כעת Ctrl+V מדביק ו-Ctrl+C מעתיק את הבחירה (תוקנו ^V משובש והדבקה כפולה)"
+        ]
+      }
+    },
     {
       "version": "1.0.5",
       "date": "2026-08-12",

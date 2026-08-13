@@ -887,6 +887,24 @@
 
     // OFF(入力欄オフ)時のみ xtermへの直接入力を ws へ送る。ON時は disableStdin で発火しない。
     term.onData((d) => { if (!tab.inputOn) tabSendRaw(tab, d); });
+    // OFF(直接入力)時の Ctrl+V / Ctrl+C を調整する。ON(入力欄)時は textarea が担当。
+    // ・Ctrl+V: xterm が送る \x16(^V=readlineのquoted-insert)を抑止するだけにする。false を
+    //   返すと xterm はキー送出をやめ、preventDefault はしないのでブラウザ標準の貼り付けが
+    //   1回だけ効く(=貼り付けが壊れず、二重貼り付けにもならない)。自前 readText はしない。
+    // ・Ctrl+C: 選択があれば標準のcopyを止めて選択をコピー(SIGINTは送らない)。選択が無ければ
+    //   従来どおり ^C(中断)を通す。Mac の Cmd 系はネイティブに任せるため ctrlKey のみ対象。
+    term.attachCustomKeyEventHandler((e) => {
+      if (e.type !== 'keydown' || tab.inputOn) return true;
+      if (!e.ctrlKey || e.altKey || e.metaKey) return true;
+      const k = (e.key || '').toLowerCase();
+      if (k === 'v') return false;
+      if (k === 'c' && term.hasSelection()) {
+        e.preventDefault();
+        copyText(term.getSelection());
+        return false;
+      }
+      return true;
+    });
     // 選択した瞬間(マウスを離した時)に自動コピー(Claudeの再描画で選択が消える前に取り込む)
     view.addEventListener('mouseup', () => { if (term.hasSelection()) copyText(term.getSelection()); });
     // マウスホイールで tmux の履歴をスクロール(tmux mouse on 前提)。入力欄ON時は xterm の
