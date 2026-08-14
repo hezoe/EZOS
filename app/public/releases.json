@@ -1,6 +1,21 @@
 {
-  "current": "1.0.6",
+  "current": "1.0.7",
   "releases": [
+    {
+      "version": "1.0.7",
+      "date": "2026-08-14",
+      "notes": {
+        "ja": [
+          "コンソール最下部の使用量ステータスライン(5h/週)を非表示化。GUI上部の使用量ウィジェットと重複のため（usage.jsonの書き出しは継続しGUI表示は従来どおり）"
+        ],
+        "en": [
+          "Hide the console usage status line (5h/week); it duplicated the usage widget at the top of the GUI (usage.json write kept, so the GUI widget is unchanged)"
+        ],
+        "he": [
+          "הסתרת שורת סטטוס השימוש בתחתית הקונסולה (5 שעות/שבוע); הופיע כפול מול רכיב השימוש בראש הממשק (הכתיבה ל-usage.json נשמרת)"
+        ]
+      }
+    },
     {
       "version": "1.0.6",
       "date": "2026-08-13",
