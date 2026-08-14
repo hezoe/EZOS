@@ -18,6 +18,14 @@ try {
 // このインストール専用の tmux サーバーソケット名(ポートで一意化)
 export const TMUX_LABEL = `ezos${port}`;
 
+// Claude Code の「セッション recap(away summary)」を EZOS の全ターミナルで無効化する。
+// EZOS が起動する tmux サーバーはこの Node プロセスの環境を継承し、配下の全 pane
+// (手動/自動どちらで起動した claude でも)へ伝播する。既定ONのため 0 で明示オフにする。
+// (Claude Code v2.1系: CLAUDE_CODE_ENABLE_AWAY_SUMMARY=0 でオプトアウト)
+if (!process.env.CLAUDE_CODE_ENABLE_AWAY_SUMMARY) {
+  process.env.CLAUDE_CODE_ENABLE_AWAY_SUMMARY = '0';
+}
+
 // tmux 引数の先頭に付けるソケット指定。全ての tmux 呼び出しでこれを前置する。
 export const TMUX_ARGS = ['-L', TMUX_LABEL];
 

@@ -42,6 +42,10 @@ export function createTermServer({ isAuthed, origin }) {
       // 総メモリ約1GBの小型機では抑えめにする(3000行あれば実用上の遡りは十分)。
       // クライアント側 xterm も scrollback を持つので、直近の見返しはブラウザ側でも効く。
       execFile('tmux', txa(['set-option', '-g', 'history-limit', '3000']), () => {});
+      // Claude Code のセッション recap(away summary)を無効化。稼働中の tmux サーバーにも
+      // グローバル環境として設定し、以後この端末で起動する claude では recap を出さない
+      // (GUI 上部の情報と重複するため。tmux.js の process.env 設定と二重で担保)。
+      execFile('tmux', txa(['set-environment', '-g', 'CLAUDE_CODE_ENABLE_AWAY_SUMMARY', '0']), () => {});
     }
 
     let p;

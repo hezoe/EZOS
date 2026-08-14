@@ -1,6 +1,21 @@
 {
-  "current": "1.0.7",
+  "current": "1.0.8",
   "releases": [
+    {
+      "version": "1.0.8",
+      "date": "2026-08-14",
+      "notes": {
+        "ja": [
+          "EZOSの全ターミナルで Claude Code のセッションrecap(away summary)を無効化。tmuxサーバーに CLAUDE_CODE_ENABLE_AWAY_SUMMARY=0 を持たせ、手動/自動どちらで起動したclaudeでもrecapを出さない(GUI上部の情報と重複のため)"
+        ],
+        "en": [
+          "Disable Claude Code's session recap (away summary) in all EZOS terminals by setting CLAUDE_CODE_ENABLE_AWAY_SUMMARY=0 on the tmux server, so claude (started manually or automatically) no longer shows the recap line"
+        ],
+        "he": [
+          "השבתת ה-recap (סיכום היעדרות) של Claude Code בכל הטרמינלים של EZOS על ידי הגדרת CLAUDE_CODE_ENABLE_AWAY_SUMMARY=0 בשרת tmux"
+        ]
+      }
+    },
     {
       "version": "1.0.7",
       "date": "2026-08-14",
