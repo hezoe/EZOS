@@ -747,6 +747,28 @@
     // フォーカスを移さず、入力モード(ソフトキーボード)へ勝手に切り替わらないようにする。
     // PCでは従来どおり入力先へフォーカスを戻す(制御信号系 ^C/^D/^End は除く=カーソルが飛ぶため)。
     const NO_FOCUS = new Set(['^C', '^D', '^End']);
+    // Claude起動ボタン(⏎とTabの間)。Claudeロゴ風スターバースト(ブランドカラー#D97757)を
+    // 表示し、クリックで "claude"+Enter をアクティブ端末へ送出してClaudeを起動する。
+    // 送信方式はGitボタンと同じ「ブラケットペースト+独立Enter」で、シェル/Claudeプロンプト
+    // どちらでも確実に実行され、未接続でもキュー経由で取りこぼさない。
+    const CLAUDE_CMD = 'claude';
+    const claudeBlades = Array.from({ length: 11 }, (_, i) =>
+      `<path transform="rotate(${(i * 360 / 11).toFixed(2)} 12 12)" d="M12 2.4C12.5 6 12.7 9.3 12 10.7C11.3 9.3 11.5 6 12 2.4Z"/>`).join('');
+    const CLAUDE_ICON = '<svg class="claude-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false">'
+      + `<g fill="#D97757">${claudeBlades}<circle cx="12" cy="12" r="1.4"/></g></svg>`;
+    const mkClaude = () => {
+      const b = document.createElement('button');
+      b.className = 'claudekey';
+      b.title = t('term.launchClaude');
+      b.setAttribute('aria-label', t('term.launchClaude'));
+      b.innerHTML = CLAUDE_ICON;
+      b.addEventListener('click', () => {
+        tabSendRaw(tab, '\x1b[200~' + CLAUDE_CMD + '\x1b[201~');
+        tabSendRaw(tab, '\r');
+        if (!isMobile) (tab.inputOn ? tab.inputEl : tab.term).focus();
+      });
+      return b;
+    };
     for (const [label, seq] of KEYROW) {
       const b = document.createElement('button');
       b.textContent = label;
@@ -755,6 +777,7 @@
         if (!isMobile && !NO_FOCUS.has(label)) (tab.inputOn ? tab.inputEl : tab.term).focus();
       });
       keyrow.appendChild(b);
+      if (label === '⏎') keyrow.appendChild(mkClaude()); // ⏎とTabの間にClaude起動ボタン
     }
 
     // Git操作ボタン(ESCの右)。シェルでもClaudeプロンプトでも同じコマンド行を流し込み、

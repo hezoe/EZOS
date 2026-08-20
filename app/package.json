@@ -1,6 +1,6 @@
 {
   "name": "ezos",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "private": true,
   "type": "module",
   "description": "EZOS - passkey-protected web cockpit (EZterminal / EZbrowser / EZeditor) to run Claude Code from any browser",

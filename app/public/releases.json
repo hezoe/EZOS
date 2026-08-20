@@ -1,6 +1,21 @@
 {
-  "current": "1.0.8",
+  "current": "1.0.9",
   "releases": [
+    {
+      "version": "1.0.9",
+      "date": "2026-08-20",
+      "notes": {
+        "ja": [
+          "コマンドコンソールのキー行に、⏎とTabの間へClaude起動ボタン（Claudeアイコン）を追加。クリックで claude＋Enter を送信しClaudeを起動"
+        ],
+        "en": [
+          "Add a Claude launch button (Claude icon) to the terminal key row, between Enter and Tab; clicking sends claude+Enter to launch Claude"
+        ],
+        "he": [
+          "הוספת כפתור להפעלת Claude (אייקון Claude) לשורת המקשים, בין Enter ל-Tab; לחיצה שולחת claude+Enter להפעלת Claude"
+        ]
+      }
+    },
     {
       "version": "1.0.8",
       "date": "2026-08-14",

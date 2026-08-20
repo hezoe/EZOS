@@ -244,6 +244,14 @@ code { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-siz
 }
 .tw-keyrow button.gitkey .gh-ico { width: 15px; height: 15px; display: block; }
 .tw-keyrow button.gitkey .gh-arrow { line-height: 1; }
+/* Claude起動ボタン(⏎とTabの間)。Claudeブランドカラーの枠で区別 */
+.tw-keyrow button.claudekey {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 4px 8px; border-color: #d97757;
+}
+.tw-keyrow button.claudekey .claude-ico { width: 16px; height: 16px; display: block; }
+.tw-keyrow button.claudekey:hover { background: rgba(217, 119, 87, .15); }
+.tw-keyrow button.claudekey:active { background: rgba(217, 119, 87, .3); }
 
 /* 選択コピーのオーバーレイ(コンソール内容をネイティブ選択可能な <pre> に写す) */
 .tw-sel-modal .ez-modal-body { flex-direction: column; }
