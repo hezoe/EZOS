@@ -706,6 +706,7 @@
     const nameEl = document.createElement('span');
     nameEl.className = 't-name';
     nameEl.textContent = meta.title;
+    nameEl.title = meta.title; // 省略表示の全文をホバー/長押しで確認できるように
     const closeEl = document.createElement('button');
     closeEl.className = 't-close';
     closeEl.title = t('term.closeTerminal');
@@ -1233,6 +1234,7 @@
       } else if (tab.title !== item.title) {
         tab.title = item.title;
         tab.nameEl.textContent = item.title;
+        tab.nameEl.title = item.title;
       }
     }
     // 削除 (サーバーに無いローカルタブ)

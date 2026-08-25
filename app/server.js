@@ -763,26 +763,51 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    // 画像プレビュー用: 画像ファイルを inline で(正しい Content-Type で)返す。
+    // インライン表示用: 画像/PDF を inline で(正しい Content-Type で)返す。
+    // PDF は新規タブで開き #page=N で指定ページへ飛べる(AIP項番リンク用)。内蔵PDFビューアは
+    // ページ移動時に Range で部分取得するため 206 対応が必須(未対応だと先頭ページで止まる)。
+    // heap(128MB上限)を圧迫しないよう必ずストリーム配信する。
     if (p === '/api/fs/raw' && req.method === 'GET') {
       try {
         const dir = await safePath(url.searchParams.get('dir'));
         const target = await childPath(dir, url.searchParams.get('name') || '');
         const st = await fs.promises.stat(target);
         if (!st.isFile()) throw new HttpError(400, 'ファイルではありません');
-        const IMG_TYPES = {
+        const INLINE_TYPES = {
           '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif',
           '.webp': 'image/webp', '.svg': 'image/svg+xml', '.bmp': 'image/bmp', '.ico': 'image/x-icon',
+          '.pdf': 'application/pdf',
         };
-        const type = IMG_TYPES[path.extname(target).toLowerCase()];
-        if (!type) throw new HttpError(415, '画像ではありません');
-        if (st.size > 20 * 1024 * 1024) throw new HttpError(413, '画像が大きすぎます (20MB上限)');
-        res.writeHead(200, {
+        const ext = path.extname(target).toLowerCase();
+        const type = INLINE_TYPES[ext];
+        if (!type) throw new HttpError(415, 'インライン表示できない種類です');
+        const maxSize = ext === '.pdf' ? 120 * 1024 * 1024 : 20 * 1024 * 1024;
+        if (st.size > maxSize) throw new HttpError(413, 'ファイルが大きすぎます');
+        const headers = {
           'Content-Type': type,
-          'Content-Length': st.size,
+          'Accept-Ranges': 'bytes', // Rangeに対応している旨をビューアへ通知
           'Cache-Control': 'private, max-age=60',
           'X-Content-Type-Options': 'nosniff',
-        });
+        };
+        if (ext === '.pdf') headers['Content-Disposition'] = 'inline'; // DLさせず内蔵ビューアで開く
+
+        // Range 要求は 206 Partial Content で応答("bytes=start-end" / 末尾指定 "bytes=-N")。
+        const m = /^bytes=(\d*)-(\d*)$/.exec((req.headers.range || '').trim());
+        if (m && (m[1] || m[2])) {
+          let start = m[1] ? parseInt(m[1], 10) : 0;
+          let end = m[2] ? parseInt(m[2], 10) : st.size - 1;
+          if (!m[1]) { start = Math.max(0, st.size - parseInt(m[2], 10)); end = st.size - 1; } // 末尾Nバイト
+          end = Math.min(end, st.size - 1);
+          if (Number.isNaN(start) || Number.isNaN(end) || start > end || start >= st.size) {
+            res.writeHead(416, { 'Content-Range': `bytes */${st.size}` }).end();
+            return;
+          }
+          res.writeHead(206, { ...headers, 'Content-Range': `bytes ${start}-${end}/${st.size}`, 'Content-Length': end - start + 1 });
+          fs.createReadStream(target, { start, end }).pipe(res);
+          return;
+        }
+
+        res.writeHead(200, { ...headers, 'Content-Length': st.size });
         fs.createReadStream(target).pipe(res);
       } catch (e) { sendJson(res, e.status || 500, { error: e.message }); }
       return;

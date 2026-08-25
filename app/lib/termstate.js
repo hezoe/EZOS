@@ -1,6 +1,7 @@
 // ターミナル(tmux)上のClaude Codeの状態を画面から読み取り、確認プロンプトを解析する。
 // 送信も tmux send-keys 経由なので、ブラウザの接続有無に依存せず制御できる。
 import fs from 'node:fs';
+import os from 'node:os';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { txa } from './tmux.js';
@@ -8,6 +9,21 @@ import { txa } from './tmux.js';
 const pexec = promisify(execFile);
 const HAS_TMUX = fs.existsSync('/usr/bin/tmux');
 const HOME = process.env.HOME || '/home/debian';
+const HOST = (process.env.HOSTNAME || os.hostname() || '').split('.')[0];
+
+// pane_title(端末が OSC で設定するタイトル)から作業内容ラベルを取り出す。
+// Claude Code は現在の作業要約を pane_title に入れる(例:「navlogプロジェクトで…」)ので、
+// これをタブに出すと cwd を移動しなくても端末ごとに何をしているか見分けられる。
+// 先頭のスピナー記号(点字ブレイル ⠂/⠐ 等・✳ ✻ · * などの回転文字)と空白は削る。
+const SPINNER_RE = /^[\s⠀-⣿·•✻✽✢✶✳✷✺✦✴✷⋆∗*∘◦]+/u;
+const SHELLS = new Set(['claude', 'bash', 'sh', 'zsh', '-bash', 'fish', 'node', 'tmux']);
+function cleanTitle(raw) {
+  const s = String(raw || '').trim().replace(SPINNER_RE, '').trim();
+  // 使えるラベルか判定: 空/パス/~/ホスト名/素のシェル名は「作業内容ではない」ので不採用。
+  if (!s || s === '~' || /^[/~]/.test(s)) return '';
+  if (s === HOST || SHELLS.has(s.toLowerCase())) return '';
+  return s.length > 60 ? `${s.slice(0, 60)}…` : s;
+}
 
 // パスから表示用ディレクトリ名を作る (ホームは ~)
 function dirName(path) {
@@ -17,17 +33,48 @@ function dirName(path) {
   return p.split('/').pop() || '/';
 }
 
-/** 各ターミナルの現在ディレクトリ名を { sid: 名前 } で返す (cdに追従) */
+// cwd から「作業プロジェクト名」を導く。末尾のサブディレクトリ名ではなく、
+// プロジェクトのルート名を返すので、プロジェクト内のどこにいても同じ名前になる。
+//  1) 最寄りの .git を持つ祖先(=リポジトリルート)の名前。例: navlog/EZOS/Takikawa-WEB
+//  2) 無ければ ~ または ~/workspace 直下のディレクトリ名(git管理外のプロジェクト。例: pAIP)
+//  3) いずれにも当てはまらなければ従来どおり末尾ディレクトリ名
+function projectName(path) {
+  if (!path) return '';
+  const p = path.replace(/\/+$/, '');
+  if (p === HOME) return '~';
+
+  // 1) 最寄りの .git を持つ祖先を探す(HOME自体・ルートは除外)
+  let dir = p;
+  while (dir && dir !== '/' && dir !== HOME) {
+    try { if (fs.existsSync(`${dir}/.git`)) return dir.split('/').pop() || dir; } catch { /* noop */ }
+    const up = dir.slice(0, dir.lastIndexOf('/'));
+    if (!up || up === dir) break;
+    dir = up;
+  }
+
+  // 2) ~ / ~/workspace 直下のプロジェクトディレクトリ名(より深い workspace を優先)
+  for (const base of [`${HOME}/workspace`, HOME]) {
+    if (p === base) return dirName(p);
+    if (p.startsWith(`${base}/`)) return p.slice(base.length + 1).split('/')[0];
+  }
+
+  // 3) それ以外は末尾ディレクトリ名(従来動作)
+  return dirName(p);
+}
+
+/** 各ターミナルのタブ表示名を { sid: 名前 } で返す。
+   Claude Code が pane_title に入れる作業要約を優先し(cd不要で作業内容を出し分け)、
+   要約が無い素の端末では cwd から導いた作業プロジェクト名にフォールバックする。 */
 export async function getTitles() {
   if (!HAS_TMUX) return {};
   try {
-    const { stdout } = await pexec('tmux', txa(['list-sessions', '-F', '#{session_name}::#{pane_current_path}']));
+    // pane_title / pane_current_path はスペースや `::` を含みうるので \x1f 区切りにする
+    const { stdout } = await pexec('tmux', txa(['list-sessions', '-F', '#{session_name}\x1f#{pane_title}\x1f#{pane_current_path}']));
     const out = {};
     for (const line of stdout.split('\n')) {
-      const i = line.indexOf('::');
-      if (i < 0) continue;
-      const name = line.slice(0, i);
-      if (name.startsWith('ez_')) out[name.slice(3)] = dirName(line.slice(i + 2));
+      const [name, title, cwd] = line.split('\x1f');
+      if (!name || !name.startsWith('ez_')) continue;
+      out[name.slice(3)] = cleanTitle(title) || projectName(cwd || '');
     }
     return out;
   } catch {
