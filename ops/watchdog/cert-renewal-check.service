@@ -1,0 +1,10 @@
+[Unit]
+Description=Confirm a TLS cert renewed within its window and notify via ntfy (see CERTRENEW_* in service-watchdog.conf)
+Documentation=file:/home/debian/workspace/ops/watchdog/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/cert-renewal-check.sh
+TimeoutStartSec=60

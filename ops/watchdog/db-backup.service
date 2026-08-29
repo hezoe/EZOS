@@ -1,0 +1,12 @@
+[Unit]
+Description=Nightly PostgreSQL backups (pg_dumpall per docker container)
+Documentation=file:/home/debian/workspace/ops/watchdog/README.md
+After=docker.service
+Wants=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/db-backup.sh
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=600

@@ -1,0 +1,11 @@
+[Unit]
+Description=Service Watchdog (L7 per-service health check, restart on failure, ntfy notify)
+Documentation=file:/home/debian/workspace/ops/watchdog/README.md
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/service-watchdog.sh /etc/service-watchdog.conf
+# 再起動系コマンドを叩くため root。実行が長引いても次タイマ起動と衝突しないよう保険。
+TimeoutStartSec=120

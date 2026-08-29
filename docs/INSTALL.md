@@ -197,6 +197,10 @@ docker exec saas-caddy caddy reload   --config /etc/caddy/Caddyfile   # => reloa
 ez-hook のセッション追跡に加え、タブ名の作業追随（ez-title）、起動時サーバ状態表示（ezstatus）、`server-status` スキル、
 プロジェクトメモリ注入（project-memory.js）、使用量 statusLine の設定と、`EZOS_HOOK_SILENT` ガード規約をまとめてある。
 
+**（任意）ホスト監視 service-watchdog**: サービス死活監視・自動再起動・各種アラート（ディスク/証明書/failed/OOM/DBバックアップ鮮度/外部死活監視）を
+まとめた root/systemd の運用ツールを同梱している。導入は `ops/watchdog/README.md` を参照（`sudo ops/watchdog/install.sh`）。
+実値の設定は非公開の `/etc/service-watchdog.conf`（リポジトリには雛形 `service-watchdog.conf.example` のみ）。
+
 ---
 
 ## STEP 8. 検証

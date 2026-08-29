@@ -1,0 +1,11 @@
+[Unit]
+Description=Windowed check that a TLS cert renewed (see CERTRENEW_* in service-watchdog.conf)
+
+[Timer]
+# 証明書の更新予定を含む窓の各日 09:00 に確認する。設置環境の更新時期に合わせて日付を編集すること。
+# 例: 更新予定が 9/6 なら 09-06..13 の窓に。更新を確認したらスクリプトが .done を作り以後no-op。
+OnCalendar=2026-09-06..13 09:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

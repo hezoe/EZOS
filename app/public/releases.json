@@ -1,6 +1,21 @@
 {
-  "current": "1.0.12",
+  "current": "1.0.13",
   "releases": [
+    {
+      "version": "1.0.13",
+      "date": "2026-08-29",
+      "notes": {
+        "ja": [
+          "ホスト監視 service-watchdog を EZOS 同梱(ops/watchdog): サービス死活監視・自動再起動・環境アラート(ディスク/証明書/systemd-failed/メモリ/OOM/DBバックアップ鮮度/外部死活監視)。実値設定は非公開の/etc、リポジトリは汎用コード＋雛形のみ"
+        ],
+        "en": [
+          "Bundle service-watchdog host monitor under ops/watchdog: L7 checks with auto-restart plus disk/cert/failed/memory/OOM/DB-backup/dead-man alerts. Real config stays local (/etc); repo ships generic code + example only"
+        ],
+        "he": [
+          "צירוף כלי ניטור service-watchdog תחת ops/watchdog: בדיקות L7 עם הפעלה-מחדש והתראות דיסק/תעודה/failed/זיכרון/OOM/גיבוי-DB/dead-man. ההגדרות האמיתיות נשארות מקומיות"
+        ]
+      }
+    },
     {
       "version": "1.0.12",
       "date": "2026-08-29",

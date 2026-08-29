@@ -1,0 +1,58 @@
+# service-watchdog 設定テンプレート。実値へ編集して /etc/service-watchdog.conf として設置する。
+# （install.sh は初回のみ本ファイルから /etc/service-watchdog.conf を生成し、以後は上書きしない）
+# ※ このファイルはリポジトリ管理（公開）。実ドメイン・トピック・URL 等の秘匿値は書かないこと。
+
+# --- 通知(ntfy) ---
+NTFY_URL="https://ntfy.sh"
+NTFY_TOPIC="CHANGE-ME-your-secret-topic"   # 秘匿。購読者に通知が届く。推測困難な文字列にする
+
+# --- 判定パラメータ ---
+FAIL_THRESHOLD=3          # 連続失敗が何回で再起動するか
+COOLDOWN_SEC=900          # 同一サービスへ再アクションしない冷却時間(秒)
+POST_RESTART_WAIT=8       # 再起動後の再チェックまで待機(秒)
+CURL_TIMEOUT=6            # 1チェックのタイムアウト(秒)
+SYSTEMIC_THRESHOLD=3      # 同一巡回でこの数以上同時失敗=基盤障害の疑いで個別再起動を抑止
+STATE_DIR="/var/lib/service-watchdog"
+
+# --- 環境アラート(再起動せず通知のみ) ---
+DISK_WARN_PCT=90
+DISK_CRIT_PCT=95
+DISK_MOUNTS=""            # 空=全実マウント。特定するならスペース区切り(例 "/ /data")
+DISK_REMIND_SEC=86400
+CERT_WARN_DAYS=20
+CERT_SCAN_INTERVAL_SEC=43200
+CERT_HOSTS="app.example.com"                # 監視する公開ドメインをスペース区切りで
+
+# --- 外部死活監視(Dead-man's switch): healthchecks.io 等の ping URL。空=無効 ---
+DEADMAN_URL=""
+
+# --- systemd 失敗ユニットの総ざらい ---
+FAILED_UNITS_CHECK=1
+FAILED_UNITS_IGNORE=""    # 想定内failedを除外(スペース区切り)
+
+# --- メモリ/スワップ/OOM ---
+MEM_AVAIL_WARN_MB=300
+SWAP_USED_WARN_PCT=60
+MEM_REMIND_SEC=21600
+OOM_CHECK=1
+
+# --- DBバックアップ(db-backup.timer が毎晩実行) ---
+BACKUP_DIR="/var/backups/db"
+BACKUP_KEEP_DAYS=7
+BACKUP_TARGETS=""         # "container|POSTGRES_USER" をスペース区切り(例 "pg1|postgres pg2|appuser")。空=無効
+BACKUP_DBS=""             # 鮮度監視の接頭辞。BACKUP_TARGETSのcontainer名と揃える(例 "pg1 pg2")。空=無効
+BACKUP_MAX_AGE_SEC=93600  # 最新dumpがこれより古い/無い→警告(26h)
+
+# --- 証明書更新の見届け(任意): 更新窓は cert-renewal-check.timer(OnCalendar)で指定 ---
+CERTRENEW_HOST=""         # 見届ける対象ドメイン。空=無効(例 "app.example.com")
+CERTRENEW_LASTDAY="09-13" # 更新窓の最終日(MM-DD)。この日まで未更新なら要確認通知
+
+# --- 監視対象サービス ---
+#   形式: name|kind|target|min_status|max_status|substr|restart_cmd
+#   kind=http   : target=URL。HTTPステータスが[min,max]かつ本文にsubstr(空なら省略)を含めば健全
+#   kind=systemd: target=unit名。systemctl is-active が active なら健全
+SERVICES=(
+  "app|http|http://127.0.0.1:8080/|200|200|MyApp|systemctl restart my-app"
+  "worker|systemd|my-worker|0|0||systemctl restart my-worker"
+  # "site|http|https://app.example.com/|200|399||docker restart my-container"
+)
