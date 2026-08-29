@@ -424,9 +424,19 @@ body[data-mode="editor"] #terminals { visibility: hidden; pointer-events: none; 
 /* 詳細表示 */
 .ezb-list[data-view="detail"] .ezb-item,
 .ezb-list[data-view="detail"] .ezb-head {
-  display: grid; grid-template-columns: 22px minmax(0,1fr) 64px 128px 84px; gap: 8px; align-items: center;
+  display: grid;
+  grid-template-columns: 22px var(--ezb-w-name, 240px) var(--ezb-w-size, 64px) var(--ezb-w-mtime, 128px) minmax(var(--ezb-w-perm, 84px), 1fr);
+  gap: 8px; align-items: center;
 }
 .ezb-list[data-view="detail"] .ezb-head { display: grid; font-size: 12px; color: var(--dim); padding: 4px 8px; position: sticky; top: -6px; background: var(--bg); }
+/* 表題クリックで並べ替え */
+.ezb-col { position: relative; cursor: pointer; user-select: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 10px; }
+.ezb-col:hover { color: var(--text); }
+.ezb-col.active { color: var(--accent); }
+/* 列境界のドラッグで表示幅を変更 */
+.ezb-rz { position: absolute; top: 0; right: -4px; width: 8px; height: 100%; cursor: col-resize; z-index: 1; }
+.ezb-rz::after { content: ''; position: absolute; right: 4px; top: 2px; bottom: 2px; width: 1px; background: var(--line); }
+.ezb-rz:hover::after { background: var(--accent); }
 
 /* アイコン表示 */
 .ezb-list[data-view="icon"] { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 4px; align-content: start; }

@@ -584,9 +584,9 @@ const server = http.createServer(async (req, res) => {
     if (p === '/api/upload' && req.method === 'POST') {
       let buf;
       try {
-        buf = await readRawBody(req);
+        buf = await readRawBody(req, 100 * 1024 * 1024); // 1ファイル上限100MB
       } catch {
-        sendJson(res, 413, { error: 'ファイルが大きすぎます (上限25MB)' });
+        sendJson(res, 413, { error: 'ファイルが大きすぎます (上限100MB)' });
         return;
       }
       if (!buf.length) { sendJson(res, 400, { error: 'ファイルが空です' }); return; }
@@ -777,6 +777,7 @@ const server = http.createServer(async (req, res) => {
           '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif',
           '.webp': 'image/webp', '.svg': 'image/svg+xml', '.bmp': 'image/bmp', '.ico': 'image/x-icon',
           '.pdf': 'application/pdf',
+          '.html': 'text/html; charset=utf-8', '.htm': 'text/html; charset=utf-8',
         };
         const ext = path.extname(target).toLowerCase();
         const type = INLINE_TYPES[ext];

@@ -56,6 +56,10 @@
     if (e.type !== 'file') return false;
     return IMG_EXT.includes((e.name.split('.').pop() || '').toLowerCase());
   }
+  function isHtml(e) {
+    if (e.type !== 'file') return false;
+    return ['html', 'htm'].includes((e.name.split('.').pop() || '').toLowerCase());
+  }
   function iconFor(e) {
     if (e.type === 'updir') return '⬆️';
     if (e.type === 'dir') return '📁';
@@ -126,7 +130,48 @@
     sel: new Set(), anchor: null,
     view: localStorage.getItem('ez_view') || (isMobile ? 'list' : 'detail'),
     hidden: false,
+    sortKey: localStorage.getItem('ez_sortKey') || 'name',   // 'name'|'size'|'mtime'|'mode'
+    sortDir: Number(localStorage.getItem('ez_sortDir')) === -1 ? -1 : 1, // 1=昇順 / -1=降順
+    colw: loadColW(),   // 詳細表示の列幅(px)
   };
+  // 列幅(名前/サイズ/更新/権限)を localStorage から復元。壊れていれば既定値。
+  function loadColW() {
+    const def = { name: 240, size: 64, mtime: 128, perm: 84 };
+    try { const s = JSON.parse(localStorage.getItem('ez_colw') || 'null'); if (s && typeof s === 'object') return { ...def, ...s }; } catch { /* noop */ }
+    return def;
+  }
+  const COLW_MIN = { name: 80, size: 40, mtime: 80, perm: 50 };
+  // state.colw を listEl の CSS変数へ反映(詳細表示のグリッド列幅)。
+  function applyColWidths() {
+    if (!listEl) return;
+    const c = state.colw;
+    listEl.style.setProperty('--ezb-w-name', c.name + 'px');
+    listEl.style.setProperty('--ezb-w-size', c.size + 'px');
+    listEl.style.setProperty('--ezb-w-mtime', c.mtime + 'px');
+    listEl.style.setProperty('--ezb-w-perm', c.perm + 'px');
+  }
+  // 表題クリックで並べ替え。フォルダは常に先頭にまとめ、その中でキー順に並べる。
+  function sortEntries() {
+    const key = state.sortKey, dir = state.sortDir;
+    const byName = (a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
+    state.entries.sort((a, b) => {
+      if (a.type !== b.type) return a.type === 'dir' ? -1 : 1; // フォルダ先頭は固定
+      let r;
+      if (key === 'size') r = (a.size || 0) - (b.size || 0);
+      else if (key === 'mtime') r = (a.mtime || 0) - (b.mtime || 0);
+      else if (key === 'mode') r = (a.mode || 0) - (b.mode || 0);
+      else r = byName(a, b);
+      if (r === 0 && key !== 'name') r = byName(a, b); // 同値は名前で安定化
+      return r * dir;
+    });
+  }
+  function setSort(key) {
+    if (state.sortKey === key) state.sortDir = -state.sortDir;
+    else { state.sortKey = key; state.sortDir = 1; }
+    localStorage.setItem('ez_sortKey', state.sortKey);
+    localStorage.setItem('ez_sortDir', String(state.sortDir));
+    sortEntries(); renderList();
+  }
 
   /* ---------- ドロップダウン / コンテキストメニュー ---------- */
   let curDropdown = null, curDropdownBtn = null, curContext = null;
@@ -152,6 +197,13 @@
     b.addEventListener('click', () => openDropdownFor(b, typeof items === 'function' ? items() : items));
     return b;
   }
+  // ドロップダウンを持たない直アクション式のボタン(押すと fn を即実行)。
+  function actionButton(label, fn, tip) {
+    const b = document.createElement('button'); b.className = 'ezb-menu-btn'; b.textContent = label;
+    if (tip) b.setAttribute('data-tip', tip);
+    b.addEventListener('click', () => { closeDropdown(); closeContext(); fn(); });
+    return b;
+  }
   document.addEventListener('mousedown', (e) => {
     if (curDropdown && !curDropdown.contains(e.target) && !e.target.classList.contains('ezb-menu-btn')) closeDropdown();
     if (curContext && !curContext.contains(e.target)) closeContext();
@@ -164,6 +216,8 @@
       const b = document.createElement('button'); b.textContent = label; if (disabled) b.disabled = true;
       b.addEventListener('click', () => { closeContext(); fn(); }); menu.appendChild(b);
     };
+    const only = names.length === 1 ? state.entries.find((x) => x.name === names[0]) : null;
+    if (only && isHtml(only)) add(t('browser.openInBrowser'), () => openInBrowser(only.name));
     add(t('browser.renamePerm'), () => { const e = state.entries.find((x) => x.name === names[0]); if (e) renameDialog(e); }, names.length !== 1);
     add(t('browser.copyPath'), doCopyPath, !names.length);
     add(t('browser.download'), doDownload, !names.length);
@@ -324,10 +378,14 @@
       [t('browser.download'), doDownload, !state.sel.size],
       [t('browser.upload'), doUpload],
     ]), 'help.browserFile'));
-    menubarEl.appendChild(menuButton(t('browser.menuEdit'), () => ([
-      [t('browser.edit'), doEditSelected, state.sel.size !== 1],
-      [t('browser.delete'), doDelete, !state.sel.size],
-    ]), 'help.browserEdit'));
+    menubarEl.appendChild(menuButton(t('browser.menuEdit'), () => {
+      const sel = state.sel.size === 1 ? state.entries.find((x) => state.sel.has(x.name)) : null;
+      return [
+        [t('browser.edit'), doEditSelected, state.sel.size !== 1],
+        [t('browser.openInBrowser'), () => sel && openInBrowser(sel.name), !(sel && isHtml(sel))],
+        [t('browser.delete'), doDelete, !state.sel.size],
+      ];
+    }, 'help.browserEdit'));
     menubarEl.appendChild(menuButton(t('browser.menuView'), () => ([
       [t('browser.viewIcon'), () => setView('icon')],
       [t('browser.viewList'), () => setView('list')],
@@ -339,6 +397,12 @@
       ['CLI', () => openTerminal('cli')],
       ['Claude', () => openTerminal('claude')],
     ]), 'help.browserTerminal'));
+    menubarEl.appendChild(actionButton('🔄 ' + t('browser.refresh'), doRefresh, 'help.browserRefresh'));
+  }
+  // 現在フォルダを再読込して最新の内容に更新(端末やスクリプトで作成/変更したファイルを反映)。
+  async function doRefresh() {
+    await load(state.cwd);
+    flash(t('browser.refreshed'));
   }
 
   /* ---------- 一覧描画 ---------- */
@@ -365,10 +429,13 @@
   }
   function renderList() {
     listEl.dataset.view = state.view;
+    applyColWidths();
     listEl.innerHTML = '';
     if (state.view === 'detail') {
       const head = document.createElement('div'); head.className = 'ezb-head';
-      head.innerHTML = `<span></span><span>${t('browser.colName')}</span><span>${t('browser.colSize')}</span><span>${t('browser.colModified')}</span><span>${t('browser.colPerm')}</span>`;
+      const arrow = (k) => (state.sortKey === k ? (state.sortDir === 1 ? ' ▲' : ' ▼') : '');
+      const col = (k, label) => `<span class="ezb-col${state.sortKey === k ? ' active' : ''}" data-sort="${k}">${esc(label)}${arrow(k)}<span class="ezb-rz" data-col="${k}" title="${esc(t('browser.resizeCol'))}"></span></span>`;
+      head.innerHTML = `<span></span>${col('name', t('browser.colName'))}${col('size', t('browser.colSize'))}${col('mtime', t('browser.colModified'))}${col('mode', t('browser.colPerm'))}`;
       listEl.appendChild(head);
     }
     if (state.parent) {
@@ -401,6 +468,7 @@
       state.cwd = j.path; state.parent = j.parent; state.entries = j.entries;
       state.sel.clear(); state.anchor = null; loaded = true;
       localStorage.setItem('ez_cwd', j.path);
+      sortEntries();
       renderCrumbs(); renderList();
     } catch (e) {
       if (dir !== '/home/debian/workspace') { load('/home/debian/workspace'); }
@@ -425,8 +493,41 @@
     if (e.editable) openInEditor(e);
     else if (confirm(t('browser.notTextConfirm', { name: e.name }))) downloadSingle(e.name);
   }
+  // HTMLファイルを新規タブでブラウザ表示(/api/fs/raw が text/html でインライン配信)。
+  function openInBrowser(name) {
+    const src = '/api/fs/raw?dir=' + encodeURIComponent(state.cwd) + '&name=' + encodeURIComponent(name);
+    window.open(src, '_blank', 'noopener');
+  }
 
   function bindListEvents() {
+    // 表題(名前/サイズ/更新/権限)クリックで並べ替え(昇順⇄降順トグル)。詳細表示のみ。
+    listEl.addEventListener('click', (e) => {
+      if (e.target.closest('.ezb-rz')) return; // 幅変更ハンドルはソート対象外
+      const col = e.target.closest('.ezb-col'); if (!col) return;
+      setSort(col.dataset.sort);
+    });
+    // 列境界のドラッグで表示幅を変更(ハンドルをつかんで左右に)。
+    listEl.addEventListener('pointerdown', (e) => {
+      const rz = e.target.closest('.ezb-rz'); if (!rz) return;
+      e.preventDefault(); e.stopPropagation();
+      const key = rz.dataset.col;
+      const cell = rz.closest('.ezb-col');
+      const startX = e.clientX;
+      const startW = cell.getBoundingClientRect().width;
+      const min = COLW_MIN[key] || 40;
+      rz.setPointerCapture(e.pointerId);
+      const move = (ev) => {
+        state.colw[key] = Math.max(min, Math.round(startW + (ev.clientX - startX)));
+        applyColWidths();
+      };
+      const up = () => {
+        rz.removeEventListener('pointermove', move);
+        rz.removeEventListener('pointerup', up);
+        localStorage.setItem('ez_colw', JSON.stringify(state.colw));
+      };
+      rz.addEventListener('pointermove', move);
+      rz.addEventListener('pointerup', up);
+    });
     if (!isMobile) {
       listEl.addEventListener('click', (e) => {
         const item = e.target.closest('.ezb-item'); if (!item) return;

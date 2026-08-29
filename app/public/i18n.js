@@ -216,11 +216,15 @@
           "browser.viewDetail": "詳細表示",
           "browser.hiddenFiles": "隠しファイル: ",
           "browser.menuTerminal": "ターミナル",
+          "browser.refresh": "更新",
+          "browser.refreshed": "最新の状態にしました",
           "browser.upDir": ".. (上へ)",
+          "browser.openInBrowser": "ブラウザで開く",
           "browser.colName": "名前",
           "browser.colSize": "サイズ",
           "browser.colModified": "更新",
           "browser.colPerm": "権限",
+          "browser.resizeCol": "ドラッグで幅を変更",
           "browser.listFailed": "一覧の取得に失敗: ",
           "browser.notTextConfirm": "「{name}」はテキストではありません。ダウンロードしますか?",
           "browser.termNotLoaded": "端末機能が読み込まれていません",
@@ -335,11 +339,15 @@
           "browser.viewDetail": "Details",
           "browser.hiddenFiles": "Hidden files: ",
           "browser.menuTerminal": "Terminal",
+          "browser.refresh": "Refresh",
+          "browser.refreshed": "Refreshed",
           "browser.upDir": ".. (up)",
+          "browser.openInBrowser": "Open in browser",
           "browser.colName": "Name",
           "browser.colSize": "Size",
           "browser.colModified": "Modified",
           "browser.colPerm": "Permissions",
+          "browser.resizeCol": "Drag to resize",
           "browser.listFailed": "Failed to load listing: ",
           "browser.notTextConfirm": "\"{name}\" is not a text file. Download it?",
           "browser.termNotLoaded": "Terminal feature is not loaded",
@@ -391,6 +399,7 @@
     'help.browserEdit': '選択したファイルの編集・削除など。',
     'help.browserView': '表示切替(アイコン／リスト／詳細)と隠しファイルの表示。',
     'help.browserTerminal': '現在のフォルダをターミナル側に反映するなどの連携。',
+    'help.browserRefresh': '現在のフォルダを再読込して最新の内容に更新(端末やスクリプトで変更したファイルを反映)。',
   });
   Object.assign(DICT.en, {
     'help.modeCycle': 'Switch mode. Each click cycles EZterminal (terminal) → EZbrowser (files) → EZeditor (editor).',
@@ -402,6 +411,7 @@
     'help.browserEdit': 'Edit or delete the selected file, and related actions.',
     'help.browserView': 'Switch view (icons / list / details) and toggle hidden files.',
     'help.browserTerminal': 'Terminal integration, e.g. sync the current folder to the terminal.',
+    'help.browserRefresh': 'Reload the current folder to pick up files changed from a terminal or script.',
   });
 
   const LANGS = ['ja', 'en', 'he'];
@@ -540,6 +550,8 @@
     "browser.viewDetail": "פרטים",
     "browser.hiddenFiles": "קבצים מוסתרים: ",
     "browser.menuTerminal": "טרמינל",
+    "browser.refresh": "רענון",
+    "browser.refreshed": "רוענן",
     "browser.upDir": ".. (מעלה)",
     "browser.colName": "שם",
     "browser.colSize": "גודל",
@@ -588,7 +600,8 @@
     "help.browserFile": "פעולות על קבצים: יצירת תיקייה חדשה או קובץ טקסט, והעלאת קבצים.",
     "help.browserEdit": "עריכה או מחיקה של הקובץ הנבחר, ופעולות קשורות.",
     "help.browserView": "החלפת תצוגה (סמלים / רשימה / פרטים) והצגת קבצים מוסתרים.",
-    "help.browserTerminal": "שילוב עם הטרמינל, למשל סנכרון התיקייה הנוכחית אל הטרמינל."
+    "help.browserTerminal": "שילוב עם הטרמינל, למשל סנכרון התיקייה הנוכחית אל הטרמינל.",
+    "help.browserRefresh": "טעינה מחדש של התיקייה הנוכחית כדי לשקף קבצים ששונו מטרמינל או סקריפט."
   };
 
   // メニュー: リリースノーツ(全言語)

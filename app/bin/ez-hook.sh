@@ -3,6 +3,8 @@
 # 使い方: ez-hook.sh <state>   (state: idle|working|pretool|waiting_user|ended)
 # フックのstdinにイベントJSONが渡される
 set -u
+# タブ見出し要約用の headless claude から呼ばれた場合はビート送信をスキップ
+[ -n "${EZOS_HOOK_SILENT:-}" ] && exit 0
 STATE="${1:-working}"
 EV=$(cat 2>/dev/null || echo '{}')
 

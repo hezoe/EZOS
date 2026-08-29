@@ -11,6 +11,17 @@ const HAS_TMUX = fs.existsSync('/usr/bin/tmux');
 const HOME = process.env.HOME || '/home/debian';
 const HOST = (process.env.HOSTNAME || os.hostname() || '').split('.')[0];
 
+// タブ見出しのサイドチャネル。UserPromptSubmit フック(bin/ez-title.mjs)が毎ターン
+// 「今の作業」を data/titles/<tmuxセッション名>.json に書く。pane_title は初回タスクで
+// 固着し外部上書きも即奪還されるため、こちらを最優先で採用する。
+const TITLES_DIR = new URL('../data/titles/', import.meta.url).pathname;
+function sideLabel(sessionName) {
+  try {
+    const { label } = JSON.parse(fs.readFileSync(`${TITLES_DIR}${sessionName}.json`, 'utf8'));
+    return cleanTitle(label);
+  } catch { return ''; }
+}
+
 // pane_title(端末が OSC で設定するタイトル)から作業内容ラベルを取り出す。
 // Claude Code は現在の作業要約を pane_title に入れる(例:「navlogプロジェクトで…」)ので、
 // これをタブに出すと cwd を移動しなくても端末ごとに何をしているか見分けられる。
@@ -74,7 +85,8 @@ export async function getTitles() {
     for (const line of stdout.split('\n')) {
       const [name, title, cwd] = line.split('\x1f');
       if (!name || !name.startsWith('ez_')) continue;
-      out[name.slice(3)] = cleanTitle(title) || projectName(cwd || '');
+      // 優先度: フック要約(サイドチャネル) → pane_title → cwd由来のプロジェクト名
+      out[name.slice(3)] = sideLabel(name) || cleanTitle(title) || projectName(cwd || '');
     }
     return out;
   } catch {
