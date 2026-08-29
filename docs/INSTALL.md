@@ -193,6 +193,10 @@ docker exec saas-caddy caddy reload   --config /etc/caddy/Caddyfile   # => reloa
 `${APPDIR}/app/bin/ez-hook.sh <state>` を呼ぶ。送信先ポートはスクリプトが `data/config.json` から自動取得する。
 フックの対応は README「セッション状態の判定」表のとおり（SessionStart/Stop→idle、PreToolUse→working/running、Notification→waiting_user 等）。
 
+**Claude 連携（フック / スキル / メモリ / statusLine）の全体像は [CLAUDE_INTEGRATION.md](CLAUDE_INTEGRATION.md) を参照。**
+ez-hook のセッション追跡に加え、タブ名の作業追随（ez-title）、起動時サーバ状態表示（ezstatus）、`server-status` スキル、
+プロジェクトメモリ注入（project-memory.js）、使用量 statusLine の設定と、`EZOS_HOOK_SILENT` ガード規約をまとめてある。
+
 ---
 
 ## STEP 8. 検証

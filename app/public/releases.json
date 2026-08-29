@@ -1,6 +1,24 @@
 {
-  "current": "1.0.11",
+  "current": "1.0.12",
   "releases": [
+    {
+      "version": "1.0.12",
+      "date": "2026-08-29",
+      "notes": {
+        "ja": [
+          "サーバ状態ダッシュボード(ezstatus)とスキル server-status を追加。起動時に稼働サービス/CPU/メモリ/ディスク/ロードを自動表示",
+          "Claude連携(フック/スキル/メモリ/statusLine)の導入メモ docs/CLAUDE_INTEGRATION.md を追加"
+        ],
+        "en": [
+          "Add server-status dashboard (ezstatus) and skill; auto-show services/CPU/memory/disk/load at session start",
+          "Add Claude integration install memo (hooks/skills/memory/statusLine) in docs/CLAUDE_INTEGRATION.md"
+        ],
+        "he": [
+          "הוספת לוח מצב שרת (ezstatus) ומיומנות server-status; הצגת שירותים/מעבד/זיכרון/דיסק בתחילת הפעלה",
+          "הוספת מסמך התקנה לאינטגרציית Claude (hooks/skills/memory/statusLine)"
+        ]
+      }
+    },
     {
       "version": "1.0.11",
       "date": "2026-08-29",
