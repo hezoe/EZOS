@@ -201,6 +201,16 @@ ez-hook のセッション追跡に加え、タブ名の作業追随（ez-title�
 まとめた root/systemd の運用ツールを同梱している。導入は `ops/watchdog/README.md` を参照（`sudo ops/watchdog/install.sh`）。
 実値の設定は非公開の `/etc/service-watchdog.conf`（リポジトリには雛形 `service-watchdog.conf.example` のみ）。
 
+**（任意）セッションメモリ監視 session-mem-watch**: Claude セッションの肥大や `ezos.service` cgroup の逼迫を10分毎に検査し、
+OOM 強制終了の前に ntfy 通知する（2026-09-10 の OOM 再発防止）。導入は `ops/session-mem-watch/README.md` を参照。
+```bash
+sudo ops/session-mem-watch/install.sh                 # 設置＋10分毎timer有効化(初回は /etc に conf 生成)
+sudo vi /etc/ezos-session-mem-watch.conf              # NTFY_TOPIC を実値に(閾値 THRESHOLD_MB/CGROUP_PCT も調整可)
+sudo ops/session-mem-watch/install.sh                 # 再実行(既存 conf は保持)
+# もしくはゼロタッチ: sudo EZOS_NTFY_TOPIC=ezos-mem-xxxx ops/session-mem-watch/install.sh
+```
+実値の設定は非公開の `/etc/ezos-session-mem-watch.conf`（リポジトリには雛形 `session-mem-watch.conf.example` のみ）。
+
 ---
 
 ## STEP 8. 検証

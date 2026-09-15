@@ -1,0 +1,10 @@
+[Unit]
+Description=EZOS セッションメモリ監視を10分毎に実行
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=10min
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target

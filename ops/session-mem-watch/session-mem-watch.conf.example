@@ -1,0 +1,12 @@
+# session-mem-watch 設定テンプレート。実値へ編集して /etc/ezos-session-mem-watch.conf として設置する。
+# （install.sh は初回のみ本ファイルから /etc/ezos-session-mem-watch.conf を生成し、以後は上書きしない）
+# ※ このファイルはリポジトリ管理（公開）。実トピック等の秘匿値は書かないこと。
+
+# --- 通知(ntfy) ---  ※必須。ここを設定しないと通知は飛びません。
+NTFY_URL="https://ntfy.sh"
+NTFY_TOPIC="CHANGE-ME-your-secret-topic"   # 秘匿。推測困難な文字列に。https://ntfy.sh/<TOPIC> を購読して受信
+
+# --- 判定パラメータ(任意・既定値) ---
+THRESHOLD_MB=1600     # 単一Claudeセッションの警告RSS(MB)。ezos.service の MemoryMax より手前に置く
+CGROUP_PCT=88         # ezos.service cgroup メモリ使用率(%)の警告閾値
+COOLDOWN=21600        # 同一対象へ再通知しない冷却時間(秒) = 6時間(スパム抑止)

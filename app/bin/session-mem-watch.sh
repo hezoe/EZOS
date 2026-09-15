@@ -13,21 +13,28 @@
 # ntfy設定は /etc/vps-healthcheck.conf を再利用(NTFY_URL / NTFY_TOPIC)。root(cron)で実行。
 set -u
 
+# --- 設定読込 ---
+# 専用設定 /etc/ezos-session-mem-watch.conf があれば読み込む(閾値・ntfy を利用者が設定)。
+# 生成: EZOS/ops/session-mem-watch/install.sh が conf.example から作成。SMW_CONF で上書き可。
+SMW_CONF=${SMW_CONF:-/etc/ezos-session-mem-watch.conf}
+# shellcheck source=/dev/null
+[ -r "$SMW_CONF" ] && . "$SMW_CONF"
+
 THRESHOLD_MB=${THRESHOLD_MB:-1600}     # 単一セッション警告閾値(MB)。MemoryMax=2.5GBより十分手前
 CGROUP_PCT=${CGROUP_PCT:-88}           # cgroup使用率警告閾値(%)
 COOLDOWN=${COOLDOWN:-21600}            # 同一対象の再通知間隔(秒) 6h
-CONF=/etc/vps-healthcheck.conf
+NTFY_URL=${NTFY_URL:-https://ntfy.sh}
+NTFY_TOPIC=${NTFY_TOPIC:-}
 STATE_DIR=/var/lib/ezos
 STATE=$STATE_DIR/session-mem-watch.state
 CG=/sys/fs/cgroup/system.slice/ezos.service
 
 mkdir -p "$STATE_DIR"; touch "$STATE" 2>/dev/null
 
-# --- ntfy 設定読込 ---
-NTFY_URL="https://ntfy.sh"; NTFY_TOPIC=""
-if [ -r "$CONF" ]; then
-  v=$(grep -E '^NTFY_URL=' "$CONF" | tail -1 | cut -d= -f2- | tr -d '"'"'"' ' ); [ -n "$v" ] && NTFY_URL="$v"
-  NTFY_TOPIC=$(grep -E '^NTFY_TOPIC=' "$CONF" | tail -1 | cut -d= -f2- | tr -d '"'"'"' ' )
+# ntfy未設定なら旧来の /etc/vps-healthcheck.conf から補完(後方互換)
+if [ -z "$NTFY_TOPIC" ] && [ -r /etc/vps-healthcheck.conf ]; then
+  v=$(grep -E '^NTFY_URL=' /etc/vps-healthcheck.conf | tail -1 | cut -d= -f2- | tr -d '"'"'"' ' ); [ -n "$v" ] && NTFY_URL="$v"
+  NTFY_TOPIC=$(grep -E '^NTFY_TOPIC=' /etc/vps-healthcheck.conf | tail -1 | cut -d= -f2- | tr -d '"'"'"' ' )
 fi
 
 now=$(date +%s)
