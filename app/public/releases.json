@@ -1,6 +1,21 @@
 {
-  "current": "1.0.14",
+  "current": "1.0.15",
   "releases": [
+    {
+      "version": "1.0.15",
+      "date": "2026-09-16",
+      "notes": {
+        "ja": [
+          "セッションメモリ早期警告スクリプト(app/bin/session-mem-watch.sh)を同梱: Claudeセッションの肥大(RSS)とezos.service cgroupのメモリ逼迫を監視し、MemoryMax到達によるOOM強制終了の前にntfy通知(2026-09-10のOOM再発防止)"
+        ],
+        "en": [
+          "Bundle session-memory early-warning script (app/bin/session-mem-watch.sh): watch Claude session RSS and the ezos.service cgroup memory, alert via ntfy before an OOM kill at MemoryMax"
+        ],
+        "he": [
+          "צירוף סקריפט אזהרה מוקדמת לזיכרון סשן (app/bin/session-mem-watch.sh): ניטור RSS של סשן Claude וזיכרון ה-cgroup של ezos.service, והתרעה ב-ntfy לפני OOM"
+        ]
+      }
+    },
     {
       "version": "1.0.14",
       "date": "2026-09-16",
