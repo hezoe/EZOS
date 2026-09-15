@@ -752,7 +752,14 @@
     // 表示し、クリックで "claude"+Enter をアクティブ端末へ送出してClaudeを起動する。
     // 送信方式はGitボタンと同じ「ブラケットペースト+独立Enter」で、シェル/Claudeプロンプト
     // どちらでも確実に実行され、未接続でもキュー経由で取りこぼさない。
-    const CLAUDE_CMD = 'claude';
+    // モデル/エフォート選択(キー行のプルダウン)から起動コマンドを組み立てる。
+    // 既定=Opus 4.8 / xhigh。選択は localStorage に保存しコクピット全体で共有。
+    let modelSel = null, effortSel = null;
+    const buildClaudeCmd = () => {
+      const m = (modelSel && modelSel.value) || localStorage.getItem('ez_model') || 'claude-opus-4-8';
+      const e = (effortSel && effortSel.value) || localStorage.getItem('ez_effort') || 'xhigh';
+      return `claude --model ${m} --effort ${e}`;
+    };
     const claudeBlades = Array.from({ length: 11 }, (_, i) =>
       `<path transform="rotate(${(i * 360 / 11).toFixed(2)} 12 12)" d="M12 2.4C12.5 6 12.7 9.3 12 10.7C11.3 9.3 11.5 6 12 2.4Z"/>`).join('');
     const CLAUDE_ICON = '<svg class="claude-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false">'
@@ -764,7 +771,7 @@
       b.setAttribute('aria-label', t('term.launchClaude'));
       b.innerHTML = CLAUDE_ICON;
       b.addEventListener('click', () => {
-        tabSendRaw(tab, '\x1b[200~' + CLAUDE_CMD + '\x1b[201~');
+        tabSendRaw(tab, '\x1b[200~' + buildClaudeCmd() + '\x1b[201~');
         tabSendRaw(tab, '\r');
         if (!isMobile) (tab.inputOn ? tab.inputEl : tab.term).focus();
       });
@@ -781,37 +788,33 @@
       if (label === '⏎') keyrow.appendChild(mkClaude()); // ⏎とTabの間にClaude起動ボタン
     }
 
-    // Git操作ボタン(ESCの右)。シェルでもClaudeプロンプトでも同じコマンド行を流し込み、
-    // 相手(シェル=直接実行 / Claude=そのコマンドを実行)に処理させることでどちらでも動く。
-    // 送信先はアクティブ端末なので、そのターミナルのカレントディレクトリで実行される。
-    const GIT_PULL = 'git pull';
-    const GIT_PUSH = 'git add -A && git commit -m "update $(date +%F_%T)" && git push';
-    // GitHub の Octocat マーク(公式ロゴ形状)。currentColor でボタンの文字色に追従。
-    const GH_ICON = '<svg class="gh-ico" viewBox="0 0 16 16" aria-hidden="true" focusable="false">'
-      + '<path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38'
-      + ' 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53'
-      + '.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95'
-      + ' 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09'
-      + ' 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95'
-      + '.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>';
-    const mkGit = (arrow, title, cmd) => {
-      const b = document.createElement('button');
-      b.className = 'gitkey'; b.title = title;
-      b.innerHTML = GH_ICON + '<span class="gh-arrow">' + arrow + '</span>'; // Octocat + 矢印(↓/↑)
-      b.addEventListener('click', () => {
-        // 入力欄「送信」と同じ方式: ブラケットペーストでコマンドを確定入力し、
-        // 独立したEnter(\r)で送信する。これでシェルでもClaudeプロンプトでも実行される
-        // (素の \r だとClaudeでは改行扱いになり送信されないことがあるため)。
-        // キュー経由なので未接続でも取りこぼさず、再接続後にまとめて送られる。
-        tabSendRaw(tab, '\x1b[200~' + cmd + '\x1b[201~');
-        tabSendRaw(tab, '\r');
-      });
-      return b;
-    };
-    keyrow.append(
-      mkGit('↓', t('term.gitPull'), GIT_PULL),
-      mkGit('↑', t('term.gitPush'), GIT_PUSH),
-    );
+    // モデル/エフォート選択プルダウン(旧Gitボタンの位置)。Claude起動ボタンが送る
+    // `claude --model … --effort …` のオプションを決める。選択は localStorage 共有で
+    // 全タブ・再読込後も既定として引き継がれる(既定=Opus 4.8 / xhigh)。
+    const MODELS = [
+      ['claude-opus-4-8', 'Opus 4.8'],
+      ['claude-sonnet-5', 'Sonnet 5'],
+      ['claude-haiku-4-5-20251001', 'Haiku 4.5'],
+      ['claude-fable-5', 'Fable 5'],
+    ];
+    const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'];
+    modelSel = document.createElement('select');
+    modelSel.className = 'mdlsel'; modelSel.title = t('term.modelSel');
+    for (const [val, lab] of MODELS) {
+      const o = document.createElement('option'); o.value = val; o.textContent = lab; modelSel.appendChild(o);
+    }
+    modelSel.value = localStorage.getItem('ez_model') || 'claude-opus-4-8';
+    if (!modelSel.value) modelSel.value = 'claude-opus-4-8';
+    modelSel.addEventListener('change', () => { try { localStorage.setItem('ez_model', modelSel.value); } catch { /* noop */ } });
+    effortSel = document.createElement('select');
+    effortSel.className = 'effsel'; effortSel.title = t('term.effortSel');
+    for (const val of EFFORTS) {
+      const o = document.createElement('option'); o.value = val; o.textContent = val; effortSel.appendChild(o);
+    }
+    effortSel.value = localStorage.getItem('ez_effort') || 'xhigh';
+    if (!effortSel.value) effortSel.value = 'xhigh';
+    effortSel.addEventListener('change', () => { try { localStorage.setItem('ez_effort', effortSel.value); } catch { /* noop */ } });
+    keyrow.append(modelSel, effortSel);
 
     // 選択コピー(📋): コンソール内容を選択可能なオーバーレイで開く。iPhone等で xterm を
     // 直接タッチしても選択ポップアップが出ないため、この経路で長押し選択/全文コピーする。

@@ -237,13 +237,13 @@ code { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-siz
 }
 .tw-keyrow button:hover { background: var(--card-hover); }
 .tw-keyrow button:active { background: var(--accent); }
-/* Git操作ボタン(Octocat↓/↑)はアクセント色で区別 */
-.tw-keyrow button.gitkey {
-  border-color: var(--accent); color: var(--accent); font-weight: 600;
-  display: inline-flex; align-items: center; gap: 3px;
+/* モデル/エフォート選択プルダウン(旧Gitボタンの位置)。アクセント枠で区別 */
+.tw-keyrow select.mdlsel, .tw-keyrow select.effsel {
+  background: var(--card); color: var(--text); border: 1px solid var(--accent);
+  border-radius: 6px; padding: 3px 6px; font-size: 12px; cursor: pointer; flex: none;
+  max-width: 130px;
 }
-.tw-keyrow button.gitkey .gh-ico { width: 15px; height: 15px; display: block; }
-.tw-keyrow button.gitkey .gh-arrow { line-height: 1; }
+.tw-keyrow select.mdlsel:hover, .tw-keyrow select.effsel:hover { background: var(--card-hover); }
 /* Claude起動ボタン(⏎とTabの間)。Claudeブランドカラーの枠で区別 */
 .tw-keyrow button.claudekey {
   display: inline-flex; align-items: center; justify-content: center;

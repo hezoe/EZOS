@@ -1,6 +1,24 @@
 {
-  "current": "1.0.13",
+  "current": "1.0.14",
   "releases": [
+    {
+      "version": "1.0.14",
+      "date": "2026-09-16",
+      "notes": {
+        "ja": [
+          "ターミナルのGitボタン(pull/push)を廃止し、モデル(Opus 4.8/Sonnet 5/Haiku 4.5/Fable 5)とエフォート(low〜max)の選択プルダウンに置換。Claude起動ボタンが選択内容で起動(既定=Opus 4.8/xhigh・localStorage保存)",
+          "内蔵チャットの既定モデル/エフォートも Opus 4.8 / xhigh に固定"
+        ],
+        "en": [
+          "Replace terminal Git buttons (pull/push) with Model (Opus 4.8/Sonnet 5/Haiku 4.5/Fable 5) and Effort (low–max) dropdowns; the Claude launch button uses the selection (default Opus 4.8/xhigh, saved to localStorage)",
+          "Built-in chat now defaults to Opus 4.8 / xhigh"
+        ],
+        "he": [
+          "החלפת כפתורי Git במסוף (pull/push) בתפריטי בחירת מודל (Opus 4.8/Sonnet 5/Haiku 4.5/Fable 5) ומאמץ (low–max); כפתור ההפעלה של Claude משתמש בבחירה (ברירת מחדל Opus 4.8/xhigh)",
+          "גם הצ׳אט המובנה עובר כברירת מחדל ל-Opus 4.8 / xhigh"
+        ]
+      }
+    },
     {
       "version": "1.0.13",
       "date": "2026-08-29",

@@ -16,6 +16,9 @@ export function runClaude({ prompt, resumeSessionId, allowTools, onEvent }) {
     '--output-format', 'stream-json',
     '--include-partial-messages',
     '--verbose',
+    // EZOSセッションの既定モデル/エフォート(ユーザ指定: Opus 4.8・超高)
+    '--model', 'claude-opus-4-8',
+    '--effort', 'xhigh',
   ];
   if (resumeSessionId) {
     args.push('--resume', resumeSessionId);
