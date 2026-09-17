@@ -16,16 +16,17 @@ cpu_snap() {
 }
 CS1=($(cpu_snap))
 
-# --- 監視対象サービスの読み込み(無ければ既定) ---
-if [ -r "$WD_CONF" ]; then . "$WD_CONF"; fi
+# --- 監視対象サービスの読み込み ---
+# 優先順: ① app/data/ezstatus-services.conf(このホスト専用・git管理外) ② service-watchdog の設定
+#         ③ どちらも無ければ EZOS 自身のみ(ポートは data/config.json から)
+# ホスト固有のサービス名/ポートは公開リポジトリに書かず ① に置く(形式は ops/watchdog/service-watchdog.conf.example の SERVICES)。
+APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+LOCAL_CONF="$APP_DIR/data/ezstatus-services.conf"
+if [ -r "$LOCAL_CONF" ]; then . "$LOCAL_CONF"
+elif [ -r "$WD_CONF" ]; then . "$WD_CONF"; fi
 if ! declare -p SERVICES >/dev/null 2>&1 || [ "${#SERVICES[@]}" -eq 0 ]; then
-  SERVICES=(
-    "ezos|http|http://127.0.0.1:3101/|200|200|EZOS|systemctl restart ezos"
-    "navlog|http|http://127.0.0.1:3102/|200|200|NAVLOG|systemctl restart navlog"
-    "feeldscope|http|http://127.0.0.1:3000/|200|200|FEELDSCOPE|systemctl restart feeldscope-webapp"
-    "takikawa|http|http://127.0.0.1:3002/|200|200||systemctl restart takikawa-web"
-    "adsb-poller|systemd|adsb-poller|0|0||systemctl restart adsb-poller"
-  )
+  EZ_PORT="$(jq -r '.port // 3100' "$APP_DIR/data/config.json" 2>/dev/null || echo 3100)"
+  SERVICES=("ezos|http|http://127.0.0.1:${EZ_PORT}/|200|200|EZOS|systemctl restart ezos")
 fi
 
 # --- 各サービスの systemd 状態と L7 応答を採取(この処理時間がCPU計測区間になる) ---

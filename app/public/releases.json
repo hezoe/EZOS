@@ -1,6 +1,27 @@
 {
-  "current": "1.0.16",
+  "current": "1.0.17",
   "releases": [
+    {
+      "version": "1.0.17",
+      "date": "2026-09-17",
+      "notes": {
+        "ja": [
+          "他OS/ユーザー環境へのインストールに対応: /home/debian・/usr/bin/tmux・/usr/bin/tar 等の固定値を排除し、HOME・コマンドを実行時に解決(Debian 以外で EZbrowser の一覧取得に失敗する問題を修正)",
+          "systemd unit をテンプレート化し app/bin/install-service.sh で実行ユーザー/ホーム/設置先/node を解決して設置。Docker の無い機では docker0 に待受しない",
+          "サーバ状態ダッシュボード(ezstatus.sh)の監視対象をホスト専用の app/data/ezstatus-services.conf から読むように変更(公開リポジトリからホスト固有のサービス一覧を削除)"
+        ],
+        "en": [
+          "Portable install on other OSes/users: removed hard-coded /home/debian, /usr/bin/tmux, /usr/bin/tar etc.; HOME and commands are resolved at runtime (fixes EZbrowser list failing on non-Debian hosts)",
+          "The systemd unit is now a template; app/bin/install-service.sh resolves user/home/install dir/node and installs it. docker0 is not bound on hosts without Docker",
+          "The server status dashboard (ezstatus.sh) reads host-specific services from app/data/ezstatus-services.conf (host-specific service list removed from the public repo)"
+        ],
+        "he": [
+          "התקנה ניידת במערכות הפעלה/משתמשים אחרים: הוסרו נתיבים קבועים כמו /home/debian, /usr/bin/tmux, /usr/bin/tar; HOME ופקודות נפתרים בזמן ריצה (תיקון כשל טעינת הרשימה ב-EZbrowser במארחים שאינם Debian)",
+          "יחידת systemd הפכה לתבנית; app/bin/install-service.sh מזהה משתמש/בית/תיקיית התקנה/node ומתקין אותה. אין האזנה ל-docker0 במארחים ללא Docker",
+          "לוח מצב השרת (ezstatus.sh) קורא שירותים ספציפיים למארח מ-app/data/ezstatus-services.conf (רשימת השירותים הספציפית הוסרה מהמאגר הציבורי)"
+        ]
+      }
+    },
     {
       "version": "1.0.16",
       "date": "2026-09-16",

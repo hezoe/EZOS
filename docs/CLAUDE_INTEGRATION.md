@@ -110,8 +110,16 @@ description: サーバ(EZOS稼働ホスト)の状態を一覧表示する。稼�
 3. 🔴 のサービスやリソース逼迫があれば一言添える。全て正常なら短くまとめる。
 ```
 
-> `ezstatus.sh` の監視対象は、存在すれば `/etc/service-watchdog.conf` の `SERVICES` を再利用し、無ければ内蔵の既定リストを使う。
-> **既定リストは設置環境ごとに実サービスへ調整すること**（ホスト固有のサービス名/ポートが入っている）。
+> `ezstatus.sh` の監視対象は次の順で決まる: ① `${APPDIR}/app/data/ezstatus-services.conf`（ホスト専用・git 管理外）の `SERVICES`
+> → ② `/etc/service-watchdog.conf` の `SERVICES` → ③ どちらも無ければ EZOS 自身のみ（ポートは `app/data/config.json`）。
+> **ホスト固有のサービスは ① に書く**（公開リポジトリに実サービス名/ポートを入れない）。形式は `ops/watchdog/service-watchdog.conf.example` の `SERVICES` と同じ:
+>
+> ```bash
+> SERVICES=(
+>   "ezos|http|http://127.0.0.1:3100/|200|200|EZOS|systemctl restart ezos"
+>   "my-app|systemd|my-app|0|0||systemctl restart my-app"
+> )
+> ```
 
 ---
 
