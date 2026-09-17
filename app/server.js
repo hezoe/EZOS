@@ -15,6 +15,7 @@ import { runClaude } from './lib/claude.js';
 import { createTermServer } from './lib/term.js';
 import { getStates, sendKey, getTitles, getCwd, createSession } from './lib/termstate.js';
 import { listTerminals, addTerminal, removeTerminal } from './lib/terminals.js';
+import { HOME, hasCommand } from './lib/env.js';
 import { REAL_ROOT, HttpError, safePath, childPath, isTextFile, statEntry } from './lib/filemgr.js';
 
 const cfg = loadConfig();
@@ -473,8 +474,7 @@ const server = http.createServer(async (req, res) => {
 
     if (p === '/api/status' && req.method === 'GET') {
       // Claude Codeのログイン状態を軽く確認 (credentialsファイルの存在で判定)
-      const home = process.env.HOME || '/home/debian';
-      const loggedIn = fs.existsSync(path.join(home, '.claude', '.credentials.json'));
+      const loggedIn = fs.existsSync(path.join(HOME, '.claude', '.credentials.json'));
       sendJson(res, 200, { claudeLoggedIn: loggedIn });
       return;
     }
@@ -553,7 +553,7 @@ const server = http.createServer(async (req, res) => {
       // EZbrowserからの追加: dir指定があればその場所でtmuxセッションを事前生成(CLI/Claude)
       if (body.dir) {
         try {
-          const dir = await safePath(body.dir); // /home/debian 配下のみ
+          const dir = await safePath(body.dir); // $HOME 配下のみ
           await createSession(term.sid, dir, body.kind === 'claude' ? 'claude' : 'cli');
         } catch { /* 事前生成失敗でもレジストリは作成済み。WS接続時に既定生成される */ }
       }
@@ -597,9 +597,9 @@ const server = http.createServer(async (req, res) => {
       const dirParam = url.searchParams.get('dir');
       try {
         if (dirParam) {
-          dir = await safePath(dirParam); // /home/debian 配下のみ許可
+          dir = await safePath(dirParam); // $HOME 配下のみ許可
         } else {
-          const baseDir = (await getCwd(url.searchParams.get('sid'))) || process.env.HOME || '/home/debian';
+          const baseDir = (await getCwd(url.searchParams.get('sid'))) || HOME;
           dir = path.join(baseDir, 'docs');
         }
       } catch (e) {
@@ -630,7 +630,7 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    // ===== EZbrowser: ファイルシステム API (すべて /home/debian 配下のみ, 認証必須) =====
+    // ===== EZbrowser: ファイルシステム API (すべて $HOME 配下のみ, 認証必須) =====
     if (p === '/api/fs/list' && req.method === 'GET') {
       try {
         const dir = await safePath(url.searchParams.get('path') || REAL_ROOT);
@@ -828,7 +828,7 @@ const server = http.createServer(async (req, res) => {
           'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(fn)}`,
         });
         // シェル非経由(spawn+配列) + -C で親へ移動 + -- でオプション終端 + basenameのみ = 引数注入なし
-        const child = spawn('/usr/bin/tar', ['-czf', '-', '-C', dir, '--', ...names], { stdio: ['ignore', 'pipe', 'ignore'] });
+        const child = spawn('tar', ['-czf', '-', '-C', dir, '--', ...names], { stdio: ['ignore', 'pipe', 'ignore'] });
         child.stdout.pipe(res);
         req.on('close', () => child.kill('SIGKILL'));
         child.on('error', () => { if (!res.headersSent) sendJson(res, 500, { error: 'アーカイブ作成に失敗' }); else res.end(); });
@@ -1037,7 +1037,7 @@ ${authed ? '<link rel="stylesheet" href="/assets/ezeditor.css"><link rel="styles
 </head>
 <body class="${esc(bodyClass)}">
 ${authed ? termHtml : loginHtml}
-<script>window.EZ = { authed: ${authed}, view: ${JSON.stringify(view)}, lang: ${JSON.stringify(lang)} };</script>
+<script>window.EZ = { authed: ${authed}, view: ${JSON.stringify(view)}, lang: ${JSON.stringify(lang)}, home: ${JSON.stringify(REAL_ROOT)} };</script>
 <script src="/assets/i18n.js"></script>
 <script src="/assets/tooltip.js"></script>
 ${authed
@@ -1052,16 +1052,22 @@ const handleUpgrade = createTermServer({ isAuthed, origin: cfg.origin });
 
 // Caddy(Dockerコンテナ)から host.docker.internal 経由で届くよう docker0 側にもバインドする
 const PORT = cfg.port || 3100;
-const HOSTS = cfg.hosts || ['127.0.0.1', '172.17.0.1'];
+// config.json の hosts 未指定時: Docker が入っている機だけ docker0 にも待受する
+// (Docker の無いOS/機で存在しないアドレスへ延々とリトライしないため)
+const HOSTS = cfg.hosts || (hasCommand('docker') ? ['127.0.0.1', '172.17.0.1'] : ['127.0.0.1']);
 // docker0(172.17.0.1)は Docker デーモン起動後に現れるため、起動順によっては
 // bind 時点でアドレス未存在(EADDRNOTAVAIL)になりうる。その場合は現れるまでリトライする。
 function bindHost(host, isPrimary) {
   const s = isPrimary ? server : http.createServer(server.listeners('request')[0]);
   s.on('upgrade', handleUpgrade);
+  let warned = false;
   s.on('error', (e) => {
     if (e.code === 'EADDRNOTAVAIL') {
-      console.error(`listen ${host}:${PORT} failed: ${e.message}; retrying in 3s`);
-      setTimeout(() => s.listen(PORT, host), 3000);
+      // ログ溢れ防止: 警告は初回のみ。リトライ間隔は3秒→最大60秒まで伸ばす
+      if (!warned) console.error(`listen ${host}:${PORT} failed: ${e.message}; retrying until available`);
+      warned = true;
+      s._ezRetry = Math.min((s._ezRetry || 1500) * 2, 60000);
+      setTimeout(() => s.listen(PORT, host), s._ezRetry);
     } else {
       console.error(`listen ${host}:${PORT} failed: ${e.message}`);
     }

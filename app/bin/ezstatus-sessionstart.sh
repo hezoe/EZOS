@@ -9,7 +9,8 @@ EV=$(cat 2>/dev/null || echo '{}')
 SRC=$(printf '%s' "$EV" | jq -r '.source // "startup"' 2>/dev/null)
 case "$SRC" in startup|clear) ;; *) exit 0 ;; esac
 
-DASH="$(/home/debian/EZOS/app/bin/ezstatus.sh 2>/dev/null)"
+BIN_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+DASH="$("$BIN_DIR/ezstatus.sh" 2>/dev/null)"
 [ -z "$DASH" ] && exit 0
 
 cat <<EOF

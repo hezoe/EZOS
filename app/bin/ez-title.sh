@@ -7,5 +7,11 @@ set -u
 EV=$(cat 2>/dev/null || echo '{}')
 DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 # setsid でセッションを切り離し、node を完全にデタッチ(親フックの終了に巻き込まれない)
-printf '%s' "$EV" | setsid /usr/bin/node "$DIR/ez-title.mjs" >/dev/null 2>&1 &
+# node は PATH から解決(/usr/bin 以外: /usr/local/bin, nvm 等)。setsid の無い環境は nohup で代替
+NODE=$(command -v node 2>/dev/null) || exit 0
+if command -v setsid >/dev/null 2>&1; then
+  printf '%s' "$EV" | setsid "$NODE" "$DIR/ez-title.mjs" >/dev/null 2>&1 &
+else
+  printf '%s' "$EV" | nohup "$NODE" "$DIR/ez-title.mjs" >/dev/null 2>&1 &
+fi
 exit 0

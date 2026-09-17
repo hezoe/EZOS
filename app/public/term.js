@@ -594,7 +594,7 @@
      URLは WebLinksAddon が担当。ここはファイルパス専用のリンクプロバイダ(自前実装)。
      行のセル情報から桁を計算するので、全角(CJK)混在行でも下線位置がずれない。
      対象は provideLinks が渡す1バッファ行(折返しの跨ぎは非対応=許容範囲)。 */
-  const HOME = '/home/debian';
+  const HOME = window.EZ.home; // サーバの REAL_ROOT($HOME)
   // スラッシュを含むパス、または既知の拡張子を持つ素のファイル名にマッチ
   const FILE_LINK_RE = /[\w.@~+-]*(?:\/[\w.@+~-]+)+\/?|[\w@+-][\w.@+-]*\.(?:js|mjs|cjs|jsx|ts|tsx|json|css|scss|less|html?|xml|svg|vue|md|markdown|te?xt|sh|bash|zsh|py|rb|go|rs|c|h|hpp|cc|cpp|java|kt|swift|ya?ml|toml|ini|cfg|conf|env|php|sql|log|lock)\b/g;
   const PATH_BOUNDARY = /[:\w@~+.\-/]/; // 直前がこの文字ならパス片ではない(URL断片や語中)

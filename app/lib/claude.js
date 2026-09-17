@@ -1,6 +1,7 @@
 // Claude Code CLI をヘッドレス実行して stream-json をイベントとして流す
 import { spawn } from 'node:child_process';
 import { WORKSPACE_DIR } from './store.js';
+import { HOME } from './env.js';
 
 /**
  * @param {object} opts
@@ -27,7 +28,7 @@ export function runClaude({ prompt, resumeSessionId, allowTools, onEvent }) {
 
   const child = spawn('claude', args, {
     cwd: WORKSPACE_DIR,
-    env: { ...process.env, HOME: process.env.HOME || '/home/debian' },
+    env: { ...process.env, HOME },
     stdio: ['pipe', 'pipe', 'pipe'],
   });
 

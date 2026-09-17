@@ -1,7 +1,7 @@
 /* EZbrowser: ファイルエクスプローラのモード。端末・エディタと3状態サイクルで切替。
    3ビュー(#terminals / #ez-browser / #ez-editor)は同時に存在し、表示だけを付け替える。
    エディタ本体は ezeditor.js(window.EZEditor)に分離。ここはホストとして接続するのみ。
-   全FS操作は /home/debian 配下に限定(サーバの safePath が保証)。 */
+   全FS操作は実行ユーザーのホーム($HOME)配下に限定(サーバの safePath が保証)。 */
 'use strict';
 (() => {
   const t = (k, v) => (window.EZ && window.EZ.t ? window.EZ.t(k, v) : k);
@@ -95,7 +95,8 @@
   }
 
   /* ---------- モード(3状態サイクル) ---------- */
-  const ROOT = '/home/debian';
+  const ROOT = window.EZ.home; // サーバの REAL_ROOT($HOME)。OS/ユーザーごとに異なる
+  const WORKSPACE = ROOT + '/workspace';
   let mode = 'terminal';        // 'terminal' | 'browser' | 'editor'
   let editorOpen = false;       // エディタ表示中か(EZEditorの onShow/onHide で更新)
   let editor = null;            // EZEditor インスタンス(ezeditor.js)
@@ -125,7 +126,7 @@
 
   /* ---------- 状態 ---------- */
   const state = {
-    cwd: localStorage.getItem('ez_cwd') || '/home/debian/workspace',
+    cwd: localStorage.getItem('ez_cwd') || WORKSPACE,
     entries: [], parent: null,
     sel: new Set(), anchor: null,
     view: localStorage.getItem('ez_view') || (isMobile ? 'list' : 'detail'),
@@ -411,7 +412,7 @@
     const rel = state.cwd.startsWith(ROOT) ? state.cwd.slice(ROOT.length) : '';
     const parts = rel.split('/').filter(Boolean);
     const mk = (label, full) => { const b = document.createElement('button'); b.className = 'ezb-crumb'; b.textContent = label; b.addEventListener('click', () => load(full)); return b; };
-    crumbsEl.appendChild(mk('🏠 debian', ROOT));
+    crumbsEl.appendChild(mk('🏠 ' + (ROOT.split('/').pop() || '/'), ROOT));
     let acc = ROOT;
     for (const part of parts) { acc += '/' + part; crumbsEl.appendChild(document.createTextNode('/')); crumbsEl.appendChild(mk(part, acc)); }
   }
@@ -471,7 +472,8 @@
       sortEntries();
       renderCrumbs(); renderList();
     } catch (e) {
-      if (dir !== '/home/debian/workspace') { load('/home/debian/workspace'); }
+      if (dir !== WORKSPACE && dir !== ROOT) { load(WORKSPACE); }
+      else if (dir === WORKSPACE) { load(ROOT); }
       else alert(t('browser.listFailed') + e.message);
     }
   }

@@ -132,8 +132,8 @@
 <tr><td>5</td><td>最初にパスキーを登録する端末</td><td>作業者のノート PC(Chrome)</td><td>その端末のブラウザで登録</td></tr>
 <tr><td>6</td><td>systemd サービス名</td><td><code>ezos</code></td><td>既定でよい</td></tr>
 <tr><td>7</td><td>localhost 待受ポート</td><td><code>3100</code></td><td>既定でよい</td></tr>
-<tr><td>8</td><td>設置ディレクトリ</td><td><code>/home/debian/EZOS</code></td><td>リポジトリを置く場所</td></tr>
-<tr><td>9</td><td>実行ユーザー</td><td><code>debian</code></td><td>systemd の User= 等</td></tr>
+<tr><td>8</td><td>設置ディレクトリ</td><td><code>$HOME/EZOS</code></td><td>リポジトリを置く場所</td></tr>
+<tr><td>9</td><td>実行ユーザー</td><td><code>$(id -un)</code></td><td>systemd の User= 等</td></tr>
 </table>
 <p>以降のコマンドはプレースホルダを次のように置き換えます。</p>
 <pre><code>HOST=ezos.example.com            # #2 のホスト名(スキームなし)
@@ -141,8 +141,8 @@ ORIGIN=https://ezos.example.com  # #2 のURL
 RPID=example.com                 # #3
 PORT=3100                     # #7
 SERVICE=ezos                  # #6
-APPDIR=/home/debian/EZOS      # #8 (この直下に app/ が入る)
-USER_=debian                  # #9</code></pre>
+APPDIR=$HOME/EZOS             # #8 (この直下に app/ が入る)
+USER_=$(id -un)               # #9</code></pre>
 
 <h2 id="step1">STEP 1. 前提コマンド</h2>
 <pre><code>for c in git gh node npm jq tmux curl; do
@@ -150,7 +150,7 @@ USER_=debian                  # #9</code></pre>
 done
 node -v   # v20 以上を推奨</code></pre>
 <ul>
-  <li>不足があれば: <code>sudo apt-get update &amp;&amp; sudo apt-get install -y jq tmux curl</code></li>
+  <li>不足があれば: <code>sudo apt-get update &amp;&amp; sudo apt-get install -y jq tmux curl</code>（Debian/Ubuntu） / <code>sudo dnf install -y jq tmux curl</code>（RHEL/Fedora） / <code>sudo pacman -S jq tmux curl</code>（Arch）</li>
   <li>Node が古い/無い場合は Node 20 系を導入。</li>
   <li><code>gh auth status</code> で GitHub 認証を確認（未認証なら <code>gh auth login</code>）。</li>
   <li>Claude Code をグローバル導入し、Pro/Max アカウントで認証しておく（<code>~/.claude/.credentials.json</code>）。</li>
@@ -159,7 +159,7 @@ node -v   # v20 以上を推奨</code></pre>
 <h2 id="step2">STEP 2. インフラ確認（Caddy / リバースプロキシ）</h2>
 <p>TLS 終端＆リバースプロキシを「まず存在確認 → 有れば利用、無ければ方針提示」の順で決めます。</p>
 <pre><code>command -v docker &amp;&amp; docker ps --format '{{.Names}}' | grep -i caddy   # saas-caddy 等
-ls -d /home/debian/saas/caddy/sites 2>/dev/null                        # サイト定義ディレクトリ</code></pre>
+ls -d $HOME/saas/caddy/sites 2>/dev/null                        # サイト定義ディレクトリ</code></pre>
 <ul>
   <li><strong>Docker の Caddy が動いている場合</strong>: <code>sites/*.caddy</code> を 1 枚足すだけで公開できる → STEP 6 へ。</li>
   <li><strong>Caddy が無い / 別のプロキシの場合</strong>: 既存 nginx 等があればその流儀で <code>&lt;host&gt;</code> を <code>127.0.0.1:&lt;port&gt;</code> へ転送し TLS を張る。プロキシ自体が無ければ導入方針を作業者と合意してから進む（勝手に 443 を専有しない）。</li>
@@ -181,34 +181,14 @@ EZOS_ORIGIN="$ORIGIN" EZOS_RPID="$RPID" EZOS_PORT="$PORT" \
 
 <h2 id="step5">STEP 5. systemd 常駐化（自動起動・自動再起動）</h2>
 <p><code>KillMode=process</code> は node だけ止めて、node-pty が起こした tmux（永続ターミナル）を再起動で生かし続けるためです。Docker の Caddy から <code>host.docker.internal</code> 経由で届くよう、EZOS は docker0(172.17.0.1) にも待受するため <code>After=docker.service</code> を付けます。</p>
-<pre><code>sudo tee /etc/systemd/system/${SERVICE}.service >/dev/null &lt;&lt;UNIT
-[Unit]
-Description=EZOS (${HOST}) - Claude web cockpit
-After=network-online.target docker.service
-Wants=network-online.target docker.service
-
-[Service]
-Type=simple
-User=${USER_}
-WorkingDirectory=${APPDIR}/app
-ExecStart=/usr/bin/node server.js
-Restart=always
-RestartSec=3
-KillMode=process
-Environment=NODE_ENV=production
-Environment=HOME=/home/${USER_}
-
-[Install]
-WantedBy=multi-user.target
-UNIT
-
-sudo systemctl daemon-reload
-sudo systemctl enable --now ${SERVICE}
+<pre><code># User / HOME / 設置先 / node のパスをこの機から自動解決して unit を生成・設置・起動する
+# (Debian/Ubuntu/RHEL系/Arch など systemd の任意ディストリで共通。内容の確認だけなら --print)
+${APPDIR}/app/bin/install-service.sh ${SERVICE}
 systemctl is-active ${SERVICE}          # => active
 ss -tlnp | grep ":${PORT}"              # => 127.0.0.1:&lt;port&gt; で node が待受</code></pre>
 
 <h2 id="step6">STEP 6. Caddy サイト定義（公開）</h2>
-<pre><code>cat > /home/${USER_}/saas/caddy/sites/${SERVICE}.caddy &lt;&lt;CADDY
+<pre><code>cat > $HOME/saas/caddy/sites/${SERVICE}.caddy &lt;&lt;CADDY
 ${HOST} {
   header {
     Strict-Transport-Security "max-age=31536000; includeSubDomains"

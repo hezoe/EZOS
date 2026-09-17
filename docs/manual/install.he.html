@@ -133,8 +133,8 @@
 <tr><td>5</td><td>מכשיר לרישום ה-passkey הראשון</td><td>מחשב נייד של המפעיל (Chrome)</td><td>רשמו מהדפדפן של אותו מכשיר</td></tr>
 <tr><td>6</td><td>שם שירות systemd</td><td><code>ezos</code></td><td>ברירת המחדל תקינה</td></tr>
 <tr><td>7</td><td>פורט האזנה ב-localhost</td><td><code>3100</code></td><td>ברירת המחדל תקינה</td></tr>
-<tr><td>8</td><td>ספריית התקנה</td><td><code>/home/debian/EZOS</code></td><td>היכן שהמאגר ממוקם</td></tr>
-<tr><td>9</td><td>משתמש להרצה</td><td><code>debian</code></td><td>‏User= של systemd וכדומה</td></tr>
+<tr><td>8</td><td>ספריית התקנה</td><td><code>$HOME/EZOS</code></td><td>היכן שהמאגר ממוקם</td></tr>
+<tr><td>9</td><td>משתמש להרצה</td><td><code>$(id -un)</code></td><td>‏User= של systemd וכדומה</td></tr>
 </table>
 <p>הפקודות שלהלן מחליפות את מחזיקי המקום באופן הבא.</p>
 <pre><code>HOST=ezos.example.com            # #2 hostname (no scheme)
@@ -142,8 +142,8 @@ ORIGIN=https://ezos.example.com  # #2 URL
 RPID=example.com                 # #3
 PORT=3100                     # #7
 SERVICE=ezos                  # #6
-APPDIR=/home/debian/EZOS      # #8 (app/ lives directly under this)
-USER_=debian                  # #9</code></pre>
+APPDIR=$HOME/EZOS             # #8 (app/ lives directly under this)
+USER_=$(id -un)               # #9</code></pre>
 
 <h2 id="step1">שלב 1. פקודות דרישות מוקדמות</h2>
 <pre><code>for c in git gh node npm jq tmux curl; do
@@ -151,7 +151,7 @@ USER_=debian                  # #9</code></pre>
 done
 node -v   # v20 ומעלה מומלץ</code></pre>
 <ul>
-  <li>אם משהו חסר: <code>sudo apt-get update &amp;&amp; sudo apt-get install -y jq tmux curl</code></li>
+  <li>אם משהו חסר: <code>sudo apt-get update &amp;&amp; sudo apt-get install -y jq tmux curl</code>（Debian/Ubuntu） / <code>sudo dnf install -y jq tmux curl</code>（RHEL/Fedora） / <code>sudo pacman -S jq tmux curl</code>（Arch）</li>
   <li>אם Node מיושן או חסר, התקינו את סדרת Node 20.</li>
   <li>בדקו את אימות GitHub באמצעות <code>gh auth status</code> (הריצו <code>gh auth login</code> אם לא מאומת).</li>
   <li>התקינו את Claude Code גלובלית ואמתו עם חשבון Pro/Max (‏<code>~/.claude/.credentials.json</code>).</li>
@@ -160,7 +160,7 @@ node -v   # v20 ומעלה מומלץ</code></pre>
 <h2 id="step2">שלב 2. בדיקת תשתית (Caddy / פרוקסי הפוך)</h2>
 <p>החליטו על סיום TLS ופרוקסי הפוך בסדר הבא: "תחילה בדקו אם קיים אחד ← השתמשו בו אם כן, אחרת הציעו גישה."</p>
 <pre><code>command -v docker &amp;&amp; docker ps --format '{{.Names}}' | grep -i caddy   # e.g. saas-caddy
-ls -d /home/debian/saas/caddy/sites 2>/dev/null                        # site-definitions directory</code></pre>
+ls -d $HOME/saas/caddy/sites 2>/dev/null                        # site-definitions directory</code></pre>
 <ul>
   <li><strong>אם Caddy מבוסס-Docker פועל</strong>: ניתן לפרסם רק על ידי הוספת קובץ <code>sites/*.caddy</code> יחיד ← עברו לשלב 6.</li>
   <li><strong>אם אין Caddy / קיים פרוקסי אחר</strong>: אם קיים nginx (או דומה), פעלו לפי המוסכמות שלו כדי להעביר <code>&lt;host&gt;</code> אל <code>127.0.0.1:&lt;port&gt;</code> והגדירו TLS. אם אין פרוקסי כלל, סכמו על גישת התקנה עם המפעיל לפני שתמשיכו (אל תתפסו את פורט 443 בעצמכם).</li>
@@ -182,34 +182,14 @@ EZOS_ORIGIN="$ORIGIN" EZOS_RPID="$RPID" EZOS_PORT="$PORT" \
 
 <h2 id="step5">שלב 5. הרצה כשירות systemd (הפעלה אוטומטית, הפעלה מחדש אוטומטית)</h2>
 <p><code>KillMode=process</code> עוצר רק את node, כך שה-tmux (הטרמינל המתמשך) שנוצר על ידי node-pty נשאר פעיל בין הפעלות מחדש. כדי שבקשות מ-Caddy מבוסס-Docker יגיעו דרך <code>host.docker.internal</code>, ‏EZOS מאזין גם ל-docker0 ‏(172.17.0.1), ולכן נוסף <code>After=docker.service</code>.</p>
-<pre><code>sudo tee /etc/systemd/system/${SERVICE}.service >/dev/null &lt;&lt;UNIT
-[Unit]
-Description=EZOS (${HOST}) - Claude web cockpit
-After=network-online.target docker.service
-Wants=network-online.target docker.service
-
-[Service]
-Type=simple
-User=${USER_}
-WorkingDirectory=${APPDIR}/app
-ExecStart=/usr/bin/node server.js
-Restart=always
-RestartSec=3
-KillMode=process
-Environment=NODE_ENV=production
-Environment=HOME=/home/${USER_}
-
-[Install]
-WantedBy=multi-user.target
-UNIT
-
-sudo systemctl daemon-reload
-sudo systemctl enable --now ${SERVICE}
+<pre><code># Generates, installs and starts the unit, resolving User / HOME / install dir / node path on this machine
+# (same on any systemd distro: Debian/Ubuntu/RHEL family/Arch, etc. Use --print to only preview)
+${APPDIR}/app/bin/install-service.sh ${SERVICE}
 systemctl is-active ${SERVICE}          # => active
 ss -tlnp | grep ":${PORT}"              # => node listening on 127.0.0.1:&lt;port&gt;</code></pre>
 
 <h2 id="step6">שלב 6. הגדרת אתר של Caddy (פרסום)</h2>
-<pre><code>cat > /home/${USER_}/saas/caddy/sites/${SERVICE}.caddy &lt;&lt;CADDY
+<pre><code>cat > $HOME/saas/caddy/sites/${SERVICE}.caddy &lt;&lt;CADDY
 ${HOST} {
   header {
     Strict-Transport-Security "max-age=31536000; includeSubDomains"

@@ -1,3 +1,5 @@
+#@ テンプレート: 直接コピーせず bin/install-service.sh で生成・設置すること。
+#@ アットマーク囲みの値は実行環境(OS/ユーザー/Node設置先)に合わせて置換され、この #@ 行は出力から除かれる。
 [Unit]
 Description=EZOS - Claude web UI
 # docker0(172.17.0.1)は dockerd 起動後に現れるため、その後に起動させる。
@@ -8,21 +10,23 @@ Wants=network-online.target docker.service
 
 [Service]
 Type=simple
-User=debian
-WorkingDirectory=/home/debian/EZOS/app
+User=@USER@
+WorkingDirectory=@APP_DIR@
 # --max-old-space-size: V8ヒープの上限(MB)。この機は総メモリ約1GBと逼迫しがちなので、
 # 万一のリーク/暴走で node が青天井にヒープを伸ばし機ごと OOM に巻き込むのを防ぐ保険
 # (平常時のサーバーは30MB前後なので128MBは十分な余裕)。このフラグは node 自身にのみ効き、
 # claude.js が spawn する claude(これも node製)には波及しない。NODE_OPTIONS 環境変数だと
 # 子まで継承され Claude Code のヒープまで縛ってしまうため、あえて ExecStart 引数で渡す。
-ExecStart=/usr/bin/node --max-old-space-size=128 server.js
+ExecStart=@NODE@ --max-old-space-size=128 server.js
 Restart=always
 RestartSec=3
 # nodeプロセスのみ停止し、node-ptyが起動したtmuxサーバー(=永続ターミナル)は
 # 再起動/デプロイをまたいで生かし続ける
 KillMode=process
 Environment=NODE_ENV=production
-Environment=HOME=/home/debian
+Environment=HOME=@HOME@
+# tmux / claude / tar を PATH から解決するため、node の設置先と ~/.local/bin(claude 既定の設置先)を含めて渡す
+Environment=PATH=@PATH@
 
 [Install]
 WantedBy=multi-user.target

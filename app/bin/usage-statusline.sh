@@ -2,7 +2,9 @@
 # Claude Code statusLine: stdinのJSONから rate_limits を抜き EZOS へ共有 + 一行表示
 set -u
 IN=$(cat 2>/dev/null || echo '{}')
-OUT=/home/debian/EZOS/app/data/usage.json
+# 出力先は設置場所から相対解決(ユーザー名・設置ディレクトリに依存しない)
+APP_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+OUT="$APP_DIR/data/usage.json"
 
 RL=$(echo "$IN" | jq -c '.rate_limits // empty' 2>/dev/null)
 if [ -n "$RL" ] && [ "$RL" != "null" ] && [ "$RL" != "{}" ]; then

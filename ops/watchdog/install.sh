@@ -35,6 +35,11 @@ if [ -n "$CRHOST" ]; then
   fi
 fi
 
+# unit の Documentation= を実際の設置場所へ合わせる(ユーザー名/設置先に依存させない)
+for u in service-watchdog.service service-watchdog.timer db-backup.service cert-renewal-check.service; do
+  [ -f "/etc/systemd/system/$u" ] && sed -i "s|^Documentation=file:.*|Documentation=file:$SRC/README.md|" "/etc/systemd/system/$u"
+done
+
 systemctl daemon-reload
 systemctl enable --now service-watchdog.timer
 systemctl enable --now db-backup.timer
