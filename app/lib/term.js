@@ -7,9 +7,8 @@ import { WebSocketServer } from 'ws';
 import pty from 'node-pty';
 import { txa } from './tmux.js';
 import { removeTerminal } from './terminals.js';
+import { HOME, HAS_TMUX, LOGIN_SHELL } from './env.js';
 
-const HOME = process.env.HOME || '/home/debian';
-const HAS_TMUX = fs.existsSync('/usr/bin/tmux');
 // 特に指定のない新規ターミナルの起点。workspaceがあればそこ、無ければHOME
 const WORKSPACE = fs.existsSync(path.join(HOME, 'workspace'))
   ? path.join(HOME, 'workspace')
@@ -30,7 +29,7 @@ export function createTermServer({ isAuthed, origin }) {
     //     (「....」)が出るため。常に「今見ているデバイス」にウィンドウを一致させる。
     const [cmd, args] = HAS_TMUX
       ? ['tmux', txa(['new-session', '-A', '-D', '-s', `ez_${name}`])]
-      : ['bash', ['-l']];
+      : [LOGIN_SHELL, ['-l']];
 
     if (HAS_TMUX) {
       // 複数クライアントが同一セッションに繋いだとき、最小ではなく最後に操作した

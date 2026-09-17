@@ -1,12 +1,13 @@
-// EZbrowser 用のファイル操作ヘルパー。すべての操作を /home/debian 配下に限定する。
+// EZbrowser 用のファイル操作ヘルパー。すべての操作を実行ユーザーのホーム($HOME)配下に限定する。
 // realpath 検証で ../ とシンボリックリンクによるルート脱出を遮断する。
 import fs from 'node:fs';
 import path from 'node:path';
+import { HOME } from './env.js';
 
 // 許可ルート。起動時に一度だけ realpath で正規化して保持する。
 export const REAL_ROOT = (() => {
-  try { return fs.realpathSync(process.env.HOME || '/home/debian'); }
-  catch { return process.env.HOME || '/home/debian'; }
+  try { return fs.realpathSync(HOME); }
+  catch { return HOME; }
 })();
 
 export class HttpError extends Error {

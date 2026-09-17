@@ -30,8 +30,8 @@ Claude は次の表を作業者に提示し、空欄を埋めてもらう。埋�
 | 5 | 最初にパスキーを登録する端末名 | `作業者のノートPC(Chrome)` | 初回登録は **その端末のブラウザ**から `https://<host>` を開いて行う |
 | 6 | systemd サービス名 | `ezos` | 既定でよい |
 | 7 | localhost 待受ポート | `3100` | 既定でよい |
-| 8 | 設置ディレクトリ | `/home/debian/EZOS` | リポジトリを置く場所 |
-| 9 | 実行ユーザー | `debian` | systemd の User= と Caddy 操作権限 |
+| 8 | 設置ディレクトリ | `$HOME/EZOS` | リポジトリを置く場所(ユーザー名・OSにより `/home/<user>` 以外もありうる) |
+| 9 | 実行ユーザー | 作業中のユーザー(`id -un`) | systemd の User= と Caddy 操作権限 |
 
 #3・#6〜#9 は既定のままで問題ない。作業者に確認が要るのは主に **#1 IP / #2 ホスト名 / #4 DNS / #5 パスキー登録端末**。
 
@@ -43,8 +43,8 @@ ORIGIN=https://ezos.example.com  # #2 のURL
 RPID=example.com                 # #3
 PORT=3100                     # #7
 SERVICE=ezos                  # #6
-APPDIR=/home/debian/EZOS      # #8 (この直下に app/ が入る)
-USER_=debian                  # #9
+APPDIR=$HOME/EZOS             # #8 (この直下に app/ が入る)
+USER_=$(id -un)               # #9
 ```
 
 ---
@@ -60,7 +60,10 @@ done
 node -v   # v20 以上を推奨
 ```
 
-- 不足があれば導入: `sudo apt-get update && sudo apt-get install -y jq tmux curl`
+- 不足があれば導入(ディストリに応じて):
+  - Debian/Ubuntu: `sudo apt-get update && sudo apt-get install -y jq tmux curl`
+  - RHEL/Fedora/Rocky/Alma: `sudo dnf install -y jq tmux curl`
+  - Arch: `sudo pacman -S --needed jq tmux curl`
 - Node が古い/無い場合は Node 20 系を導入(nodesource 等)。
 - `gh auth status` で GitHub 認証を確認(未認証なら `gh auth login`)。
 
@@ -72,8 +75,8 @@ TLS終端＆リバースプロキシをどう用意するかを **まず存在�
 
 ```bash
 command -v docker && docker ps --format '{{.Names}}' | grep -i caddy   # => saas-caddy が出れば利用可
-ls -d /home/debian/saas/caddy/sites 2>/dev/null                        # サイト定義ディレクトリ
-grep -n 'import .*/sites/\*' /home/debian/saas/caddy/Caddyfile 2>/dev/null  # サイト自動読込の有無
+ls -d $HOME/saas/caddy/sites 2>/dev/null                        # サイト定義ディレクトリ
+grep -n 'import .*/sites/\*' $HOME/saas/caddy/Caddyfile 2>/dev/null  # サイト自動読込の有無
 ```
 
 - **Docker の Caddy(`saas-caddy` 等)が動いている場合**: `sites/*.caddy` を1枚足すだけで公開できる → STEP 6 へ。
@@ -115,39 +118,19 @@ EZOS_ORIGIN="$ORIGIN" EZOS_RPID="$RPID" EZOS_PORT="$PORT" \
 
 ## STEP 5. systemd サービス化（自動起動・自動再起動）
 
-`app/ezos.service` は基準機向けの参考ファイル。**下のテンプレで実値を埋めて生成**する。
+`app/ezos.service` はテンプレート。**`app/bin/install-service.sh` が実行ユーザー・ホーム・設置先・node のパスをこの機から解決して生成**する(ユーザー名や Node の設置先がディストリごとに違っても同じ手順でよい)。
 `KillMode=process` は node だけ止めて node-pty が起こした tmux(=永続ターミナル)を再起動で生かし続けるため。
 
 **起動順の注意**: server.js は `172.17.0.1`(docker0) にも待受する(Caddyコンテナから `host.docker.internal` 経由で届くため)。
 この docker0 アドレスは **dockerd 起動後に初めて現れる**ので、EZOSが Docker より先に起動すると bind が `EADDRNOTAVAIL` で失敗する。
 そのため unit を **`After=docker.service`(+`Wants=`)** で Docker の後に起動させる。
-併せて server.js 側でも `EADDRNOTAVAIL` を検知したら3秒後にリトライして待受を確立する(順序制御と二重の保険)。
+Docker の無い機(`docker` コマンドが PATH に無い)では docker0 には待受しない。
+併せて server.js 側でも `EADDRNOTAVAIL` を検知したらリトライして待受を確立する(順序制御と二重の保険)。
 
 ```bash
-sudo tee /etc/systemd/system/${SERVICE}.service >/dev/null <<UNIT
-[Unit]
-Description=EZOS (${HOST}) - Claude web cockpit
-# docker0(172.17.0.1)への待受のため Docker 起動後に立ち上げる(未導入機でも起動できるようWantsは弱依存)
-After=network-online.target docker.service
-Wants=network-online.target docker.service
-
-[Service]
-Type=simple
-User=${USER_}
-WorkingDirectory=${APPDIR}/app
-ExecStart=/usr/bin/node server.js
-Restart=always
-RestartSec=3
-KillMode=process
-Environment=NODE_ENV=production
-Environment=HOME=/home/${USER_}
-
-[Install]
-WantedBy=multi-user.target
-UNIT
-
-sudo systemctl daemon-reload
-sudo systemctl enable --now ${SERVICE}
+# User / HOME / 設置先 / node のパスをこの機から自動解決して unit を生成・設置・起動する
+# (Debian/Ubuntu/RHEL系/Arch など systemd の任意ディストリで共通。内容の確認だけなら --print)
+${APPDIR}/app/bin/install-service.sh ${SERVICE}
 systemctl is-active ${SERVICE}          # => active
 ss -tlnp | grep ":${PORT}"              # => 127.0.0.1:<port> で node が待受
 ```
@@ -159,7 +142,7 @@ ss -tlnp | grep ":${PORT}"              # => 127.0.0.1:<port> で node が待受
 Docker の Caddy を使う場合。`sites/` に1枚 `${SERVICE}.caddy` を作る。
 
 ```bash
-cat > /home/${USER_}/saas/caddy/sites/${SERVICE}.caddy <<CADDY
+cat > $HOME/saas/caddy/sites/${SERVICE}.caddy <<CADDY
 ${HOST} {
   header {
     Strict-Transport-Security "max-age=31536000; includeSubDomains"
@@ -245,7 +228,7 @@ curl -sS -o /dev/null -w "%{http_code} ssl=%{ssl_verify_result}\n" "$ORIGIN/"   
 ## ロールバック
 
 ```bash
-rm /home/${USER_}/saas/caddy/sites/${SERVICE}.caddy
+rm $HOME/saas/caddy/sites/${SERVICE}.caddy
 docker exec saas-caddy caddy reload --config /etc/caddy/Caddyfile
 sudo systemctl disable --now ${SERVICE}      # サービス停止(他ホストには影響しない)
 ```

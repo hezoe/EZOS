@@ -4,7 +4,7 @@ EZOS は Claude Code を組み込んだ Web コックピットであり、**ア�
 （フック / スキル / メモリ / statusLine）**に依存して初めて本来の使い勝手になる。
 このメモは、**新しいホストに EZOS を導入する作業者が、Claude に何を導入すればよいか**をまとめたもの。
 
-対象ファイルの場所（`${APPDIR}` = EZOS の設置先。既定 `/home/debian/EZOS`。`${HOME}` = 実行ユーザのホーム）:
+対象ファイルの場所（`${APPDIR}` = EZOS の設置先。既定 `$HOME/EZOS`。`${HOME}` = 実行ユーザのホーム）:
 - Claude Code 設定: `${HOME}/.claude/settings.json`
 - スキル: `${HOME}/.claude/skills/<name>/SKILL.md`
 - メモリ: `${HOME}/.claude/projects/<project-slug>/memory/`
@@ -32,7 +32,7 @@ EZOS は Claude Code を組み込んだ Web コックピットであり、**ア�
     "UserPromptSubmit": [
       { "hooks": [{ "type": "command", "command": "${APPDIR}/app/bin/ez-hook.sh working prompt" }] },
       { "hooks": [{ "type": "command", "command": "${APPDIR}/app/bin/ez-title.sh" }] },
-      { "hooks": [{ "type": "command", "command": "/usr/bin/node ${HOME}/.claude/hooks/project-memory.js", "timeout": 30 }] }
+      { "hooks": [{ "type": "command", "command": "node ${HOME}/.claude/hooks/project-memory.js", "timeout": 30 }] }
     ],
     "PreToolUse":  [ { "hooks": [{ "type": "command", "command": "${APPDIR}/app/bin/ez-hook.sh pretool pretool" }] } ],
     "PostToolUse": [ { "hooks": [{ "type": "command", "command": "${APPDIR}/app/bin/ez-hook.sh working posttool" }] } ],

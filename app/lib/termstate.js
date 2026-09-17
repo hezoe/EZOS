@@ -5,10 +5,9 @@ import os from 'node:os';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { txa } from './tmux.js';
+import { HOME, HAS_TMUX } from './env.js';
 
 const pexec = promisify(execFile);
-const HAS_TMUX = fs.existsSync('/usr/bin/tmux');
-const HOME = process.env.HOME || '/home/debian';
 const HOST = (process.env.HOSTNAME || os.hostname() || '').split('.')[0];
 
 // タブ見出しのサイドチャネル。UserPromptSubmit フック(bin/ez-title.mjs)が毎ターン

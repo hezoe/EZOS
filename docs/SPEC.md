@@ -13,7 +13,7 @@
 | モード | 実体ファイル | 役割 |
 |---|---|---|
 | **EZterminal** | `public/term.js` | xterm.js + WebSocket + node-pty + tmux。ブラウザがVPSのターミナルそのものになる |
-| **EZbrowser** | `public/ezbrowser.js` | 内蔵ファイルブラウザ（`/home/debian` 配下） |
+| **EZbrowser** | `public/ezbrowser.js` | 内蔵ファイルブラウザ（実行ユーザーの `$HOME` 配下） |
 | **EZeditor** | `public/ezeditor.js` (+ `ezhl.js`) | 複数タブのテキストエディタ（シンタックスハイライト付き） |
 
 - **認証**: WebAuthn パスキー（1Password 等対応）。初回登録のみセットアップキー必須。
@@ -96,7 +96,7 @@ app/
 | POST | `/api/term/send` | 確認プルダウンの選択（`{sid,key}`。ホワイトリスト: 数字`1〜9`/`escape`/`enter`/`up`/`down`/`interrupt`=C-c） | `{ok}` |
 | POST | `/api/upload?dir=&sid=&name=` | ファイルアップロード（最大25MB。保存名は `YYYYMMDDHHMMSS_<name>`。`dir` 指定なしは端末CWD配下 `docs/`） | `{path,name}` |
 
-### 4.3 ファイル操作（`lib/filemgr.js`。全パスは `/home/debian` 配下に制限）
+### 4.3 ファイル操作（`lib/filemgr.js`。全パスは実行ユーザーの `$HOME` 配下に制限）
 | メソッド | パス | 用途 |
 |---|---|---|
 | GET | `/api/fs/list?path=&hidden=0\|1` | ディレクトリ一覧（`{path,parent,root,entries[]}`。entry: `name,type,size,mtime,mode,isSymlink,editable`） |
@@ -196,7 +196,7 @@ app/
 - ヘッダの接続ドット `#conn-state`（緑/赤）と `#btn-reconnect`（切断時のみ表示、押すとリロード）。
 
 ### 6.7 ファイルパス／URL のクリック
-- 端末出力中のファイルパスを検出しクリックで **EZeditor** に開く（`provideFileLinks` + 正規表現 `FILE_LINK_RE`。全角混在行でも桁ズレしないようセル幅0を考慮）。相対パスは `/api/term/cwd` で解決、`~` は `/home/debian` に展開、末尾 `:line:col` は除去。→ `window.EZ.openFileInEditor(abs)`。
+- 端末出力中のファイルパスを検出しクリックで **EZeditor** に開く（`provideFileLinks` + 正規表現 `FILE_LINK_RE`。全角混在行でも桁ズレしないようセル幅0を考慮）。相対パスは `/api/term/cwd` で解決、`~` はサーバの `$HOME`(`window.EZ.home`) に展開、末尾 `:line:col` は除去。→ `window.EZ.openFileInEditor(abs)`。
 - URL は WebLinksAddon が担当し新規タブで開く。
 
 ### 6.8 入力送信・履歴・アップロード
@@ -216,8 +216,8 @@ app/
 
 ## 7. EZbrowser 仕様（`public/ezbrowser.js`）
 
-- `/home/debian` 配下のファイルブラウザ。`#ez-browser`。モードは `terminal→browser→editor→terminal` を `#mode-cycle` で循環（`body[data-mode]`）。
-- **ナビゲーション**: パンくず `.ezb-crumbs`（先頭「🏠 debian」）。現在地は localStorage `ez_cwd`。
+- 実行ユーザーの `$HOME`(サーバが `window.EZ.home` で配信) 配下のファイルブラウザ。`#ez-browser`。モードは `terminal→browser→editor→terminal` を `#mode-cycle` で循環（`body[data-mode]`）。
+- **ナビゲーション**: パンくず `.ezb-crumbs`（先頭「🏠 <ホームのフォルダ名>」）。現在地は localStorage `ez_cwd`。
 - **表示 3種**（localStorage `ez_view`）: 詳細（名前/サイズ/日時/権限）・リスト・アイコン（グリッド）。隠しファイル表示切替あり。
 - **アイコン**: 📁ディレクトリ / 🔗シンボリックリンク / 🖼️画像 / 🗜️アーカイブ / 📄ファイル。
 - **選択・操作**: PC=クリック/Ctrl+クリック/Shift+クリック/ダブルクリックで開く、右クリックでコンテキストメニュー。スマホ=タップでトグル/ダブルタップで開く/ロングタップ(500ms)でメニュー。
@@ -283,7 +283,7 @@ app/
 
 ## 13. セキュリティ要点
 
-- **パス安全化**（`filemgr.js`）: すべて `realpath` 展開後に `REAL_ROOT=/home/debian` 境界内を確認（シンボリックリンク・`..` を実体解決）。逸脱は 403、親不在は 404。ルートは削除不可。
+- **パス安全化**（`filemgr.js`）: すべて `realpath` 展開後に `REAL_ROOT=$HOME`(realpath 済み) 境界内を確認（シンボリックリンク・`..` を実体解決）。逸脱は 403、親不在は 404。ルートは削除不可。
 - **CSRF**: POST に `X-Requested-With: ezos` 必須。**Origin**: WS/WebAuthn は `config.origin` 一致必須。
 - **WebAuthn**: チャレンジ5分TTL、counter 増加検証（リプレイ対策）、ユーザー検証必須。
 - **入力検証**: tmux セッション名（英数`-`最大20）、cols 20–500 / rows 5–200、mode `0o000–0o777`、JSON ボディ 1–4MB、アップロード 25MB、キー送信はホワイトリストのみ。
