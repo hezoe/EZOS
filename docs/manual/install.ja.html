@@ -58,6 +58,7 @@
   <li><a href="#step6">STEP 6. Caddy 公開設定</a></li>
   <li><a href="#step7">STEP 7. セッション追跡フック（任意）</a></li>
   <li><a href="#step8">STEP 8. 検証と初回パスキー登録</a></li>
+  <li><a href="#update">導入後のアップデート</a></li>
   <li><a href="#trouble">トラブルシュート</a></li>
 </ol>
 </div>
@@ -225,6 +226,14 @@ curl -sS -o /dev/null -w "%{http_code} ssl=%{ssl_verify_result}\n" "$ORIGIN/"   
   <li>STEP 0 #5 で決めた端末のブラウザで <code>${ORIGIN}</code> を開く。</li>
   <li>ログイン画面の「新しい端末のパスキーを追加登録する」に、表示されたワンタイムキーと端末名を入力して登録。</li>
 </ol>
+
+<h2 id="update">導入後のアップデート</h2>
+<p>2 回目以降の更新は、EZOS の画面から行えます。メニュー（☰）→ <strong>アップデート</strong> を開くと、GitHub 上の最新版と手元の版を比べ、新しい版があればリリースノーツと共に表示します。「このバージョンに更新」を押すと <code>git pull</code> → 依存の導入 → 自分自身の再起動までを自動で行います（ターミナルのセッションは維持されます）。新しい版があるときはメニューボタンに緑の印が付きます。</p>
+<ul>
+  <li>更新元は <code>git remote</code> と現在のブランチから自動判定します（フォークや別ブランチもそのまま動作）。<code>data/config.json</code> の <code>updateUrl</code> / <code>updateBranch</code> で上書きできます。</li>
+  <li>作業ツリーに未コミットの変更がある、履歴が分岐している、git 管理外、のいずれかの場合は更新せず理由を表示します。ログは <code>app/data/update.log</code> に残ります。</li>
+  <li>再起動されるのは、その画面を開いているサーバー自身のサービスだけです。1 台の機に複数の EZOS を入れていても互いに影響しません。</li>
+</ul>
 
 <h2 id="trouble">トラブルシュート</h2>
 <table>

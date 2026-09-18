@@ -1,6 +1,21 @@
 {
-  "current": "1.1.1",
+  "current": "1.1.2",
   "releases": [
+    {
+      "version": "1.1.2",
+      "date": "2026-09-18",
+      "notes": {
+        "ja": [
+          "インストールマニュアル(ja/en/he)に「導入後のアップデート」を追記。メニューからの更新手順・更新元の判定・中断条件・再起動の範囲を記載"
+        ],
+        "en": [
+          "Installation manuals (ja/en/he) now document “Updating after installation”: how to update from the menu, how the source is determined, when it aborts, and what gets restarted"
+        ],
+        "he": [
+          "מדריכי ההתקנה (ja/en/he) כוללים כעת פרק “עדכון לאחר ההתקנה”: עדכון מהתפריט, אופן זיהוי המקור, מתי העדכון נעצר ומה מופעל מחדש"
+        ]
+      }
+    },
     {
       "version": "1.1.1",
       "date": "2026-09-18",

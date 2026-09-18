@@ -58,6 +58,7 @@
   <li><a href="#step6">STEP 6. Caddy public configuration</a></li>
   <li><a href="#step7">STEP 7. Session-tracking hooks (optional)</a></li>
   <li><a href="#step8">STEP 8. Verification and first passkey registration</a></li>
+  <li><a href="#update">Updating after installation</a></li>
   <li><a href="#trouble">Troubleshooting</a></li>
 </ol>
 </div>
@@ -225,6 +226,14 @@ curl -sS -o /dev/null -w "%{http_code} ssl=%{ssl_verify_result}\n" "$ORIGIN/"   
   <li>On the browser of the device chosen in STEP 0 #5, open <code>${ORIGIN}</code>.</li>
   <li>On the login screen, under "Add a passkey for a new device," enter the displayed one-time key and a device name to register.</li>
 </ol>
+
+<h2 id="update">Updating after installation</h2>
+<p>Later updates can be done from the EZOS UI. Open the menu (☰) → <strong>Update</strong>: EZOS compares the latest version on GitHub with the local one and shows the release notes when a newer version exists. Pressing “Update to this version” runs <code>git pull</code>, installs dependencies if they changed, and restarts EZOS itself (terminal sessions are kept). A green dot on the menu button marks an available update.</p>
+<ul>
+  <li>The update source is derived from <code>git remote</code> and the current branch (forks and other branches work as-is); override it with <code>updateUrl</code> / <code>updateBranch</code> in <code>data/config.json</code>.</li>
+  <li>The update aborts, with the reason shown, if the work tree has uncommitted changes, the branch has diverged, or the directory is not a git repository. The log is kept in <code>app/data/update.log</code>.</li>
+  <li>Only the service of the server you are using is restarted, so several EZOS instances on one host never affect each other.</li>
+</ul>
 
 <h2 id="trouble">Troubleshooting</h2>
 <table>
