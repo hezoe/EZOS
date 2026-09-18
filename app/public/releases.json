@@ -1,6 +1,21 @@
 {
-  "current": "1.1.0",
+  "current": "1.1.1",
   "releases": [
+    {
+      "version": "1.1.1",
+      "date": "2026-09-18",
+      "notes": {
+        "ja": [
+          "更新確認の取得先を GitHub Contents API 優先に変更(raw は5分キャッシュされ、push 直後に古い版が見えるため)。失敗時は従来どおり raw へ切り替える"
+        ],
+        "en": [
+          "Version checks now prefer the GitHub Contents API and fall back to raw (raw is cached for 5 minutes and can report a stale version right after a push)"
+        ],
+        "he": [
+          "בדיקת הגרסה מעדיפה כעת את Contents API של GitHub ונופלת חזרה ל-raw (ל-raw יש מטמון של 5 דקות שעלול להחזיר גרסה ישנה מיד לאחר push)"
+        ]
+      }
+    },
     {
       "version": "1.1.0",
       "date": "2026-09-18",

@@ -134,8 +134,9 @@ app/
 
 複数の機に配ってある EZOS を、メニューの「アップデート」から更新できる。
 
-- **更新元の判定**: `git remote get-url origin` と現在のブランチから GitHub の raw URL を組み立て、
+- **更新元の判定**: `git remote get-url origin` と現在のブランチから GitHub の取得先を組み立て、
   `app/public/releases.json` の `current` と手元の `app/package.json` を比較する。
+  取得先は Contents API を優先し、失敗時に raw へ切り替える（raw は5分キャッシュされ push 直後は古い版を返すため）。
   フォークや別ブランチでもそのまま動く。`data/config.json` の `updateUrl` / `updateBranch` で上書き可。
 - **更新の手順**（`bin/ezupdate.sh`。サーバーから切り離して起動し、ログは `data/update.log`）:
   1. git 作業ツリーか・`origin` があるか・未コミットの変更が無いかを確認（変更があれば中断。`{force:true}` で強行可）

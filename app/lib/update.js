@@ -47,12 +47,20 @@ async function git(args, timeout = 20_000) {
   return stdout.trim();
 }
 
-// git remote の URL から releases.json の raw URL を組み立てる(GitHub 以外なら null)
-export function rawUrlFromRemote(remote, branch) {
+// git remote の URL から releases.json の取得先を組み立てる(GitHub 以外なら null)。
+// raw.githubusercontent は5分キャッシュされ push 直後は古い版を返すため、
+// 即時反映される Contents API を先に試し、失敗したら raw に切り替える。
+export function updateUrlsFromRemote(remote, branch) {
   const m = /github\.com[:/]+([^/]+)\/([^/.]+)(\.git)?$/.exec(String(remote || '').trim());
-  if (!m) return null;
-  return `https://raw.githubusercontent.com/${m[1]}/${m[2]}/${branch || 'main'}/app/public/releases.json`;
+  if (!m) return [];
+  const [, owner, repo] = m;
+  const ref = branch || 'main';
+  return [
+    `https://api.github.com/repos/${owner}/${repo}/contents/app/public/releases.json?ref=${encodeURIComponent(ref)}`,
+    `https://raw.githubusercontent.com/${owner}/${repo}/${ref}/app/public/releases.json`,
+  ];
 }
+export const rawUrlFromRemote = (remote, branch) => updateUrlsFromRemote(remote, branch)[1] ?? null;
 
 // この設置先の git 状態(更新できるか)
 export async function repoState() {
@@ -87,24 +95,33 @@ export async function checkUpdate({ force = false } = {}) {
   const cfg = readJson('config.json', {});
   const current = localVersion();
   const repo = await repoState();
-  const url = cfg.updateUrl || rawUrlFromRemote(repo.remote, cfg.updateBranch || repo.branch);
+  const urls = cfg.updateUrl ? [cfg.updateUrl] : updateUrlsFromRemote(repo.remote, cfg.updateBranch || repo.branch);
 
-  const result = { current, latest: null, updateAvailable: false, notes: [], repo, url, checkedAt: Date.now(), error: null };
-  if (!url) {
+  const result = { current, latest: null, updateAvailable: false, notes: [], repo, url: urls[0] || null, checkedAt: Date.now(), error: null };
+  if (!urls.length) {
     result.error = 'no-update-url';
     cache = { at: Date.now(), result };
     return result;
   }
-  try {
-    const res = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(10_000) });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    result.latest = data.current || null;
-    result.updateAvailable = compareVersions(result.latest, current) > 0;
-    // 手元より新しいリリースのノートだけ返す
-    result.notes = (data.releases || []).filter((r) => compareVersions(r.version, current) > 0);
-  } catch (e) {
-    result.error = e.message;
+  for (const url of urls) {
+    try {
+      const res = await fetch(url, {
+        cache: 'no-store',
+        signal: AbortSignal.timeout(10_000),
+        headers: { Accept: 'application/vnd.github.raw, application/json', 'User-Agent': 'EZOS-update-check' },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      result.latest = data.current || null;
+      result.updateAvailable = compareVersions(result.latest, current) > 0;
+      // 手元より新しいリリースのノートだけ返す
+      result.notes = (data.releases || []).filter((r) => compareVersions(r.version, current) > 0);
+      result.url = url;
+      result.error = null;
+      break;
+    } catch (e) {
+      result.error = e.message;      // 次の取得先へ(最後まで失敗したらこの内容を返す)
+    }
   }
   cache = { at: Date.now(), result };
   return result;
