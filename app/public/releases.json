@@ -1,6 +1,27 @@
 {
-  "current": "1.0.17",
+  "current": "1.1.0",
   "releases": [
+    {
+      "version": "1.1.0",
+      "date": "2026-09-18",
+      "notes": {
+        "ja": [
+          "メニューに「アップデート」を追加。GitHub上の最新版を確認し、git pull → 依存導入 → 自分自身の再起動までを画面から実行できる(新版があるとメニューボタンに印)",
+          "更新元はgit remoteとブランチから自動判定(フォーク/別ブランチ対応。data/config.jsonのupdateUrl/updateBranchで上書き可)。未コミットの変更や分岐がある場合は中断し、ログをdata/update.logに残す",
+          "再起動は更新を依頼したサーバー自身のsystemd unitだけを対象にする(同一ホストに複数のEZOSがあっても巻き添えにしない)"
+        ],
+        "en": [
+          "New “Update” menu item: check the latest version on GitHub, then git pull, install dependencies and restart EZOS from the UI (a dot on the menu button marks a newer version)",
+          "The update source is derived from the git remote and branch (forks/branches work; override with updateUrl/updateBranch in data/config.json). Local changes or a diverged branch abort the update; the log is kept in data/update.log",
+          "Only the requesting server's own systemd unit is restarted, so several EZOS instances on one host never restart each other"
+        ],
+        "he": [
+          "פריט תפריט חדש “עדכון”: בדיקת הגרסה האחרונה ב-GitHub, git pull, התקנת תלויות והפעלה מחדש של EZOS מתוך הממשק",
+          "מקור העדכון נגזר מה-remote והענף של git (פורקים/ענפים נתמכים; ניתן לעקוף ב-updateUrl/updateBranch ב-data/config.json). שינויים מקומיים או ענף שהתפצל עוצרים את העדכון, והיומן נשמר ב-data/update.log",
+          "מופעלת מחדש רק יחידת ה-systemd של השרת שביקש את העדכון, כך שמספר מופעי EZOS על אותו מארח אינם משפיעים זה על זה"
+        ]
+      }
+    },
     {
       "version": "1.0.17",
       "date": "2026-09-17",

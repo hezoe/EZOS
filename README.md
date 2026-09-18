@@ -59,7 +59,8 @@ app/
 ## Install / Deploy
 
 - **New server**: see **[docs/manual/install.en.html](docs/manual/install.en.html)** (or [docs/INSTALL.md](docs/INSTALL.md)). It summarizes the values to confirm up front (IP, public hostname, DNS, passkey device, port/service name) and, given the repo, Claude Code can install it interactively and almost automatically.
-- **Updating an existing instance**: edit the working tree directly → `sudo systemctl restart <service>` to apply → commit/push. When adding dependencies, run `cd app && npm install --omit=dev` then restart.
+- **Updating an existing instance (from the UI)**: open the menu → **Update**. EZOS compares the version on GitHub with the local one, runs `git pull --ff-only`, installs dependencies when they changed, and restarts itself (terminal sessions survive). A green dot on the menu button means a newer version is available.
+- **Updating by hand**: edit the working tree directly → `sudo systemctl restart <service>` to apply → commit/push. When adding dependencies, run `cd app && npm install --omit=dev` then restart.
 
 ## Session state mapping (hook → state)
 

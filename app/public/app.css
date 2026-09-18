@@ -582,6 +582,46 @@ html[dir="rtl"] .ez-tip { direction: rtl; }
 
 /* ================= リリースノーツ ================= */
 .ez-releases { display: flex; flex-direction: column; gap: 4px; }
+/* アップデート */
+.ez-update { display: flex; flex-direction: column; gap: 10px; }
+.ez-up-head { font-size: 14px; }
+.ez-up-actions { display: flex; gap: 8px; margin-top: 4px; }
+.ez-btn {
+  font: inherit;
+  color: var(--text);
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 7px 16px;
+  cursor: pointer;
+}
+.ez-btn:disabled { opacity: .45; cursor: default; }
+.ez-btn-sub { background: var(--card); border-color: var(--line); }
+.ez-up-warn { font-size: 12px; color: var(--warn, #d97706); margin: 6px 0 0; }
+.ez-up-log {
+  margin: 0;
+  padding: 10px;
+  max-height: 260px;
+  overflow: auto;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+/* 新しい版があるときメニューボタンに印 */
+.ez-has-update { position: relative; }
+.ez-has-update::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  inset-inline-end: 2px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #16a34a;
+}
 .ez-rel-cur { font-size: 13px; color: var(--accent); font-weight: 700; margin-bottom: 8px; }
 .ez-rel { margin-bottom: 18px; }
 .ez-rel-h { margin: 0 0 8px; font-size: 15px; color: var(--text); border-bottom: 1px solid var(--line); padding-bottom: 6px; }

@@ -15,6 +15,7 @@ import { runClaude } from './lib/claude.js';
 import { createTermServer } from './lib/term.js';
 import { getStates, sendKey, getTitles, getCwd, createSession } from './lib/termstate.js';
 import { listTerminals, addTerminal, removeTerminal } from './lib/terminals.js';
+import { checkUpdate, startUpdate, updateStatus } from './lib/update.js';
 import { HOME, hasCommand } from './lib/env.js';
 import { REAL_ROOT, HttpError, safePath, childPath, isTextFile, statEntry } from './lib/filemgr.js';
 
@@ -476,6 +477,30 @@ const server = http.createServer(async (req, res) => {
       // Claude Codeのログイン状態を軽く確認 (credentialsファイルの存在で判定)
       const loggedIn = fs.existsSync(path.join(HOME, '.claude', '.credentials.json'));
       sendJson(res, 200, { claudeLoggedIn: loggedIn });
+      return;
+    }
+
+    /* --- 自己更新 (GitHub の最新版を確認 → git pull → 再起動) --- */
+    if (p === '/api/update/check' && req.method === 'GET') {
+      sendJson(res, 200, await checkUpdate({ force: url.searchParams.get('force') === '1' }));
+      return;
+    }
+    if (p === '/api/update/status' && req.method === 'GET') {
+      sendJson(res, 200, updateStatus());
+      return;
+    }
+    if (p === '/api/update/apply' && req.method === 'POST') {
+      const body = await readBody(req);
+      const info = await checkUpdate({ force: true });
+      if (!info.repo.git) {
+        sendJson(res, 400, { error: L(req, 'git リポジトリではないため自動更新できません', 'Not a git repository; automatic update is unavailable.') });
+        return;
+      }
+      if (info.repo.dirty && !body.force) {
+        sendJson(res, 409, { error: L(req, 'ローカルに未コミットの変更があります', 'There are uncommitted local changes.'), changes: info.repo.changes });
+        return;
+      }
+      sendJson(res, 200, startUpdate({ force: Boolean(body.force) }));
       return;
     }
 

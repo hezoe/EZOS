@@ -62,7 +62,10 @@ app/
 - **新規サーバーへの導入**: **[docs/INSTALL.md](docs/INSTALL.md)** を参照。
   作業者に確認すべき項目(IP・公開ホスト名・DNS・パスキー登録端末・ポート/サービス名)を先頭でまとめており、
   Claude Codeにこのリポジトリを渡せば対話的に確認しながらほぼ自動で導入できる。
-- **既存の基準機での更新**: 作業ツリーを直接編集 → `sudo systemctl restart <サービス名>` で反映 → commit/push。
+- **配布済みの機の更新(GUI)**: メニューの「アップデート」から。GitHub の最新版と手元の版を比べ、
+  `git pull --ff-only` → 必要なら依存導入 → 自分自身を再起動する(ターミナルのセッションは維持)。
+  新しい版があるとメニューボタンに緑の印が付く。
+- **手作業での更新**: 作業ツリーを直接編集 → `sudo systemctl restart <サービス名>` で反映 → commit/push。
   依存追加時は `cd app && npm install --omit=dev` の後に restart。
 - **実施記録の例**: `ezos.example.com` を既存Caddyへ相乗りさせた実例は [docs/ezos-domain-setup.md](docs/ezos-domain-setup.md)。
 

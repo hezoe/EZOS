@@ -36,6 +36,7 @@
     const items = [
       ['❓', t('menu.help'), openManual],
       ['📝', t('menu.releases'), openReleases],
+      [updateInfo?.updateAvailable ? '⬆️' : '🔄', t('menu.update') + (updateInfo?.updateAvailable ? ` (v${updateInfo.latest})` : ''), openUpdate],
       ['🌐', t('menu.language'), showLangSubmenu],
       ['⚙️', t('menu.settings'), openSettings],
       ['⏻', t('menu.logout'), doLogout],
@@ -181,6 +182,100 @@
         });
       })
       .catch(() => { cont.textContent = t('common.serverError'); });
+  }
+
+  /* ---------- アップデート ---------- */
+  let updateInfo = null;          // 起動時に一度だけ確認した結果(メニューの表示に使う)
+
+  async function fetchUpdate(force) {
+    const r = await fetch('/api/update/check' + (force ? '?force=1' : ''), { credentials: 'same-origin' });
+    if (!r.ok) throw new Error('http ' + r.status);
+    updateInfo = await r.json();
+    return updateInfo;
+  }
+
+  // 起動時に静かに確認し、新版があればメニューボタンに印を付ける
+  fetchUpdate(false).then(() => {
+    if (updateInfo?.updateAvailable) btn.classList.add('ez-has-update');
+  }).catch(() => {});
+
+  function openUpdate() {
+    closeMenu();
+    const cont = document.createElement('div');
+    cont.className = 'ez-update';
+    const head = document.createElement('div'); head.className = 'ez-up-head';
+    const notes = document.createElement('div'); notes.className = 'ez-rel-cur';
+    const list = document.createElement('div');
+    const actions = document.createElement('div'); actions.className = 'ez-up-actions';
+    const applyBtn = document.createElement('button'); applyBtn.className = 'ez-btn';
+    const recheck = document.createElement('button'); recheck.className = 'ez-btn ez-btn-sub'; recheck.textContent = t('update.recheck');
+    const logEl = document.createElement('pre'); logEl.className = 'ez-up-log'; logEl.hidden = true;
+    actions.appendChild(applyBtn); actions.appendChild(recheck);
+    cont.appendChild(head); cont.appendChild(notes); cont.appendChild(list); cont.appendChild(actions); cont.appendChild(logEl);
+    overlay(t('menu.update'), cont);
+
+    function render(info) {
+      head.textContent = `${t('update.current')}: v${info.current || '?'}　/　${t('update.latest')}: v${info.latest || '?'}`;
+      notes.textContent = info.error ? `${t('update.checkFailed')} (${info.error})`
+        : info.updateAvailable ? t('update.available') : t('update.upToDate');
+      list.innerHTML = '';
+      (info.notes || []).forEach((rel) => {
+        const sec = document.createElement('section'); sec.className = 'ez-rel';
+        const h = document.createElement('h3'); h.className = 'ez-rel-h';
+        h.textContent = 'v' + rel.version + (rel.date ? '  ·  ' + rel.date : '');
+        sec.appendChild(h);
+        const ul = document.createElement('ul'); ul.className = 'ez-rel-list';
+        ((rel.notes && (rel.notes[lang()] || rel.notes.en || rel.notes.ja)) || []).forEach((n) => {
+          const li = document.createElement('li'); li.textContent = n; ul.appendChild(li);
+        });
+        sec.appendChild(ul); list.appendChild(sec);
+      });
+      applyBtn.textContent = t('update.apply');
+      applyBtn.disabled = !info.updateAvailable || !info.repo?.canUpdate;
+      applyBtn.title = info.repo?.canUpdate ? '' : t('update.cannot.' + (info.repo?.reason || 'unknown'));
+      if (!info.repo?.canUpdate && info.repo?.reason) {
+        const warn = document.createElement('p'); warn.className = 'ez-up-warn';
+        warn.textContent = t('update.cannot.' + info.repo.reason);
+        list.appendChild(warn);
+      }
+    }
+    render(updateInfo || { current: '', latest: '', repo: {} });
+    fetchUpdate(true).then(render).catch(() => { notes.textContent = t('update.checkFailed'); });
+
+    recheck.addEventListener('click', () => { notes.textContent = t('update.checking'); fetchUpdate(true).then(render); });
+
+    applyBtn.addEventListener('click', async () => {
+      if (!confirm(t('update.confirm'))) return;
+      applyBtn.disabled = true; recheck.disabled = true;
+      logEl.hidden = false; logEl.textContent = t('update.applying') + '\n';
+      try {
+        const r = await fetch('/api/update/apply', {
+          method: 'POST', credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' }, body: '{}',
+        });
+        if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || ('http ' + r.status));
+      } catch (e) {
+        logEl.textContent += `\n${t('update.failed')}: ${e.message}`;
+        applyBtn.disabled = false; recheck.disabled = false;
+        return;
+      }
+      // 進行状況をポーリング。サーバー再起動中は取得に失敗するので、復帰したら再読込
+      let restarted = false;
+      const timer = setInterval(async () => {
+        try {
+          const st = await (await fetch('/api/update/status', { credentials: 'same-origin', cache: 'no-store' })).json();
+          logEl.textContent = st.log || '';
+          logEl.scrollTop = logEl.scrollHeight;
+          if (restarted && st.state !== 'running') {
+            clearInterval(timer);
+            logEl.textContent += `\n${t('update.reloading')}`;
+            setTimeout(() => location.reload(), 1500);
+          }
+        } catch {
+          restarted = true;      // 再起動中(接続できない)
+        }
+      }, 1500);
+    });
   }
 
   /* ---------- 設定ビュー ---------- */

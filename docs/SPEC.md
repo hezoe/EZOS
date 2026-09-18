@@ -96,6 +96,10 @@ app/
 | POST | `/api/term/send` | 確認プルダウンの選択（`{sid,key}`。ホワイトリスト: 数字`1〜9`/`escape`/`enter`/`up`/`down`/`interrupt`=C-c） | `{ok}` |
 | POST | `/api/upload?dir=&sid=&name=` | ファイルアップロード（最大25MB。保存名は `YYYYMMDDHHMMSS_<name>`。`dir` 指定なしは端末CWD配下 `docs/`） | `{path,name}` |
 
+| GET | `/api/update/check[?force=1]` | 更新確認（GitHub の `releases.json` と手元の版を比較。10分キャッシュ） | `{current,latest,updateAvailable,notes[],repo{...},url,error}` |
+| GET | `/api/update/status` | 更新の進行状況とログ（`data/update-status.json` + `data/update.log` 末尾8KB） | `{state,message,fromVersion,toVersion,version,log}` |
+| POST | `/api/update/apply` | 更新の実行（`bin/ezupdate.sh` を切り離して起動。`{force:true}` で未コミット変更があっても実行） | `{started,pid}` / 400・409（更新不可） |
+
 ### 4.3 ファイル操作（`lib/filemgr.js`。全パスは実行ユーザーの `$HOME` 配下に制限）
 | メソッド | パス | 用途 |
 |---|---|---|
@@ -125,6 +129,26 @@ app/
 - `GET /` → 認証状態に応じてログインUI or アプリ本体HTML（`view=mobile|desktop`）。
 
 ---
+
+## 4.6 自己更新（`lib/update.js` / `bin/ezupdate.sh`）
+
+複数の機に配ってある EZOS を、メニューの「アップデート」から更新できる。
+
+- **更新元の判定**: `git remote get-url origin` と現在のブランチから GitHub の raw URL を組み立て、
+  `app/public/releases.json` の `current` と手元の `app/package.json` を比較する。
+  フォークや別ブランチでもそのまま動く。`data/config.json` の `updateUrl` / `updateBranch` で上書き可。
+- **更新の手順**（`bin/ezupdate.sh`。サーバーから切り離して起動し、ログは `data/update.log`）:
+  1. git 作業ツリーか・`origin` があるか・未コミットの変更が無いかを確認（変更があれば中断。`{force:true}` で強行可）
+  2. `git fetch` → `git merge --ff-only origin/<branch>`（分岐していれば中断）
+  3. `app/package.json` / `package-lock.json` に差分があれば `npm install --omit=dev`
+  4. 再起動（下記）
+- **再起動の対象**: 更新を依頼したサーバー自身の systemd unit だけ。サーバーが自分の unit 名
+  （`/proc/self/cgroup` から取得）を `EZOS_UNIT` として渡す。同じ機に複数の EZOS が居ても取り違えない。
+  `sudo -n systemctl restart <unit>` が使えればそれを、使えなければサーバープロセスを `kill` して
+  `Restart=always` に任せる（どちらでも tmux セッションは `KillMode=process` により維持される）。
+- **GUI**: メニューの「アップデート」。起動時に静かに確認し、新しい版があればメニューボタンに緑の印を出す。
+  ダイアログには現在版・最新版・未適用のリリースノーツ・実行ボタン・進行ログを表示し、
+  再起動を検知したら自動で画面を再読込する。
 
 ## 5. WebSocket ターミナルプロトコル `/ws/term`
 
