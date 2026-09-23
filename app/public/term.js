@@ -792,6 +792,7 @@
     // `claude --model … --effort …` のオプションを決める。選択は localStorage 共有で
     // 全タブ・再読込後も既定として引き継がれる(既定=Opus 4.8 / xhigh)。
     const MODELS = [
+      ['claude-opus-5-5', 'Opus 5.5'],
       ['claude-opus-4-8', 'Opus 4.8'],
       ['claude-sonnet-5', 'Sonnet 5'],
       ['claude-haiku-4-5-20251001', 'Haiku 4.5'],
