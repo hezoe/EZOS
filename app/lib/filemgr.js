@@ -48,6 +48,24 @@ export async function childPath(dir, name, { mustExist = true } = {}) {
   return safePath(path.join(dir, name), { mustExist });
 }
 
+// R-090 (2026-11-11): 削除・改名・chmod 用。最終要素のシンボリックリンクを辿らない。
+// safePath(realpath) はリンクを解決して「リンク先」を返すため、リンクの削除のつもりで
+// 中身を消す事故が起きる。親フォルダだけ realpath で検証し、最終要素はそのまま扱う。
+export async function childPathNoFollow(dir, name) {
+  if (typeof name !== 'string' || !name || name === '.' || name === '..' || /[/\\\x00]/.test(name)) {
+    throw new HttpError(400, '不正な名前です');
+  }
+  const abs = path.resolve(REAL_ROOT, path.join(String(dir == null ? '.' : dir), name));
+  let parent;
+  try { parent = await fs.promises.realpath(path.dirname(abs)); }
+  catch { throw new HttpError(404, '親フォルダがありません'); }
+  if (!within(parent, REAL_ROOT)) throw new HttpError(403, 'アクセスできない場所です');
+  const p = path.join(parent, path.basename(abs));
+  try { await fs.promises.lstat(p); }
+  catch { throw new HttpError(404, '見つかりません'); }
+  return p;
+}
+
 const EDITABLE_EXT = /\.(txt|md|markdown|json|html?|css|js|mjs|cjs|jsx|ts|tsx|xml|yml|yaml|csv|log|sh|bash|zsh|py|rb|go|rs|c|h|cpp|java|php|sql|conf|cfg|ini|env|toml|svg|gitignore)$/i;
 export function isEditableName(name) {
   return EDITABLE_EXT.test(name) || !path.extname(name); // 拡張子なし(READMEやドットファイル)も編集可

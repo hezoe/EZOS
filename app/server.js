@@ -3,7 +3,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
-import { randomBytes, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import {
   generateRegistrationOptions,
   verifyRegistrationResponse,
@@ -17,14 +17,15 @@ import { getStates, sendKey, getTitles, getCwd, createSession } from './lib/term
 import { listTerminals, addTerminal, removeTerminal } from './lib/terminals.js';
 import { checkUpdate, startUpdate, updateStatus } from './lib/update.js';
 import { HOME, hasCommand } from './lib/env.js';
-import { REAL_ROOT, HttpError, safePath, childPath, isTextFile, statEntry } from './lib/filemgr.js';
+import { REAL_ROOT, HttpError, safePath, childPath, childPathNoFollow, isTextFile, statEntry } from './lib/filemgr.js';
+import { AUTH_TTL_MS, REAUTH_WINDOW_MS, hashToken, pruneTokens, newToken, resolveSession } from './lib/authtokens.js';
 
 const cfg = loadConfig();
 const PUBLIC_DIR = path.join(ROOT, 'public');
 
 /* ---------------- 認証まわり ---------------- */
 
-const AUTH_TTL_MS = 30 * 24 * 3600 * 1000;
+// 認証トークンの期限・ハッシュ等の純粋ロジックは ./lib/authtokens.js(単体テスト可)。
 // challenge は短命なのでメモリ保持でよい
 const challenges = new Map(); // id -> { challenge, purpose, expires }
 
@@ -49,22 +50,68 @@ function getAuthTokens() {
 }
 
 function issueAuthToken() {
-  const tokens = getAuthTokens();
+  const tokens = pruneTokens(getAuthTokens());
   const now = Date.now();
-  for (const [t, exp] of Object.entries(tokens)) {
-    if (exp < now) delete tokens[t];
-  }
-  const token = randomBytes(32).toString('base64url');
-  tokens[token] = now + AUTH_TTL_MS;
+  const token = newToken();
+  tokens[hashToken(token)] = { abs: now + AUTH_TTL_MS, seen: now };
   writeJson('auth_tokens.json', tokens);
-  return token;
+  return token;   // 生トークンを Cookie に入れる。保存されるのはハッシュだけ
+}
+
+// Cookie から現在のセッション記録を引く。無効なら null。
+// 旧形式(平文キー)のセッションは、使用時にハッシュ形式へ無停止で移行する(ログアウトさせない)。
+function sessionFromReq(req) {
+  const m = /(?:^|;\s*)ezsess=([^;]+)/.exec(req.headers.cookie || '');
+  if (!m) return null;
+  const tokens = getAuthTokens();
+  const s = resolveSession(tokens, m[1]);
+  if (!s) return null;
+  if (s.migrated) writeJson('auth_tokens.json', tokens);
+  return { key: s.key, rec: s.rec, tokens };
 }
 
 function isAuthed(req) {
-  const m = /(?:^|;\s*)ezsess=([^;]+)/.exec(req.headers.cookie || '');
-  if (!m) return false;
-  const exp = getAuthTokens()[m[1]];
-  return typeof exp === 'number' && exp > Date.now();
+  const s = sessionFromReq(req);
+  if (!s) return false;
+  const now = Date.now();
+  // 無操作失効の基準(seen)を滑らせる。書き込み過多を避けるため1時間ごとに間引く。
+  if (!s.rec.seen || now - s.rec.seen > 3600 * 1000) {
+    s.rec.seen = now;
+    writeJson('auth_tokens.json', s.tokens);
+  }
+  return true;
+}
+
+// R-026: いま再認証済みか(パスキーの追加・削除の直前に通す)。
+function reauthFresh(req) {
+  const s = sessionFromReq(req);
+  return !!(s && s.rec.reauthAt && Date.now() - s.rec.reauthAt < REAUTH_WINDOW_MS);
+}
+
+// R-026: 認証イベントを ntfy で知らせる(best-effort。watchdog と同じ設定を使い、無ければ沈黙)。
+let _ntfyConf;
+function ntfyConf() {
+  if (_ntfyConf !== undefined) return _ntfyConf;
+  _ntfyConf = null;
+  try {
+    const txt = fs.readFileSync('/etc/service-watchdog.conf', 'utf8');
+    const url = /^\s*NTFY_URL\s*=\s*"?([^"#\s]+)/m.exec(txt);
+    const topic = /^\s*NTFY_TOPIC\s*=\s*"?([^"#\s]+)/m.exec(txt);
+    if (url && topic) _ntfyConf = { url: url[1].replace(/\/$/, ''), topic: topic[1] };
+  } catch { /* 設定が無ければ通知しない */ }
+  return _ntfyConf;
+}
+function notifyAuth(message) {
+  const c = ntfyConf();
+  if (!c) return;
+  try {
+    fetch(`${c.url}/${c.topic}`, {
+      method: 'POST',
+      headers: { Title: 'EZOS auth', Tags: 'key', Priority: 'default' },
+      body: String(message),
+      signal: AbortSignal.timeout(6000),
+    }).catch(() => {});
+  } catch { /* fetch 不可等は無視 */ }
 }
 
 function getCredentials() {
@@ -309,6 +356,10 @@ const server = http.createServer(async (req, res) => {
           sendJson(res, 403, { error: L(req, '登録は現在受け付けていません(サーバーで open-register を実行してください)', 'Registration is currently closed (run open-register on the server).') });
           return;
         }
+      } else if (!reauthFresh(req)) {
+        // R-026: ログイン済みユーザーがパスキーを追加するときは直前の再認証を要求する。
+        sendJson(res, 401, { error: L(req, '再認証が必要です', 'Re-authentication required.'), reauth: true });
+        return;
       }
       const creds = getCredentials();
       const options = await generateRegistrationOptions({
@@ -329,6 +380,11 @@ const server = http.createServer(async (req, res) => {
 
     if (p === '/api/reg-verify' && req.method === 'POST') {
       const body = await readBody(req);
+      // R-026: ログイン済みでの追加は再認証を要求(未認証=登録ウィンドウ経由はウィンドウが認可)。
+      if (isAuthed(req) && !reauthFresh(req)) {
+        sendJson(res, 401, { error: L(req, '再認証が必要です', 'Re-authentication required.'), reauth: true });
+        return;
+      }
       const challenge = takeChallenge(body.challengeId, 'reg');
       if (!challenge) {
         sendJson(res, 400, { error: L(req, 'チャレンジが無効です。やり直してください', 'Challenge is invalid. Please try again.') });
@@ -365,6 +421,7 @@ const server = http.createServer(async (req, res) => {
       // 未認証(=登録ウィンドウ経由)の登録が成立したら、ウィンドウを単回消費して閉じる。
       // 認証済みユーザーの端末追加時はウィンドウを使っていないので触らない。
       if (!isAuthed(req)) removeJson('reg-window.json');
+      notifyAuth(L(req, 'パスキーを登録しました', 'A passkey was registered.'));
       const token = issueAuthToken();
       res.setHeader('Set-Cookie',
         `ezsess=${token}; Path=/; Max-Age=${AUTH_TTL_MS / 1000}; HttpOnly; Secure; SameSite=Lax`);
@@ -426,6 +483,7 @@ const server = http.createServer(async (req, res) => {
       }
       cred.counter = verification.authenticationInfo.newCounter;
       writeJson('credentials.json', creds);
+      notifyAuth(L(req, 'EZOS にログインしました', 'Signed in to EZOS.'));
       const token = issueAuthToken();
       res.setHeader('Set-Cookie',
         `ezsess=${token}; Path=/; Max-Age=${AUTH_TTL_MS / 1000}; HttpOnly; Secure; SameSite=Lax`);
@@ -441,7 +499,80 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (p === '/api/logout' && req.method === 'POST') {
+      // R-025: Cookie を消すだけでなくサーバー側のトークンも失効させる(漏れた Cookie を無効化)。
+      const s = sessionFromReq(req);
+      if (s) { delete s.tokens[s.key]; writeJson('auth_tokens.json', s.tokens); }
       res.setHeader('Set-Cookie', 'ezsess=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax');
+      sendJson(res, 200, { ok: true });
+      return;
+    }
+
+    // R-025: すべての端末からログアウト(全トークンを失効)。
+    if (p === '/api/logout-all' && req.method === 'POST') {
+      writeJson('auth_tokens.json', {});
+      res.setHeader('Set-Cookie', 'ezsess=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax');
+      sendJson(res, 200, { ok: true });
+      return;
+    }
+
+    // R-026: パスキーの追加・削除の前に再認証する(セッションを奪われても勝手に鍵を足せない)。
+    if (p === '/api/reauth-options' && req.method === 'POST') {
+      const creds = getCredentials();
+      if (!creds.length) {
+        sendJson(res, 404, { error: L(req, 'パスキーが未登録です', 'No passkey is registered.') });
+        return;
+      }
+      const options = await generateAuthenticationOptions({
+        rpID: cfg.rpID,
+        userVerification: 'required',
+        allowCredentials: creds.map((c) => ({ id: c.id, transports: c.transports })),
+      });
+      const challengeId = newChallengeId(options.challenge, 'reauth');
+      sendJson(res, 200, { options, challengeId });
+      return;
+    }
+
+    if (p === '/api/reauth-verify' && req.method === 'POST') {
+      const body = await readBody(req);
+      const challenge = takeChallenge(body.challengeId, 'reauth');
+      if (!challenge) {
+        sendJson(res, 400, { error: L(req, 'チャレンジが無効です。やり直してください', 'Challenge is invalid. Please try again.') });
+        return;
+      }
+      const creds = getCredentials();
+      const cred = creds.find((c) => c.id === body.authResp?.id);
+      if (!cred) {
+        sendJson(res, 403, { error: L(req, '未知のパスキーです', 'Unknown passkey.') });
+        return;
+      }
+      let verification;
+      try {
+        verification = await verifyAuthenticationResponse({
+          response: body.authResp,
+          expectedChallenge: challenge,
+          expectedOrigin: cfg.origin,
+          expectedRPID: cfg.rpID,
+          requireUserVerification: true,
+          credential: {
+            id: cred.id,
+            publicKey: Buffer.from(cred.publicKey, 'base64'),
+            counter: cred.counter,
+            transports: cred.transports,
+          },
+        });
+      } catch (e) {
+        sendJson(res, 403, { error: L(req, '再認証に失敗しました: ', 'Re-auth failed: ') + e.message });
+        return;
+      }
+      if (!verification.verified) {
+        sendJson(res, 403, { error: L(req, '検証に失敗しました', 'Verification failed.') });
+        return;
+      }
+      cred.counter = verification.authenticationInfo.newCounter;
+      writeJson('credentials.json', creds);
+      // 現在のセッションに再認証時刻を記録(REAUTH_WINDOW_MS だけパスキー操作を許可)。
+      const s = sessionFromReq(req);
+      if (s) { s.rec.reauthAt = Date.now(); writeJson('auth_tokens.json', s.tokens); }
       sendJson(res, 200, { ok: true });
       return;
     }
@@ -457,6 +588,11 @@ const server = http.createServer(async (req, res) => {
 
     // パスキー削除。締め出し防止のため最後の1件は削除させない。
     if (p === '/api/passkeys/delete' && req.method === 'POST') {
+      // R-026: 削除の前に再認証(直近 REAUTH_WINDOW_MS 以内)を要求。
+      if (!reauthFresh(req)) {
+        sendJson(res, 401, { error: L(req, '再認証が必要です', 'Re-authentication required.'), reauth: true });
+        return;
+      }
       const body = await readBody(req);
       const creds = getCredentials();
       if (creds.length <= 1) {
@@ -469,6 +605,11 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       writeJson('credentials.json', next);
+      // R-025: パスキーを削除したら、現在のセッション以外を全部失効させる
+      // (奪われたパスキー/セッションでの居座りを断ち切る)。
+      const s = sessionFromReq(req);
+      if (s) writeJson('auth_tokens.json', { [s.key]: s.rec });
+      notifyAuth(L(req, 'パスキーを削除しました', 'A passkey was deleted.'));
       sendJson(res, 200, { ok: true });
       return;
     }
@@ -695,6 +836,7 @@ const server = http.createServer(async (req, res) => {
         if (!st.isFile()) throw new HttpError(400, 'ファイルではありません');
         const tmp = file + '.eztmp';
         await fs.promises.writeFile(tmp, String(body.content ?? ''), 'utf8');
+        await fs.promises.chmod(tmp, st.mode & 0o7777);   // R-089: 元の権限を引き継ぐ(600の秘密ファイルを644に戻さない)
         await fs.promises.rename(tmp, file);
         const s2 = await fs.promises.stat(file);
         sendJson(res, 200, { ok: true, mtime: s2.mtimeMs });
@@ -728,13 +870,14 @@ const server = http.createServer(async (req, res) => {
       const body = await readBody(req);
       try {
         const dir = await safePath(body.dir);
-        const src = await childPath(dir, body.name);
+        const src = await childPathNoFollow(dir, body.name);   // R-090: リンク自体を改名(リンク先を動かさない)
         const dst = await childPath(dir, body.newName, { mustExist: false });
         await fs.promises.rename(src, dst);
         if (body.mode != null) {
           const m = Number(body.mode);
           if (!Number.isInteger(m) || m < 0 || m > 0o777) throw new HttpError(400, '権限指定が不正です');
-          await fs.promises.chmod(dst, m);
+          const ls = await fs.promises.lstat(dst);
+          if (!ls.isSymbolicLink()) await fs.promises.chmod(dst, m);   // R-090: リンク先の権限を変えない
         }
         sendJson(res, 200, { ok: true, name: path.basename(dst) });
       } catch (e) { sendJson(res, e.status || 500, { error: e.message }); }
@@ -745,9 +888,10 @@ const server = http.createServer(async (req, res) => {
       const body = await readBody(req);
       try {
         const dir = await safePath(body.dir);
-        const target = await childPath(dir, body.name);
+        const target = await childPathNoFollow(dir, body.name);   // R-090
         const m = Number(body.mode);
         if (!Number.isInteger(m) || m < 0 || m > 0o777) throw new HttpError(400, '権限指定が不正です');
+        if ((await fs.promises.lstat(target)).isSymbolicLink()) throw new HttpError(400, 'シンボリックリンクの権限は変更できません');
         await fs.promises.chmod(target, m);
         sendJson(res, 200, { ok: true, mode: m });
       } catch (e) { sendJson(res, e.status || 500, { error: e.message }); }
@@ -762,7 +906,7 @@ const server = http.createServer(async (req, res) => {
         if (!names.length) throw new HttpError(400, '対象がありません');
         let n = 0;
         for (const name of names) {
-          const target = await childPath(dir, name);
+          const target = await childPathNoFollow(dir, name);   // R-090: リンクはリンク自体を消す(中身を消さない)
           if (target === REAL_ROOT) throw new HttpError(400, 'ルートは削除できません');
           await fs.promises.rm(target, { recursive: true, force: true });
           n += 1;
@@ -816,6 +960,11 @@ const server = http.createServer(async (req, res) => {
           'X-Content-Type-Options': 'nosniff',
         };
         if (ext === '.pdf') headers['Content-Disposition'] = 'inline'; // DLさせず内蔵ビューアで開く
+        // R-005: HTML/SVG は固有の不透明オリジンに隔離して返す(allow-same-origin を付けない)。
+        // 外部由来の HTML/SVG 内のスクリプトが、ログイン中の EZOS の権限(Cookie/API)で動くのを防ぐ。
+        if (ext === '.html' || ext === '.htm' || ext === '.svg') {
+          headers['Content-Security-Policy'] = 'sandbox allow-scripts allow-popups';
+        }
 
         // Range 要求は 206 Partial Content で応答("bytes=start-end" / 末尾指定 "bytes=-N")。
         const m = /^bytes=(\d*)-(\d*)$/.exec((req.headers.range || '').trim());

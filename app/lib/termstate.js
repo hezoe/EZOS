@@ -142,6 +142,29 @@ async function capturePane(sid) {
   return stdout;
 }
 
+/** copy-mode(履歴スクロール)中のペインを { sid: true } で返す。
+   copy-mode中の capture-pane はスクロール後の過去画面をそのまま写すため、
+   状態判定すると履歴中の古いメニュー等を誤検知する(→誤通知音)。 */
+async function panesInMode() {
+  const out = {};
+  try {
+    const { stdout } = await pexec('tmux', txa(['list-panes', '-a', '-F', '#{session_name}\t#{pane_in_mode}']));
+    for (const line of stdout.split('\n')) {
+      const [name, mode] = line.split('\t');
+      if (name && name.startsWith('ez_') && mode === '1') out[name.slice(3)] = true;
+    }
+  } catch { /* tmux未起動等: 全ペイン通常扱い */ }
+  return out;
+}
+
+// Claude Code(代替画面)が履歴スクロール中に入力ボックス直上へ出すマーカー。
+// スクロール中の画面は過去ログの再描画なので、これが見えている間は状態判定しない。
+// 会話本文に同じ文字列が含まれる誤爆を減らすため、判定は末尾側(入力欄まわり)に限る。
+const SCROLLED_MARKER = 'Jump to bottom (ctrl+End)';
+function isScrolledView(lines) {
+  return lines.slice(-15).some((l) => l.includes(SCROLLED_MARKER));
+}
+
 // 選択肢テキストから種別を推定 (ボタンの色分け・ラベルに使う)
 function kindOf(text) {
   const t = text.toLowerCase();
@@ -176,6 +199,10 @@ function parseLetterChoices(lines) {
     seq.push({ letter: L, ...byL.get(L) });
   }
   if (seq.length < 2) return null;
+
+  // 「今の問いかけ」だけを拾う: 選択肢列は入力欄直上(画面末尾から25行以内)にあること。
+  // 画面上部に残った過去のA/B列を idle のたびに再検出して誤confirm(→誤通知音)しないため。
+  if (seq[seq.length - 1].idx < lines.length - 25) return null;
 
   // 手がかり: 最初の選択肢の少し上に「?/？」で終わる疑問文、または選択を促す語があること。
   // 単なる「:」終わりの見出し(例「ファイル構成:」)は箇条書きでも多発するので手がかりにしない。
@@ -236,6 +263,10 @@ function hasInputBox(lines) {
 export function parsePane(text) {
   const lines = text.replace(/\r/g, '').split('\n');
 
+  // スクロール閲覧中: 画面は過去ログの再描画であり confirm/idle 判定は無意味。
+  // 'scrolled' を返し、クライアント側は直前状態を保持して音を鳴らさない。
+  if (isScrolledView(lines)) return { state: 'scrolled' };
+
   // 連番メニュー(❯付き)を探す
   const byN = new Map(); // n -> {text, selected, idx}
   let hasCursor = false;
@@ -284,9 +315,11 @@ export function parsePane(text) {
 
 /** 全ターミナルの状態を { sid: stateObj } で返す */
 export async function getStates() {
-  const sids = await listSids();
+  const [sids, inMode] = await Promise.all([listSids(), panesInMode()]);
   const out = {};
   await Promise.all(sids.map(async (sid) => {
+    // copy-mode(素のシェルの履歴スクロール)中は capture が過去画面になるため判定しない
+    if (inMode[sid]) { out[sid] = { state: 'scrolled' }; return; }
     try {
       out[sid] = parsePane(await capturePane(sid));
     } catch {

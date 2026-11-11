@@ -6,7 +6,7 @@
 'use strict';
 
 (() => {
-  console.info('[EZOS] term.js build: tabs(dynamic+, state-dot, pulldown, touch-scroll-fix, vv-pin, keyrow-reorder+wrap, switch-next-to-esc, ctrl-end, actions-stack-when-wrapped, ctrl-keys-no-focus, mobile-no-brand, wrap-hysteresis, git-buttons-submit, send-after-down, shift-tab, sanitize, file-upload, web-links, goto-terminal, file-links-to-editor, local-selection, mic-next-to-switch, prompt-btns-no-kbd, keyrow-no-kbd, mic-to-terminal-when-off, resilient-net, mic-stream-to-terminal, confirm-alarm-pon, idle-alarm+blue-dot, freeform-letter-choices, dynamic-favicon, idle-pop-sound, robust-running+idle-debounce, dot-spinner-fix)(2026-07-11c)'); // 版確認用
+  console.info('[EZOS] term.js build: tabs(dynamic+, state-dot, pulldown, touch-scroll-fix, vv-pin, keyrow-reorder+wrap, switch-next-to-esc, ctrl-end, actions-stack-when-wrapped, ctrl-keys-no-focus, mobile-no-brand, wrap-hysteresis, git-buttons-submit, send-after-down, shift-tab, sanitize, file-upload, web-links, goto-terminal, file-links-to-editor, local-selection, mic-next-to-switch, prompt-btns-no-kbd, keyrow-no-kbd, mic-to-terminal-when-off, resilient-net, mic-stream-to-terminal, confirm-alarm-pon, idle-alarm+blue-dot, freeform-letter-choices, dynamic-favicon, idle-pop-sound, robust-running+idle-debounce, dot-spinner-fix, scrolled-state-hold, armpop-strict, write-coalesce)(2026-09-23)'); // 版確認用
   const isMobile = window.EZ.view === 'mobile';
   const t = (k, v) => (window.EZ && window.EZ.t ? window.EZ.t(k, v) : k); // i18n(i18n.jsが提供)
   const ACTIVE_KEY = 'ez_active_sid'; // 閲覧中タブ(このブラウザ限定の表示都合)
@@ -327,6 +327,47 @@
     connect(tab);
   }
 
+  /* ---- 受信データの束ね描画 ----
+     Claude(Ink製TUI)は1回の更新で「消去→全面再描画」を大量のエスケープ列として送る。
+     WSメッセージ毎に term.write すると、再描画の途中経過が別フレームで描かれてしまい、
+     「一瞬大きくスクロールして流れ、結局元の位置」というチラつきになる(特にスマホ)。
+     そこで受信チャンクを十数ms待って1回の write に束ね、中間状態の描画を抑える。
+     待ち時間は入力エコーの体感に影響しない範囲(最大でも WRITE_MAX_MS)に抑える。 */
+  const WRITE_IDLE_MS = 12;        // 後続チャンクを待つ時間(この間に続きが来たら延長)
+  const WRITE_MAX_MS = 48;         // 束ね続ける上限(応答性の下限を保証)
+  const WRITE_MAX_BYTES = 262144;  // 溜めすぎ防止(これを超えたら即描画)
+  function flushWrites(tab) {
+    if (tab.wbufTimer) { clearTimeout(tab.wbufTimer); tab.wbufTimer = null; }
+    const chunks = tab.wbuf;
+    if (!chunks || !chunks.length) return;
+    tab.wbuf = []; tab.wbufBytes = 0;
+    try {
+      if (chunks.length === 1) { tab.term.write(chunks[0]); return; }
+      let total = 0;
+      for (const c of chunks) total += c.length;
+      const merged = new Uint8Array(total);
+      let off = 0;
+      for (const c of chunks) { merged.set(c, off); off += c.length; }
+      tab.term.write(merged);
+    } catch { /* タブ破棄直後のタイマー発火等は無視 */ }
+  }
+  function discardWrites(tab) { // 再接続/リセット時: 旧attachの残骸を描かない
+    if (tab.wbufTimer) { clearTimeout(tab.wbufTimer); tab.wbufTimer = null; }
+    tab.wbuf = []; tab.wbufBytes = 0;
+  }
+  function queueWrite(tab, data) {
+    if (!tab.wbuf) { tab.wbuf = []; tab.wbufBytes = 0; }
+    if (!tab.wbuf.length) tab.wbufFirst = Date.now();
+    tab.wbuf.push(data);
+    tab.wbufBytes += data.length;
+    if (tab.wbufBytes >= WRITE_MAX_BYTES || Date.now() - tab.wbufFirst >= WRITE_MAX_MS) {
+      flushWrites(tab);
+      return;
+    }
+    if (tab.wbufTimer) clearTimeout(tab.wbufTimer);
+    tab.wbufTimer = setTimeout(() => { tab.wbufTimer = null; flushWrites(tab); }, WRITE_IDLE_MS);
+  }
+
   /* ---- WebSocket接続 (tmuxセッションへattach) ---- */
   function connect(tab) {
     // すでに接続確立/確立中なら二重接続しない(flushQueueやタップ連打での多重張りを防ぐ)
@@ -376,22 +417,25 @@
           }
           if (m.t === 'exit') {
             tab.gotExit = true; // セッション終了/別デバイスへ切替 → 自動再接続しない
+            flushWrites(tab); // 表示順序を保つため、溜まった端末出力を先に描く
             tab.term.write(`\r\n\x1b[90m[${t('term.sessionEnded', { code: m.code })}]\x1b[0m\r\n`);
           }
-          if (m.t === 'err') tab.term.write(`\r\n\x1b[31m${m.m}\x1b[0m\r\n`);
+          if (m.t === 'err') { flushWrites(tab); tab.term.write(`\r\n\x1b[31m${m.m}\x1b[0m\r\n`); }
         } catch { /* noop */ }
       } else {
-        tab.term.write(new Uint8Array(ev.data));
+        queueWrite(tab, new Uint8Array(ev.data)); // 束ね描画(上のflushWrites/queueWrite参照)
       }
     };
     ws.onclose = () => {
       tab.connected = false;
       stopHeartbeat(tab);
+      flushWrites(tab); // 切断前に受信済みの出力を描き切る
       updateConn();
       if (tab.closedByUser) return;
       if (tab.gotExit) {
         // 別デバイスが接続すると(-D)ここがデタッチされ、tmuxが縮小サイズで再描画した
         // 埋め草フレームが残る。resetで消してから復帰案内を出す(古い画面の残骸を見せない)。
+        discardWrites(tab); // 直前のflush後に残った残骸は描かない
         tab.term.reset();
         tab.term.write(`\x1b[90m[${t('term.detached')}]\x1b[0m\r\n`);
         return;
@@ -1131,6 +1175,7 @@
     tab.closedByUser = true;
     stopHeartbeat(tab);
     if (tab.reconnectTimer) { clearTimeout(tab.reconnectTimer); tab.reconnectTimer = null; }
+    discardWrites(tab); // 破棄後にタイマーが発火してdispose済みtermへ書かないように
     tab.sendQueue.length = 0;
     try { tab.ws?.close(); } catch { /* noop */ }
     tab.term.dispose();
@@ -1300,30 +1345,43 @@
   }
 
   function renderConfirm(list) {
+    const effStates = []; // favicon用: scrolled を直前状態に読み替えた実効状態
     list.forEach((item) => {
       // タブの●をClaude状態で色分け(入力待ち=青/作業中=グレー/確認待ち=赤/不明=グレー)、確認情報を保持
       const tab = tabs.find((t) => t.sid === item.sid);
       if (tab) {
-        const st = (item.state === 'idle' || item.state === 'running' || item.state === 'confirm') ? item.state : 'unknown';
+        // 'scrolled' = ユーザーが履歴をスクロール閲覧中(copy-mode / Claudeの Jump to bottom 表示)。
+        // 画面は過去ログの再描画で状態判定が意味を持たないため、直前状態を保持して
+        // 音もアームも一切動かさない(スクロールで過去の選択肢等を拾って鳴る誤ポン防止)。
+        const scrolled = item.state === 'scrolled';
+        const st = scrolled
+          ? (tab.prevState || 'unknown')
+          : ((item.state === 'idle' || item.state === 'running' || item.state === 'confirm') ? item.state : 'unknown');
+        effStates.push({ state: st });
         tab.dotEl.className = 'dot st-' + st;
-        tab.tabBtn.classList.toggle('confirm', item.state === 'confirm');
-        tab.confirmItem = item.state === 'confirm' ? item : null;
-        // 確認待ち(confirm)に変わった瞬間: WAV音(即時)。確認メニューは安定しているのでデバウンス不要。
-        if (tab.prevState !== undefined && st === 'confirm' && tab.prevState !== 'confirm') playPon();
+        tab.tabBtn.classList.toggle('confirm', st === 'confirm');
+        if (!scrolled) {
+          tab.confirmItem = item.state === 'confirm' ? item : null;
+          // 確認待ち(confirm)に変わった瞬間: WAV音(即時)。確認メニューは安定しているのでデバウンス不要。
+          if (tab.prevState !== undefined && st === 'confirm' && tab.prevState !== 'confirm') playPon();
 
-        // 作業終了(idle)の「ポンッ!」音は誤爆を防ぐためデバウンスする:
-        //  - idle が3ポーリング連続(約4.5秒)安定してから鳴らす。作業の「息継ぎ」の一瞬の
-        //    idle誤判定では鳴らさない(本当に完了すればidleが続くので少し遅れて鳴るだけ)。
-        //  - 直前に非idle(作業中/確認等)を観測している場合のみ(ページ読込直後の即鳴りを防ぐ)
-        //  - 一度鳴らしたら、次に作業を始める(非idleを観測する)まで再鳴動しない
-        if (st === 'idle') {
-          tab.idleStreak = (tab.idleStreak || 0) + 1;
-          if (tab.idleStreak >= 3 && tab.armPop) { playPop(); tab.armPop = false; }
-        } else {
-          tab.idleStreak = 0;
-          if (tab.prevState !== undefined) tab.armPop = true; // 作業中→次のidle安定でポンを許可
+          // 作業終了(idle)の「ポンッ!」音は誤爆を防ぐためデバウンスする:
+          //  - idle が3ポーリング連続(約4.5秒)安定してから鳴らす。作業の「息継ぎ」の一瞬の
+          //    idle誤判定では鳴らさない(本当に完了すればidleが続くので少し遅れて鳴るだけ)。
+          //  - アームは「実際の作業(running)/確認待ち(confirm)を観測した時」だけ。unknown等の
+          //    一時的な画面乱れやスクロール往復ではアームしない(何もしていないのに鳴る誤ポン防止)
+          //  - 一度鳴らしたら、次に作業を始めるまで再鳴動しない
+          if (st === 'idle') {
+            tab.idleStreak = (tab.idleStreak || 0) + 1;
+            if (tab.idleStreak >= 3 && tab.armPop) { playPop(); tab.armPop = false; }
+          } else {
+            tab.idleStreak = 0;
+            if (tab.prevState !== undefined && (st === 'running' || st === 'confirm')) tab.armPop = true;
+          }
+          tab.prevState = st;
         }
-        tab.prevState = st;
+      } else {
+        effStates.push({ state: item.state === 'scrolled' ? 'unknown' : item.state });
       }
     });
 
@@ -1333,7 +1391,7 @@
       if (!t || !t.confirmItem) closeTabMenu();
     }
 
-    updateFavicon(list); // ブラウザのタブアイコンを状態で色分け
+    updateFavicon(effStates); // ブラウザのタブアイコンを状態で色分け(スクロール中は直前状態)
   }
 
   /* ---- タブのプルダウン(確認待ちタブの選択肢) ---- */

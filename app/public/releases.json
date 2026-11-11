@@ -1,6 +1,24 @@
 {
-  "current": "1.1.3",
+  "current": "1.1.4",
   "releases": [
+    {
+      "version": "1.1.4",
+      "date": "2026-11-11",
+      "notes": {
+        "ja": [
+          "セキュリティ: ログアウトでサーバー側のセッションも失効するようにし、「すべての端末からログアウト」を追加。ログイン状態は漏えい対策としてハッシュ化して保存し、無操作7日・最長30日で失効します。",
+          "セキュリティ: パスキーの追加・削除の前にパスキーで再認証を求めるようにしました。ログイン・パスキーの変更は通知されます。",
+          "セキュリティ: ファイル保存時に元の権限を保つようにし、削除・改名・権限変更がシンボリックリンクの先を操作しないようにしました。",
+          "ターミナル: 履歴スクロール中の誤った通知音を抑え、再描画のちらつきを軽減しました。"
+        ],
+        "en": [
+          "Security: logout now also revokes the session on the server, and you can sign out of all devices. Sessions are stored hashed and expire after 7 days idle / 30 days max.",
+          "Security: adding or removing a passkey now requires re-authentication. Logins and passkey changes are notified.",
+          "Security: saving a file keeps its original permissions; delete/rename/chmod no longer follow symlinks.",
+          "Terminal: fewer false notification sounds while scrolling history, and smoother redraw."
+        ]
+      }
+    },
     {
       "version": "1.1.3",
       "date": "2026-09-23",

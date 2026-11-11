@@ -354,10 +354,39 @@
     const addBtn = document.createElement('button'); addBtn.className = 'btn'; addBtn.textContent = t('settings.addPasskey');
     addBtn.addEventListener('click', () => addPasskey(pkList, addBtn));
     secPk.appendChild(addBtn);
+    // R-025: すべての端末からログアウト(全セッションを失効)
+    const logoutAllBtn = document.createElement('button');
+    logoutAllBtn.className = 'btn small danger'; logoutAllBtn.style.marginInlineStart = '8px';
+    logoutAllBtn.textContent = t('settings.logoutAll');
+    logoutAllBtn.addEventListener('click', async () => {
+      if (!confirm(t('settings.logoutAllConfirm'))) return;
+      await api('/api/logout-all', {}).catch(() => {});
+      location.reload();
+    });
+    secPk.appendChild(logoutAllBtn);
     cont.appendChild(secPk);
 
     overlay(t('settings.title'), cont);
     loadPasskeys(pkList);
+  }
+
+  // R-026: パスキーの追加・削除の前に、いまそこにいる本人であることをパスキーで確かめ直す。
+  async function reauth() {
+    const { options, challengeId } = await api('/api/reauth-options', {});
+    options.challenge = b64u2buf(options.challenge);
+    (options.allowCredentials || []).forEach((c) => { c.id = b64u2buf(c.id); });
+    const cred = await navigator.credentials.get({ publicKey: options });
+    const authResp = {
+      id: cred.id, rawId: buf2b64u(cred.rawId), type: cred.type,
+      clientExtensionResults: cred.getClientExtensionResults(),
+      response: {
+        clientDataJSON: buf2b64u(cred.response.clientDataJSON),
+        authenticatorData: buf2b64u(cred.response.authenticatorData),
+        signature: buf2b64u(cred.response.signature),
+        userHandle: cred.response.userHandle ? buf2b64u(cred.response.userHandle) : null,
+      },
+    };
+    await api('/api/reauth-verify', { authResp, challengeId });
   }
 
   async function loadPasskeys(listEl) {
@@ -378,7 +407,7 @@
       del.addEventListener('click', async () => {
         if (items.length <= 1) { alert(t('settings.passkeyLast')); return; }
         if (!confirm(t('settings.passkeyDeleteConfirm'))) return;
-        try { await api('/api/passkeys/delete', { id: pk.id }); loadPasskeys(listEl); }
+        try { await reauth(); await api('/api/passkeys/delete', { id: pk.id }); loadPasskeys(listEl); }
         catch (e) { alert(e.message); }
       });
       row.appendChild(info); row.appendChild(del);
@@ -390,6 +419,7 @@
     addBtn.disabled = true;
     try {
       const label = prompt(t('login.deviceNamePh')) || '';
+      await reauth();   // R-026: 追加の前に再認証
       const { options, challengeId } = await api('/api/reg-options', {});
       options.challenge = b64u2buf(options.challenge);
       options.user.id = b64u2buf(options.user.id);
