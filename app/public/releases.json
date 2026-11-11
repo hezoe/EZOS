@@ -1,6 +1,18 @@
 {
-  "current": "1.1.5",
+  "current": "1.1.6",
   "releases": [
+    {
+      "version": "1.1.6",
+      "date": "2026-11-11",
+      "notes": {
+        "ja": [
+          "セキュリティ: パスキーの対象ドメインを ezos.ezoe.net に限定し（他のサブドメインから EZOS のパスキーを呼び出せないように）、ログイン前にパスキーの識別子一覧を返さないようにしました。※既存のパスキーは再登録が必要です（運用者側で 2026-11-11 に移行済み）。"
+        ],
+        "en": [
+          "Security: passkeys are now scoped to ezos.ezoe.net (sibling subdomains can no longer invoke them) and the login flow no longer enumerates credential IDs. Existing passkeys must be re-registered (migrated by the operator on 2026-11-11)."
+        ]
+      }
+    },
     {
       "version": "1.1.5",
       "date": "2026-11-11",

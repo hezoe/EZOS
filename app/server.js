@@ -488,7 +488,8 @@ const server = http.createServer(async (req, res) => {
       const options = await generateAuthenticationOptions({
         rpID: cfg.rpID,
         userVerification: 'required',
-        allowCredentials: creds.map((c) => ({ id: c.id, transports: c.transports })),
+        // R-116: allowCredentials を返さない(ログイン前にクレデンシャル ID を列挙させない。登録時に
+        // residentKey=required なので、ブラウザ側が自分で該当のパスキーを見つけられる)
       });
       const challengeId = newChallengeId(options.challenge, 'auth');
       sendJson(res, 200, { options, challengeId });
@@ -582,7 +583,8 @@ const server = http.createServer(async (req, res) => {
       const options = await generateAuthenticationOptions({
         rpID: cfg.rpID,
         userVerification: 'required',
-        allowCredentials: creds.map((c) => ({ id: c.id, transports: c.transports })),
+        // R-116: allowCredentials を返さない(ログイン前にクレデンシャル ID を列挙させない。登録時に
+        // residentKey=required なので、ブラウザ側が自分で該当のパスキーを見つけられる)
       });
       const challengeId = newChallengeId(options.challenge, 'reauth');
       sendJson(res, 200, { options, challengeId });
