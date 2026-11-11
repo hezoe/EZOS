@@ -61,7 +61,8 @@ git --no-pager log --oneline "$BEFORE..$AFTER" | head -20
 
 if ! git diff --quiet "$BEFORE" "$AFTER" -- app/package.json app/package-lock.json; then
   log "依存が変わったため npm install を実行 ..."
-  (cd "$APP_DIR" && npm install --omit=dev --no-audit --no-fund 2>&1) || fail "npm install に失敗しました"
+  # R-119 (2026-11-11): lock と違う版を入れない(npm ci)。install スクリプトは node-pty の組み立てに要るので残す
+  (cd "$APP_DIR" && npm ci --omit=dev --no-audit --no-fund 2>&1) || fail "npm ci に失敗しました(package-lock.json と一致しない?)"
 fi
 
 TO_VERSION="$(node -p "require('$APP_DIR/package.json').version" 2>/dev/null || echo unknown)"

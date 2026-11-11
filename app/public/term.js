@@ -734,7 +734,14 @@
     const fit = new FitAddon.FitAddon();
     term.loadAddon(fit);
     // OSC 52 対応: Claude等が端末経由で行うコピー/ペーストをシステムクリップボードへ反映
-    try { term.loadAddon(new ClipboardAddon.ClipboardAddon()); } catch { /* 未ロード時は無視 */ }
+    // R-053 (2026-11-11): 読み取り(OSC 52 の ?)は塞ぐ。細工した出力で PC のクリップボードの中身
+    // (パスワード等)を端末へ送らせないため。コピー(書き込み)はこれまでどおり動く。
+    try {
+      term.loadAddon(new ClipboardAddon.ClipboardAddon(undefined, {
+        readText: async () => '',
+        writeText: async (_sel, text) => { try { await navigator.clipboard.writeText(text); } catch { /* 権限なし */ } },
+      }));
+    } catch { /* 未ロード時は無視 */ }
     // URLを検出してクリック可能に(ターミナル/Claudeモード共通)。クリックで新規タブに開く
     try {
       term.loadAddon(new WebLinksAddon.WebLinksAddon((event, uri) => {

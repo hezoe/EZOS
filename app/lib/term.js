@@ -177,7 +177,8 @@ export function createTermServer({ isAuthed, origin }) {
     }
     // 認証 + Origin チェック
     const reqOrigin = req.headers.origin || '';
-    if (!isAuthed(req) || (reqOrigin && reqOrigin !== origin)) {
+    // R-054 (2026-11-11): Origin 無しは通さない(ブラウザは必ず付ける。無いのはスクリプト等からの接続)
+    if (!isAuthed(req) || reqOrigin !== origin) {
       socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
       socket.destroy();
       return;

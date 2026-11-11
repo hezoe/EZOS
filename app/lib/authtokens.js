@@ -37,9 +37,9 @@ export function pruneTokens(tokens, now = Date.now()) {
 export function resolveSession(tokens, raw, now = Date.now()) {
   if (!raw) return null;
   const h = hashToken(raw);
-  let rec = tokens[h];
+  let rec = Object.hasOwn(tokens, h) ? tokens[h] : undefined;   // R-150: 継承プロパティ名(constructor 等)に当てさせない
   let migrated = false;
-  if (rec === undefined && tokens[raw] !== undefined) {   // 旧形式からの移行
+  if (rec === undefined && Object.hasOwn(tokens, raw)) {   // 旧形式からの移行
     const legacy = tokens[raw];
     rec = (typeof legacy === 'number') ? { abs: legacy, seen: now } : legacy;
     delete tokens[raw];

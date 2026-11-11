@@ -4,6 +4,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import net from 'node:net';
+import { Transform } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 import {
   generateRegistrationOptions,
   verifyRegistrationResponse,
@@ -29,13 +32,48 @@ const PUBLIC_DIR = path.join(ROOT, 'public');
 // challenge は短命なのでメモリ保持でよい
 const challenges = new Map(); // id -> { challenge, purpose, expires }
 
+const CHALLENGE_MAX = 500;   // R-052: ログイン前に無制限に積まれないよう上限(超えたら最古を捨てる)
+
 function newChallengeId(challenge, purpose) {
   const id = randomUUID();
-  challenges.set(id, { challenge, purpose, expires: Date.now() + 5 * 60 * 1000 });
   for (const [k, v] of challenges) {
     if (v.expires < Date.now()) challenges.delete(k);
   }
+  while (challenges.size >= CHALLENGE_MAX) challenges.delete(challenges.keys().next().value);
+  challenges.set(id, { challenge, purpose, expires: Date.now() + 5 * 60 * 1000 });
   return id;
+}
+
+// R-052/R-117: 送信元 IP。EZOS は Caddy(docker の私設網)から届くので、その時だけ X-Real-IP /
+// X-Forwarded-For(先頭)を IP として正しい値に限り信用する。それ以外は TCP の接続元。
+function clientIp(req) {
+  const remote = String(req.socket?.remoteAddress || '').replace(/^::ffff:/, '');
+  const viaProxy = remote === '127.0.0.1' || remote === '::1' || /^172\.(1[6-9]|2\d|3[01])\./.test(remote);
+  const cand = viaProxy
+    ? (String(req.headers['x-real-ip'] || '').trim() || String(req.headers['x-forwarded-for'] || '').split(',')[0].trim())
+    : '';
+  return cand && net.isIP(cand) ? cand : remote;
+}
+
+// R-052: ログイン前 API(options/verify)の送信元ごとの回数制限(1 分 20 回)。
+const preAuthHits = new Map();   // ip -> [ms...]
+function preAuthRateOk(req, max = 20, windowMs = 60_000) {
+  const ip = clientIp(req);
+  const now = Date.now();
+  const hist = (preAuthHits.get(ip) || []).filter((t) => now - t < windowMs);
+  if (hist.length >= max) { preAuthHits.set(ip, hist); return false; }
+  hist.push(now); preAuthHits.set(ip, hist);
+  if (preAuthHits.size > 2000) {
+    for (const [k, v] of preAuthHits) if (!v.length || now - v[v.length - 1] > windowMs) preAuthHits.delete(k);
+  }
+  return true;
+}
+
+// R-117: 監査の記録(1 行 JSON を journald へ)。ログイン・パスキー・ファイル操作・更新の適用。
+function audit(req, event, extra = {}) {
+  try {
+    console.log(JSON.stringify({ t: new Date().toISOString(), audit: event, ip: clientIp(req), ...extra }));
+  } catch { /* 記録の失敗で処理は止めない */ }
 }
 
 function takeChallenge(id, purpose) {
@@ -61,7 +99,9 @@ function issueAuthToken() {
 // Cookie から現在のセッション記録を引く。無効なら null。
 // 旧形式(平文キー)のセッションは、使用時にハッシュ形式へ無停止で移行する(ログアウトさせない)。
 function sessionFromReq(req) {
-  const m = /(?:^|;\s*)ezsess=([^;]+)/.exec(req.headers.cookie || '');
+  // R-054: __Host- 接頭辞(Secure・Path=/・Domain なしをブラウザが強制)。旧名 ezsess も当面は読む
+  const ck = req.headers.cookie || '';
+  const m = /(?:^|;\s*)__Host-ezsess=([^;]+)/.exec(ck) || /(?:^|;\s*)ezsess=([^;]+)/.exec(ck);
   if (!m) return null;
   const tokens = getAuthTokens();
   const s = resolveSession(tokens, m[1]);
@@ -191,6 +231,10 @@ async function readBody(req, limit = 1024 * 1024) {
 }
 
 // 生バイトのボディを Buffer で読む(ファイルアップロード用)。上限超過は 'body too large' で reject
+const UPLOAD_MAX_BYTES = 100 * 1024 * 1024;   // R-120: 1 ファイル上限 100MB(ディスクへ直接流す)
+const UPLOAD_MAX_CONCURRENT = 3;              // R-120: 同時アップロード数
+let uploadsInFlight = 0;
+
 async function readRawBody(req, limit = 25 * 1024 * 1024) {
   return new Promise((resolve, reject) => {
     let size = 0;
@@ -283,7 +327,7 @@ const server = http.createServer(async (req, res) => {
     // 静的アセット
     if (p.startsWith('/assets/')) {
       const file = path.join(PUBLIC_DIR, path.normalize(p.slice('/assets/'.length)));
-      if (!file.startsWith(PUBLIC_DIR) || !fs.existsSync(file)) {
+      if (!file.startsWith(PUBLIC_DIR + path.sep) || !fs.existsSync(file)) {   // R-150: 区切り付きで境界を見る
         res.writeHead(404).end('not found');
         return;
       }
@@ -343,6 +387,7 @@ const server = http.createServer(async (req, res) => {
     /* --- 認証不要のAPI --- */
 
     if (p === '/api/reg-options' && req.method === 'POST') {
+      if (!preAuthRateOk(req)) { sendJson(res, 429, { error: L(req, '試行が多すぎます。しばらく待ってからやり直してください', 'Too many attempts. Please wait and try again.') }); return; }
       const body = await readBody(req);
       if (!isAuthed(req)) {
         // 未認証での新規登録は、SSHで開いた「登録ウィンドウ」(data/reg-window.json)が
@@ -379,6 +424,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (p === '/api/reg-verify' && req.method === 'POST') {
+      if (!preAuthRateOk(req)) { sendJson(res, 429, { error: L(req, '試行が多すぎます。しばらく待ってからやり直してください', 'Too many attempts. Please wait and try again.') }); return; }
       const body = await readBody(req);
       // R-026: ログイン済みでの追加は再認証を要求(未認証=登録ウィンドウ経由はウィンドウが認可)。
       if (isAuthed(req) && !reauthFresh(req)) {
@@ -400,7 +446,9 @@ const server = http.createServer(async (req, res) => {
           requireUserVerification: true,
         });
       } catch (e) {
-        sendJson(res, 400, { error: L(req, '登録に失敗しました: ', 'Registration failed: ') + e.message });
+        console.error('[auth] registration failed:', e.message);
+        audit(req, 'passkey_register_fail');
+        sendJson(res, 400, { error: L(req, '登録に失敗しました。やり直してください', 'Registration failed. Please try again.') });
         return;
       }
       if (!verification.verified) {
@@ -421,15 +469,17 @@ const server = http.createServer(async (req, res) => {
       // 未認証(=登録ウィンドウ経由)の登録が成立したら、ウィンドウを単回消費して閉じる。
       // 認証済みユーザーの端末追加時はウィンドウを使っていないので触らない。
       if (!isAuthed(req)) removeJson('reg-window.json');
+      audit(req, 'passkey_register', { passkey: credential.id.slice(0, 8), viaWindow: !isAuthed(req) });
       notifyAuth(L(req, 'パスキーを登録しました', 'A passkey was registered.'));
       const token = issueAuthToken();
       res.setHeader('Set-Cookie',
-        `ezsess=${token}; Path=/; Max-Age=${AUTH_TTL_MS / 1000}; HttpOnly; Secure; SameSite=Lax`);
+        `__Host-ezsess=${token}; Path=/; Max-Age=${AUTH_TTL_MS / 1000}; HttpOnly; Secure; SameSite=Lax`);
       sendJson(res, 200, { ok: true });
       return;
     }
 
     if (p === '/api/login-options' && req.method === 'POST') {
+      if (!preAuthRateOk(req)) { sendJson(res, 429, { error: L(req, '試行が多すぎます。しばらく待ってからやり直してください', 'Too many attempts. Please wait and try again.') }); return; }
       const creds = getCredentials();
       if (!creds.length) {
         sendJson(res, 404, { error: L(req, 'パスキーが未登録です', 'No passkey is registered.') });
@@ -446,6 +496,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (p === '/api/login-verify' && req.method === 'POST') {
+      if (!preAuthRateOk(req)) { sendJson(res, 429, { error: L(req, '試行が多すぎます。しばらく待ってからやり直してください', 'Too many attempts. Please wait and try again.') }); return; }
       const body = await readBody(req);
       const challenge = takeChallenge(body.challengeId, 'auth');
       if (!challenge) {
@@ -474,7 +525,9 @@ const server = http.createServer(async (req, res) => {
           },
         });
       } catch (e) {
-        sendJson(res, 403, { error: L(req, 'ログインに失敗しました: ', 'Login failed: ') + e.message });
+        console.error('[auth] login failed:', e.message);
+        audit(req, 'login_fail');
+        sendJson(res, 403, { error: L(req, 'ログインに失敗しました。やり直してください', 'Login failed. Please try again.') });
         return;
       }
       if (!verification.verified) {
@@ -483,10 +536,11 @@ const server = http.createServer(async (req, res) => {
       }
       cred.counter = verification.authenticationInfo.newCounter;
       writeJson('credentials.json', creds);
+      audit(req, 'login_ok', { passkey: cred.id.slice(0, 8) });
       notifyAuth(L(req, 'EZOS にログインしました', 'Signed in to EZOS.'));
       const token = issueAuthToken();
       res.setHeader('Set-Cookie',
-        `ezsess=${token}; Path=/; Max-Age=${AUTH_TTL_MS / 1000}; HttpOnly; Secure; SameSite=Lax`);
+        `__Host-ezsess=${token}; Path=/; Max-Age=${AUTH_TTL_MS / 1000}; HttpOnly; Secure; SameSite=Lax`);
       sendJson(res, 200, { ok: true });
       return;
     }
@@ -502,7 +556,8 @@ const server = http.createServer(async (req, res) => {
       // R-025: Cookie を消すだけでなくサーバー側のトークンも失効させる(漏れた Cookie を無効化)。
       const s = sessionFromReq(req);
       if (s) { delete s.tokens[s.key]; writeJson('auth_tokens.json', s.tokens); }
-      res.setHeader('Set-Cookie', 'ezsess=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax');
+      audit(req, 'logout');
+      res.setHeader('Set-Cookie', ['__Host-ezsess=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax', 'ezsess=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax']);
       sendJson(res, 200, { ok: true });
       return;
     }
@@ -510,13 +565,15 @@ const server = http.createServer(async (req, res) => {
     // R-025: すべての端末からログアウト(全トークンを失効)。
     if (p === '/api/logout-all' && req.method === 'POST') {
       writeJson('auth_tokens.json', {});
-      res.setHeader('Set-Cookie', 'ezsess=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax');
+      audit(req, 'logout_all');
+      res.setHeader('Set-Cookie', ['__Host-ezsess=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax', 'ezsess=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax']);
       sendJson(res, 200, { ok: true });
       return;
     }
 
     // R-026: パスキーの追加・削除の前に再認証する(セッションを奪われても勝手に鍵を足せない)。
     if (p === '/api/reauth-options' && req.method === 'POST') {
+      if (!preAuthRateOk(req)) { sendJson(res, 429, { error: L(req, '試行が多すぎます。しばらく待ってからやり直してください', 'Too many attempts. Please wait and try again.') }); return; }
       const creds = getCredentials();
       if (!creds.length) {
         sendJson(res, 404, { error: L(req, 'パスキーが未登録です', 'No passkey is registered.') });
@@ -533,6 +590,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (p === '/api/reauth-verify' && req.method === 'POST') {
+      if (!preAuthRateOk(req)) { sendJson(res, 429, { error: L(req, '試行が多すぎます。しばらく待ってからやり直してください', 'Too many attempts. Please wait and try again.') }); return; }
       const body = await readBody(req);
       const challenge = takeChallenge(body.challengeId, 'reauth');
       if (!challenge) {
@@ -561,7 +619,9 @@ const server = http.createServer(async (req, res) => {
           },
         });
       } catch (e) {
-        sendJson(res, 403, { error: L(req, '再認証に失敗しました: ', 'Re-auth failed: ') + e.message });
+        console.error('[auth] re-auth failed:', e.message);
+        audit(req, 'reauth_fail');
+        sendJson(res, 403, { error: L(req, '再認証に失敗しました。やり直してください', 'Re-authentication failed. Please try again.') });
         return;
       }
       if (!verification.verified) {
@@ -573,6 +633,7 @@ const server = http.createServer(async (req, res) => {
       // 現在のセッションに再認証時刻を記録(REAUTH_WINDOW_MS だけパスキー操作を許可)。
       const s = sessionFromReq(req);
       if (s) { s.rec.reauthAt = Date.now(); writeJson('auth_tokens.json', s.tokens); }
+      audit(req, 'reauth_ok');
       sendJson(res, 200, { ok: true });
       return;
     }
@@ -609,6 +670,7 @@ const server = http.createServer(async (req, res) => {
       // (奪われたパスキー/セッションでの居座りを断ち切る)。
       const s = sessionFromReq(req);
       if (s) writeJson('auth_tokens.json', { [s.key]: s.rec });
+      audit(req, 'passkey_delete', { passkey: String(body.id).slice(0, 8) });
       notifyAuth(L(req, 'パスキーを削除しました', 'A passkey was deleted.'));
       sendJson(res, 200, { ok: true });
       return;
@@ -641,6 +703,7 @@ const server = http.createServer(async (req, res) => {
         sendJson(res, 409, { error: L(req, 'ローカルに未コミットの変更があります', 'There are uncommitted local changes.'), changes: info.repo.changes });
         return;
       }
+      audit(req, 'update_apply', { force: Boolean(body.force), from: info.repo?.head || null });
       sendJson(res, 200, startUpdate({ force: Boolean(body.force) }));
       return;
     }
@@ -748,50 +811,71 @@ const server = http.createServer(async (req, res) => {
     // ファイルアップロード: 生バイトを受け取り、指定端末のカレントディレクトリ直下に保存する。
     // クエリ ?sid=<端末sid>&name=<元ファイル名>。保存後の絶対パスを返す。
     if (p === '/api/upload' && req.method === 'POST') {
-      let buf;
-      try {
-        buf = await readRawBody(req, 100 * 1024 * 1024); // 1ファイル上限100MB
-      } catch {
-        sendJson(res, 413, { error: 'ファイルが大きすぎます (上限100MB)' });
+      // R-120 (2026-11-11): 本文を丸ごとメモリに持たず(以前は最大 100MB をヒープに積んで OOM の恐れ)、
+      // サイズを数えながら保存先の一時ファイルへ直接流し、終わったら改名する。同時実行は UPLOAD_MAX_CONCURRENT まで。
+      if (uploadsInFlight >= UPLOAD_MAX_CONCURRENT) {
+        req.resume();
+        sendJson(res, 429, { error: L(req, 'アップロードが混み合っています。少し待ってください', 'Too many concurrent uploads. Please wait.') });
         return;
       }
-      if (!buf.length) { sendJson(res, 400, { error: 'ファイルが空です' }); return; }
-
-      // 保存先: ?dir= 指定があれば(EZbrowserの現在フォルダ) realpath検証してそこへ、
-      // なければ端末のCWD配下の docs/ フォルダ。CWDが取れなければ HOME へ退避。
-      let dir;
-      const dirParam = url.searchParams.get('dir');
+      uploadsInFlight += 1;
       try {
-        if (dirParam) {
-          dir = await safePath(dirParam); // $HOME 配下のみ許可
-        } else {
-          const baseDir = (await getCwd(url.searchParams.get('sid'))) || HOME;
-          dir = path.join(baseDir, 'docs');
+        // 保存先: ?dir= 指定があれば(EZbrowserの現在フォルダ) realpath検証してそこへ、
+        // なければ端末のCWD配下の docs/ フォルダ。CWD が取れない・ホームの外なら $HOME/docs へ。
+        let dir;
+        const dirParam = url.searchParams.get('dir');
+        try {
+          if (dirParam) {
+            dir = await safePath(dirParam); // $HOME 配下のみ許可
+          } else {
+            const baseDir = (await getCwd(url.searchParams.get('sid'))) || REAL_ROOT;
+            try { dir = await safePath(path.join(baseDir, 'docs'), { mustExist: false }); }
+            catch { dir = path.join(REAL_ROOT, 'docs'); }   // R-120: ホームの外には書かない
+          }
+        } catch (e) {
+          req.resume();
+          sendJson(res, e.status || 500, { error: e.message });
+          return;
         }
-      } catch (e) {
-        sendJson(res, e.status || 500, { error: e.message });
-        return;
-      }
 
-      // ファイル名の安全化: basename → 制御文字/スラッシュ/空白を除去し、衝突回避の時刻接頭辞を付与
-      const raw = path.basename(String(url.searchParams.get('name') || 'file'));
-      let clean = raw.replace(/[\x00-\x1f/\\]/g, '').replace(/\s+/g, '_').replace(/^\.+/, '');
-      if (!clean) clean = 'file';
-      const stamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14); // YYYYMMDDhhmmss
-      const safeName = `${stamp}_${clean}`;
+        // ファイル名の安全化: basename → 制御文字/スラッシュ/空白を除去し、衝突回避の時刻接頭辞を付与
+        const raw = path.basename(String(url.searchParams.get('name') || 'file'));
+        let clean = raw.replace(/[\x00-\x1f/\\]/g, '').replace(/\s+/g, '_').replace(/^\.+/, '');
+        if (!clean) clean = 'file';
+        const stamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14); // YYYYMMDDhhmmss
+        const safeName = `${stamp}_${clean}`;
 
-      // パストラバーサル防止: 解決後のパスが dir 配下に収まることを検証
-      const dest = path.resolve(dir, safeName);
-      if (dest !== path.join(path.resolve(dir), safeName)) {
-        sendJson(res, 400, { error: '不正なファイル名です' });
-        return;
-      }
-      try {
-        await fs.promises.mkdir(dir, { recursive: true }); // docs/ が無ければ作成
-        await fs.promises.writeFile(dest, buf);
-        sendJson(res, 200, { path: dest, name: safeName });
-      } catch (e) {
-        sendJson(res, 500, { error: `保存に失敗しました: ${e.message}` });
+        // パストラバーサル防止: 解決後のパスが dir 配下に収まることを検証
+        const dest = path.resolve(dir, safeName);
+        if (dest !== path.join(path.resolve(dir), safeName)) {
+          req.resume();
+          sendJson(res, 400, { error: '不正なファイル名です' });
+          return;
+        }
+        const tmp = `${dest}.part`;
+        let size = 0;
+        const counter = new Transform({
+          transform(chunk, _enc, cb) {
+            size += chunk.length;
+            if (size > UPLOAD_MAX_BYTES) cb(Object.assign(new Error('too large'), { status: 413 }));
+            else cb(null, chunk);
+          },
+        });
+        try {
+          await fs.promises.mkdir(dir, { recursive: true }); // docs/ が無ければ作成
+          await pipeline(req, counter, fs.createWriteStream(tmp, { flags: 'wx' }));
+          if (size === 0) throw Object.assign(new Error('ファイルが空です'), { status: 400 });
+          await fs.promises.rename(tmp, dest);
+          audit(req, 'upload', { path: dest, size });
+          sendJson(res, 200, { path: dest, name: safeName });
+        } catch (e) {
+          await fs.promises.rm(tmp, { force: true }).catch(() => {});
+          if (e.status === 413) sendJson(res, 413, { error: `ファイルが大きすぎます (上限${UPLOAD_MAX_BYTES / 1024 / 1024}MB)` });
+          else if (e.status === 400) sendJson(res, 400, { error: e.message });
+          else sendJson(res, 500, { error: `保存に失敗しました: ${e.message}` });
+        }
+      } finally {
+        uploadsInFlight -= 1;
       }
       return;
     }
@@ -879,6 +963,7 @@ const server = http.createServer(async (req, res) => {
           const ls = await fs.promises.lstat(dst);
           if (!ls.isSymbolicLink()) await fs.promises.chmod(dst, m);   // R-090: リンク先の権限を変えない
         }
+        audit(req, 'fs_rename', { from: src, to: dst, mode: body.mode ?? null });
         sendJson(res, 200, { ok: true, name: path.basename(dst) });
       } catch (e) { sendJson(res, e.status || 500, { error: e.message }); }
       return;
@@ -893,6 +978,7 @@ const server = http.createServer(async (req, res) => {
         if (!Number.isInteger(m) || m < 0 || m > 0o777) throw new HttpError(400, '権限指定が不正です');
         if ((await fs.promises.lstat(target)).isSymbolicLink()) throw new HttpError(400, 'シンボリックリンクの権限は変更できません');
         await fs.promises.chmod(target, m);
+        audit(req, 'fs_chmod', { target, mode: m.toString(8) });
         sendJson(res, 200, { ok: true, mode: m });
       } catch (e) { sendJson(res, e.status || 500, { error: e.message }); }
       return;
@@ -911,6 +997,7 @@ const server = http.createServer(async (req, res) => {
           await fs.promises.rm(target, { recursive: true, force: true });
           n += 1;
         }
+        audit(req, 'fs_delete', { dir, names: names.slice(0, 20), n });
         sendJson(res, 200, { ok: true, deleted: n });
       } catch (e) { sendJson(res, e.status || 500, { error: e.message }); }
       return;
@@ -1211,7 +1298,7 @@ ${authed ? '<link rel="stylesheet" href="/assets/ezeditor.css"><link rel="styles
 </head>
 <body class="${esc(bodyClass)}">
 ${authed ? termHtml : loginHtml}
-<script>window.EZ = { authed: ${authed}, view: ${JSON.stringify(view)}, lang: ${JSON.stringify(lang)}, home: ${JSON.stringify(REAL_ROOT)} };</script>
+<script>window.EZ = { authed: ${authed}, view: ${JSON.stringify(view)}, lang: ${JSON.stringify(lang)}, home: ${JSON.stringify(authed ? REAL_ROOT : '')} };</script>
 <script src="/assets/i18n.js"></script>
 <script src="/assets/tooltip.js"></script>
 ${authed

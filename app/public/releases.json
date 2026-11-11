@@ -1,6 +1,24 @@
 {
-  "current": "1.1.4",
+  "current": "1.1.5",
   "releases": [
+    {
+      "version": "1.1.5",
+      "date": "2026-11-11",
+      "notes": {
+        "ja": [
+          "セキュリティ: ログイン前の API に回数制限を付け、端末からクリップボードを読み取れないようにし、WebSocket は発信元の一致を必須にしました。ログイン Cookie は __Host- 接頭辞付きになります（既存のログインはそのまま使えます）。",
+          "セキュリティ: ログイン・パスキーの変更・ファイルの削除/改名/権限変更・アップロード・更新の適用を記録（journald・Caddy のアクセスログ）するようにしました。",
+          "セキュリティ: アップロードはメモリに溜めず直接ディスクへ保存（上限 100MB・同時 3 件）し、既定の保存先はホーム配下に限定。自己更新は npm ci で lock どおりに依存を入れます。",
+          "整理: 使われていないファイルや設定、存在しない API へ送っていた Claude Code のフックを取り除きました。"
+        ],
+        "en": [
+          "Security: rate limits on pre-login APIs, terminal can no longer read the clipboard, WebSocket requires a matching Origin. The login cookie now uses the __Host- prefix (existing logins keep working).",
+          "Security: login, passkey changes, file delete/rename/chmod, uploads and update apply are now logged (journald + Caddy access log).",
+          "Security: uploads stream directly to disk (100MB max, 3 concurrent) and default to a folder under home. Self-update installs dependencies with npm ci.",
+          "Cleanup: removed unused files/settings and Claude Code hooks that posted to a non-existent API."
+        ]
+      }
+    },
     {
       "version": "1.1.4",
       "date": "2026-11-11",
