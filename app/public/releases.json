@@ -1,6 +1,18 @@
 {
-  "current": "1.1.11",
+  "current": "1.1.12",
   "releases": [
+    {
+      "version": "1.1.12",
+      "date": "2026-11-13",
+      "notes": {
+        "ja": [
+          "運用: secwatch の設定の雛形(install.sh)に、docker コンテナの修正版への自動入れ替え(SECWATCH_AUTO_DOCKER=1)を追加しました。使い方は変わりません。"
+        ],
+        "en": [
+          "Ops: the secwatch config template (install.sh) now includes automatic rebuild/replacement of docker containers when fixed packages appear (SECWATCH_AUTO_DOCKER=1). No change in usage."
+        ]
+      }
+    },
     {
       "version": "1.1.11",
       "date": "2026-11-13",

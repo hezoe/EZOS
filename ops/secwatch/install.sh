@@ -12,9 +12,11 @@ install -m 0644 "$SRC/secwatch.timer"   /etc/systemd/system/secwatch.timer
 sed -i "s|^Documentation=file:.*|Documentation=file:$SRC/README.md|" /etc/systemd/system/secwatch.service
 install -d -m 0755 -o debian -g debian /var/lib/secwatch
 [ -f /etc/secwatch.env ] || cat > /etc/secwatch.env <<'EOF'
-# secwatch の設定(無ければ既定)。SECWATCH_AUTO_APT=0 で自動 apt を止める、SECWATCH_CLAUDE=0 で無人調査を止める
+# secwatch の設定(無ければ既定)。SECWATCH_AUTO_APT=0 で自動 apt を止める、SECWATCH_CLAUDE=0 で無人調査を止める、
+# SECWATCH_AUTO_DOCKER=1 で docker コンテナ(Caddy/PostgreSQL)の修正版への入れ替えも自動(数十秒の停止を伴う)
 SECWATCH_AUTO_APT=1
 SECWATCH_CLAUDE=1
+SECWATCH_AUTO_DOCKER=1
 EOF
 systemctl daemon-reload
 systemctl enable --now secwatch.timer
