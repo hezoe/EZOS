@@ -141,17 +141,60 @@ function ntfyConf() {
   } catch { /* 設定が無ければ通知しない */ }
   return _ntfyConf;
 }
-function notifyAuth(message) {
+function notifyAuth(message, priority = 'default', tags = 'key') {
   const c = ntfyConf();
   if (!c) return;
   try {
     fetch(`${c.url}/${c.topic}`, {
       method: 'POST',
-      headers: { Title: 'EZOS auth', Tags: 'key', Priority: 'default' },
+      headers: { Title: 'EZOS auth', Tags: tags, Priority: priority },
       body: String(message),
       signal: AbortSignal.timeout(6000),
     }).catch(() => {});
   } catch { /* fetch 不可等は無視 */ }
+}
+
+// EZOS 追加策 B (2026-11-13): 通知に「どこから・どの端末・どのパスキーで」を入れ、初めての端末からの
+// ログインと、認証の失敗の連続を高優先で知らせる(乗っ取りに分単位で気づくため)。
+function deviceSummary(req) {
+  const ua = String(req.headers['user-agent'] || '');
+  const os = /Windows/.test(ua) ? 'Windows' : /iPhone|iPad/.test(ua) ? 'iOS' : /Android/.test(ua) ? 'Android'
+    : /Mac OS X/.test(ua) ? 'macOS' : /CrOS/.test(ua) ? 'ChromeOS' : /Linux/.test(ua) ? 'Linux' : '不明OS';
+  const br = /Edg\//.test(ua) ? 'Edge' : /OPR\//.test(ua) ? 'Opera' : /Chrome\//.test(ua) ? 'Chrome'
+    : /Firefox\//.test(ua) ? 'Firefox' : /Safari\//.test(ua) ? 'Safari' : '不明ブラウザ';
+  return `${os} / ${br}`;
+}
+function authContextLines(req, extra = {}) {
+  const lines = [`IP: ${clientIp(req)}`, `端末: ${deviceSummary(req)}`];
+  if (extra.passkey) lines.push(`パスキー: ${extra.passkey}`);
+  lines.push(new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }));
+  return lines.join('\n');
+}
+// 端末(OS/ブラウザ)×パスキーの組を覚え、初めての組からのログインを見分ける
+function rememberDevice(req, passkeyId) {
+  const key = `${deviceSummary(req)}|${String(passkeyId || '').slice(0, 8)}`;
+  const seen = readJson('seen_devices.json', {});
+  const first = !seen[key];
+  const now = Date.now();
+  seen[key] = { first: seen[key]?.first || now, last: now, count: (seen[key]?.count || 0) + 1 };
+  writeJson('seen_devices.json', seen);
+  return first;
+}
+// 認証の失敗の連続(10 分で 5 回以上)を、送信元ごとに 1 時間に 1 回まで知らせる
+const authFails = new Map();      // ip -> [ms...]
+const authFailNotified = new Map(); // ip -> ms
+function noteAuthFailure(req, kind) {
+  const ip = clientIp(req);
+  const now = Date.now();
+  const hist = (authFails.get(ip) || []).filter((t) => now - t < 10 * 60_000);
+  hist.push(now); authFails.set(ip, hist);
+  if (hist.length >= 5 && now - (authFailNotified.get(ip) || 0) > 60 * 60_000) {
+    authFailNotified.set(ip, now);
+    notifyAuth(`⚠ EZOS: 認証の失敗が続いています(10 分で ${hist.length} 回・最後は ${kind})\n${authContextLines(req)}`, 'high', 'rotating_light');
+  }
+  if (authFails.size > 2000) {
+    for (const [k, v] of authFails) if (!v.length || now - v[v.length - 1] > 10 * 60_000) authFails.delete(k);
+  }
 }
 
 function getCredentials() {
@@ -448,6 +491,7 @@ const server = http.createServer(async (req, res) => {
       } catch (e) {
         console.error('[auth] registration failed:', e.message);
         audit(req, 'passkey_register_fail');
+        noteAuthFailure(req, 'パスキー登録');
         sendJson(res, 400, { error: L(req, '登録に失敗しました。やり直してください', 'Registration failed. Please try again.') });
         return;
       }
@@ -470,7 +514,8 @@ const server = http.createServer(async (req, res) => {
       // 認証済みユーザーの端末追加時はウィンドウを使っていないので触らない。
       if (!isAuthed(req)) removeJson('reg-window.json');
       audit(req, 'passkey_register', { passkey: credential.id.slice(0, 8), viaWindow: !isAuthed(req) });
-      notifyAuth(L(req, 'パスキーを登録しました', 'A passkey was registered.'));
+      rememberDevice(req, credential.id);
+      notifyAuth(`🔑 EZOS: パスキーを登録しました${isAuthed(req) ? '' : '(登録ウィンドウ経由)'}\n${authContextLines(req, { passkey: creds[creds.length - 1].label })}`, 'high');
       const token = issueAuthToken();
       res.setHeader('Set-Cookie',
         `__Host-ezsess=${token}; Path=/; Max-Age=${AUTH_TTL_MS / 1000}; HttpOnly; Secure; SameSite=Lax`);
@@ -528,6 +573,7 @@ const server = http.createServer(async (req, res) => {
       } catch (e) {
         console.error('[auth] login failed:', e.message);
         audit(req, 'login_fail');
+        noteAuthFailure(req, 'ログイン');
         sendJson(res, 403, { error: L(req, 'ログインに失敗しました。やり直してください', 'Login failed. Please try again.') });
         return;
       }
@@ -538,7 +584,11 @@ const server = http.createServer(async (req, res) => {
       cred.counter = verification.authenticationInfo.newCounter;
       writeJson('credentials.json', creds);
       audit(req, 'login_ok', { passkey: cred.id.slice(0, 8) });
-      notifyAuth(L(req, 'EZOS にログインしました', 'Signed in to EZOS.'));
+      {
+        const first = rememberDevice(req, cred.id);
+        notifyAuth(`${first ? '🆕 ' : ''}EZOS にログインしました${first ? '(初めての端末)' : ''}\n${authContextLines(req, { passkey: cred.label || cred.id.slice(0, 8) })}`,
+          first ? 'high' : 'default');
+      }
       const token = issueAuthToken();
       res.setHeader('Set-Cookie',
         `__Host-ezsess=${token}; Path=/; Max-Age=${AUTH_TTL_MS / 1000}; HttpOnly; Secure; SameSite=Lax`);
@@ -623,6 +673,7 @@ const server = http.createServer(async (req, res) => {
       } catch (e) {
         console.error('[auth] re-auth failed:', e.message);
         audit(req, 'reauth_fail');
+        noteAuthFailure(req, '再認証');
         sendJson(res, 403, { error: L(req, '再認証に失敗しました。やり直してください', 'Re-authentication failed. Please try again.') });
         return;
       }
@@ -673,7 +724,7 @@ const server = http.createServer(async (req, res) => {
       const s = sessionFromReq(req);
       if (s) writeJson('auth_tokens.json', { [s.key]: s.rec });
       audit(req, 'passkey_delete', { passkey: String(body.id).slice(0, 8) });
-      notifyAuth(L(req, 'パスキーを削除しました', 'A passkey was deleted.'));
+      notifyAuth(`🗑 EZOS: パスキーを削除しました\n${authContextLines(req, { passkey: String(body.id).slice(0, 8) })}`, 'high');
       sendJson(res, 200, { ok: true });
       return;
     }

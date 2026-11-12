@@ -1,0 +1,8 @@
+[Unit]
+Description=Restart node services that still run an older Node.js binary (after unattended nodejs upgrade)
+Documentation=file:/home/debian/EZOS/ops/watchdog/README.md
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/node-refresh.sh /etc/service-watchdog.conf
+TimeoutStartSec=300

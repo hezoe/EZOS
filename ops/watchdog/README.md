@@ -62,3 +62,15 @@ sudo systemctl stop service-watchdog.timer               # 一時停止
 
 > 注: このツールは EZOS 本体とは別レイヤ（root/systemd）。EZOS のアプリ更新(`sudo systemctl restart ezos`)とは独立に動く。
 > Claude 連携（スキル/フック/メモリ）については `docs/CLAUDE_INTEGRATION.md` を参照。`ezstatus.sh` は本設定 `SERVICES` を再利用する。
+
+## EZOS の乗っ取り防止の追加策(2026-11-13・R-091 の受容に伴う代替)
+EZOS 本体の守り(パスキー・CSP・署名付き自己更新)に加え、root/systemd 側で次を動かす。設定は `service-watchdog.conf` の ntfy を共用。
+- **node-refresh**(`node-refresh.timer` 04:30): `/etc/apt/apt.conf.d/52nodesource-unattended` で nodesource の nodejs も無人更新の対象にし、更新後に古い node で動き続けているサービス(`NODE_REFRESH_UNITS`、既定 ezos navlog notam navlog-swim-recv ogn-web takikawa-web)を夜間に再起動して通知。
+- **ezos-guard**(`ezos-guard.timer` 毎分): EZOS の監査記録(journald)で 10 分に 5 回以上認証に失敗した送信元を 1 時間 iptables(`EZOS-GUARD` チェーン・`DOCKER-USER` の先頭から呼ぶ)で遮断し通知。VPN(10.66/16)・docker の網・localhost は遮断しない。`sudo ezos-guard.py list|unblock IP|block IP`。
+- **ezos-integrity-check**(`ezos-integrity-check.timer` 04:10・debian で実行): HEAD の署名、app/ の稼働コードとコミットの一致(data/・node_modules/ を除く)、ezos の実行ファイルと作業ディレクトリ、`npm audit`(本番依存・high 以上)を確認し、違いがあれば高優先で通知。問題が無ければ journal に 1 行だけ。
+- EZOS 本体(app/server.js)の通知強化: ログイン/パスキー登録・削除の通知に IP・端末(OS/ブラウザ)・パスキー名を含め、初めての端末からのログインと認証失敗の連続(10 分 5 回)を高優先で通知。
+```sh
+systemctl list-timers 'node-refresh*' 'ezos-*'
+sudo journalctl -u ezos-guard -n 20 --no-pager
+sudo systemctl start ezos-integrity-check.service && journalctl -u ezos-integrity-check -n 5 --no-pager
+```

@@ -35,14 +35,28 @@ if [ -n "$CRHOST" ]; then
   fi
 fi
 
+# EZOS 追加策(2026-11-13): Node 更新後の夜間再起動 / 認証失敗の自動遮断 / 稼働コードの点検
+install -m 0755 "$SRC/node-refresh.sh"          /usr/local/bin/node-refresh.sh
+install -m 0644 "$SRC/node-refresh.service"     /etc/systemd/system/node-refresh.service
+install -m 0644 "$SRC/node-refresh.timer"       /etc/systemd/system/node-refresh.timer
+install -m 0755 "$SRC/ezos-guard.py"            /usr/local/bin/ezos-guard.py
+install -m 0644 "$SRC/ezos-guard.service"       /etc/systemd/system/ezos-guard.service
+install -m 0644 "$SRC/ezos-guard.timer"         /etc/systemd/system/ezos-guard.timer
+install -m 0755 "$SRC/ezos-integrity-check.sh"  /usr/local/bin/ezos-integrity-check.sh
+install -m 0644 "$SRC/ezos-integrity-check.service" /etc/systemd/system/ezos-integrity-check.service
+install -m 0644 "$SRC/ezos-integrity-check.timer"   /etc/systemd/system/ezos-integrity-check.timer
+
 # unit の Documentation= を実際の設置場所へ合わせる(ユーザー名/設置先に依存させない)
-for u in service-watchdog.service service-watchdog.timer db-backup.service cert-renewal-check.service; do
+for u in service-watchdog.service service-watchdog.timer db-backup.service cert-renewal-check.service node-refresh.service ezos-guard.service ezos-integrity-check.service; do
   [ -f "/etc/systemd/system/$u" ] && sed -i "s|^Documentation=file:.*|Documentation=file:$SRC/README.md|" "/etc/systemd/system/$u"
 done
 
 systemctl daemon-reload
 systemctl enable --now service-watchdog.timer
 systemctl enable --now db-backup.timer
+systemctl enable --now node-refresh.timer
+systemctl enable --now ezos-guard.timer
+systemctl enable --now ezos-integrity-check.timer
 [ -n "$CRHOST" ] && systemctl enable cert-renewal-check.timer
 echo "有効化完了。次のタイマ起動から監視開始:"
 systemctl status service-watchdog.timer --no-pager | head -4

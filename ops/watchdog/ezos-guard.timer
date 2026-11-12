@@ -1,0 +1,10 @@
+[Unit]
+Description=EZOS guard: check auth failures every minute
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=1min
+AccuracySec=10s
+
+[Install]
+WantedBy=timers.target

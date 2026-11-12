@@ -1,0 +1,8 @@
+[Unit]
+Description=EZOS guard: block sources with repeated auth failures (iptables EZOS-GUARD chain)
+Documentation=file:/home/debian/EZOS/ops/watchdog/README.md
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /usr/local/bin/ezos-guard.py
+TimeoutStartSec=60
