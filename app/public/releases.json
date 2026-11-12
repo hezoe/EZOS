@@ -1,6 +1,18 @@
 {
-  "current": "1.1.9",
+  "current": "1.1.10",
   "releases": [
+    {
+      "version": "1.1.10",
+      "date": "2026-11-13",
+      "notes": {
+        "ja": [
+          "セキュリティ: 自己更新で取り込む全てのコミットの署名を確かめるようにしました(先頭だけでなく途中のコミットも)。あわせて運用側に secwatch(新しい脆弱性の自動検出・調査・通知)を追加し、通知の見出しの文字化けを直しました。使い方は変わりません。"
+        ],
+        "en": [
+          "Security: self-update now verifies the signature of every incoming commit, not just the head. Ops gained secwatch (automatic detection, investigation and notification of new vulnerabilities) and a fix for garbled notification titles. No change in usage."
+        ]
+      }
+    },
     {
       "version": "1.1.9",
       "date": "2026-11-13",

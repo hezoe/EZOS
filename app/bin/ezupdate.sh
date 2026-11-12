@@ -53,6 +53,10 @@ git fetch --prune origin "$BRANCH" 2>&1 || fail "git fetch に失敗しました
 # GitHub のアカウントや開発 PC が乗っ取られても、署名鍵の無い push は EZOS に入らない。
 log "git verify-commit origin/$BRANCH ..."
 git verify-commit "origin/$BRANCH" 2>&1 || fail "origin/$BRANCH の先頭コミットの署名を確かめられません。更新を中止しました(未署名のコミット、または検証鍵に無い署名者)"
+# 先頭だけでなく、取り込む全コミットを確かめる(署名付きの先頭の下に未署名のコミットを紛れ込ませられないように)
+for c in $(git rev-list "HEAD..origin/$BRANCH"); do
+  git verify-commit "$c" >/dev/null 2>&1 || fail "取り込むコミット ${c:0:7} の署名を確かめられません。更新を中止しました"
+done
 log "git pull --ff-only ..."
 git merge --ff-only "origin/$BRANCH" 2>&1 || fail "早送りできません(分岐しています)。手動で解決してください"
 AFTER="$(git rev-parse HEAD)"

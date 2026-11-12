@@ -1,0 +1,15 @@
+[Unit]
+Description=secwatch: detect new vulnerabilities (debsecan/OSV/Node feed), auto-fix Debian, notify, Claude investigation
+Documentation=file:/home/debian/EZOS/ops/secwatch/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=debian
+WorkingDirectory=/home/debian/workspace
+Environment=HOME=/home/debian
+Environment=PATH=/home/debian/.local/bin:/usr/local/bin:/usr/bin:/bin
+EnvironmentFile=-/etc/secwatch.env
+ExecStart=/usr/bin/python3 /usr/local/bin/secwatch.py
+TimeoutStartSec=2400

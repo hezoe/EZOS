@@ -1,0 +1,11 @@
+[Unit]
+Description=secwatch twice daily (08:30 / 20:30 JST)
+
+[Timer]
+OnCalendar=*-*-* 08:30:00
+OnCalendar=*-*-* 20:30:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

@@ -52,8 +52,11 @@ def notify(title, body, priority="high", tags="no_entry"):
     if not topic:
         return
     try:
+        # 見出しの日本語は RFC 2047 で包む(HTTP ヘッダは latin-1 のみ。ntfy が解釈する)
+        import base64
+        t = "=?UTF-8?B?" + base64.b64encode(title.encode("utf-8")).decode("ascii") + "?=" if any(ord(c) > 127 for c in title) else title
         req = urllib.request.Request(f"{url}/{topic}", data=body.encode("utf-8"), method="POST",
-                                     headers={"Title": title, "Priority": priority, "Tags": tags})
+                                     headers={"Title": t, "Priority": priority, "Tags": tags})
         urllib.request.urlopen(req, timeout=8).read()
     except Exception:
         pass
