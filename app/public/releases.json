@@ -1,6 +1,18 @@
 {
-  "current": "1.1.7",
+  "current": "1.1.8",
   "releases": [
+    {
+      "version": "1.1.8",
+      "date": "2026-11-12",
+      "notes": {
+        "ja": [
+          "セキュリティ: 自己更新(「更新」ボタン)で取り込む先頭コミットの署名(SSH 署名)を確かめるようにしました。署名が無い、または登録された鍵と違うコミットは取り込まず、更新を中止します。GitHub のアカウントが乗っ取られても細工されたコードが入らないようにするためです。使い方は変わりません。"
+        ],
+        "en": [
+          "Security: self-update now verifies the SSH signature of the commit being pulled. Unsigned commits or signatures from unregistered keys abort the update, so a compromised GitHub account cannot push tampered code into EZOS. No change in usage."
+        ]
+      }
+    },
     {
       "version": "1.1.7",
       "date": "2026-11-12",

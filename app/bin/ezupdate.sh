@@ -48,6 +48,11 @@ export GIT_SSH_COMMAND="ssh -o BatchMode=yes -o ConnectTimeout=10"
 BEFORE="$(git rev-parse HEAD)"
 log "git fetch ..."
 git fetch --prune origin "$BRANCH" 2>&1 || fail "git fetch に失敗しました(ネットワーク/認証を確認)"
+# R-119 (2026-11-12): 取り込む先頭コミットの署名を確かめる(SSH 署名・検証鍵は git の
+# gpg.ssh.allowedSignersFile = ~/.ssh/allowed_signers)。署名が無い・鍵が違うなら更新しない。
+# GitHub のアカウントや開発 PC が乗っ取られても、署名鍵の無い push は EZOS に入らない。
+log "git verify-commit origin/$BRANCH ..."
+git verify-commit "origin/$BRANCH" 2>&1 || fail "origin/$BRANCH の先頭コミットの署名を確かめられません。更新を中止しました(未署名のコミット、または検証鍵に無い署名者)"
 log "git pull --ff-only ..."
 git merge --ff-only "origin/$BRANCH" 2>&1 || fail "早送りできません(分岐しています)。手動で解決してください"
 AFTER="$(git rev-parse HEAD)"
