@@ -376,9 +376,13 @@ def apply_docker_updates(new):
     for t in targets:
         d = DOCKER_COMPOSE_DIRS[t]
         try:
-            subprocess.run(["sudo", "-n", "docker", "compose", "pull", "-q"], cwd=d, capture_output=True, timeout=600)
+            # Dockerfile(FROM 公式 + apk upgrade)がある compose は build --pull で Alpine の修正版まで取り込む
+            if os.path.exists(os.path.join(d, "Dockerfile")):
+                subprocess.run(["sudo", "-n", "docker", "compose", "build", "--pull", "-q"], cwd=d, capture_output=True, timeout=900)
+            else:
+                subprocess.run(["sudo", "-n", "docker", "compose", "pull", "-q"], cwd=d, capture_output=True, timeout=600)
             r = subprocess.run(["sudo", "-n", "docker", "compose", "up", "-d"], cwd=d, capture_output=True, text=True, timeout=300)
-            results.append(f"{t}: pull+up rc={r.returncode}")
+            results.append(f"{t}: build/pull+up rc={r.returncode}")
         except Exception as e:
             results.append(f"{t}: 失敗 {e}")
     return "; ".join(results)
