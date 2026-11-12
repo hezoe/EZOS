@@ -16,3 +16,4 @@ Thumbs.db
 
 # Claude Code 資格情報（万一のため）
 .credentials.json
+__pycache__/
