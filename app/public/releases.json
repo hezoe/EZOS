@@ -1,6 +1,18 @@
 {
-  "current": "1.1.6",
+  "current": "1.1.7",
   "releases": [
+    {
+      "version": "1.1.7",
+      "date": "2026-11-12",
+      "notes": {
+        "ja": [
+          "セキュリティ: 画面で動かすスクリプトを「同じサイトのもの」に限定する制限（CSP の script-src）に対応しました。サーバーが画面に埋め込む設定を実行されるインラインスクリプトから JSON ブロック＋boot.js に変更しています。使い方は変わりません。"
+        ],
+        "en": [
+          "Security: the UI is now compatible with a strict script-src CSP. Server-provided page settings are passed as a JSON block read by boot.js instead of an inline script. No change in usage."
+        ]
+      }
+    },
     {
       "version": "1.1.6",
       "date": "2026-11-11",

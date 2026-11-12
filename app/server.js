@@ -1300,7 +1300,8 @@ ${authed ? '<link rel="stylesheet" href="/assets/ezeditor.css"><link rel="styles
 </head>
 <body class="${esc(bodyClass)}">
 ${authed ? termHtml : loginHtml}
-<script>window.EZ = { authed: ${authed}, view: ${JSON.stringify(view)}, lang: ${JSON.stringify(lang)}, home: ${JSON.stringify(authed ? REAL_ROOT : '')} };</script>
+<script type="application/json" id="ez-config">${JSON.stringify({ authed, view, lang, home: authed ? REAL_ROOT : '' }).replace(/</g, '\\u003c')}</script>
+<script src="/assets/boot.js"></script>
 <script src="/assets/i18n.js"></script>
 <script src="/assets/tooltip.js"></script>
 ${authed
