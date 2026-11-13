@@ -342,6 +342,49 @@ def node_feed(state):
     return new
 
 
+# ── Debian 公式以外の apt 配布元(Docker・GitHub CLI など)の新しい版(2026-11-13) ─────────────────────
+# unattended-upgrades も debsecan も見ない配布元。新しい版が出たら知らせるだけで、更新は夜に手で行う(浩さん判断)。
+# 一覧は apt-daily(1日2回)が取り直したものを使う(root 不要)。
+OFFICIAL_APT_HOSTS = ("deb.debian.org", "security.debian.org")
+RELEASE_NOTES = {
+    "docker-ce": "https://docs.docker.com/engine/release-notes/", "docker-ce-cli": "https://docs.docker.com/engine/release-notes/",
+    "containerd.io": "https://github.com/containerd/containerd/releases", "docker-compose-plugin": "https://github.com/docker/compose/releases",
+    "docker-buildx-plugin": "https://github.com/docker/buildx/releases", "gh": "https://github.com/cli/cli/releases",
+}
+
+
+def thirdparty_updates():
+    """[{package, installed, candidate, origin}] = 更新できる版がある、Debian 公式以外の配布元の部品。"""
+    try:
+        out = subprocess.run(["apt", "list", "--upgradable"], capture_output=True, text=True, timeout=120).stdout
+    except Exception as e:
+        log(f"apt list: {e}")
+        return []
+    res = []
+    for line in out.splitlines():
+        m = re.match(r"^([^/\s]+)/\S+\s+(\S+)\s+\S+\s+\[upgradable from: ([^\]]+)\]", line)
+        if not m:
+            continue
+        pkg, cand, inst = m.groups()
+        try:
+            pol = subprocess.run(["apt-cache", "policy", pkg], capture_output=True, text=True, timeout=30).stdout.splitlines()
+        except Exception:
+            continue
+        host = ""
+        for i, l in enumerate(pol):   # 版の表で候補の版の直後の行に配布元の URL がある
+            if l.replace("***", "").split()[:1] == [cand]:
+                for l2 in pol[i + 1:i + 4]:
+                    mm = re.search(r"https?://([^/\s]+)", l2)
+                    if mm:
+                        host = mm.group(1)
+                        break
+                break
+        if not host or host in OFFICIAL_APT_HOSTS:
+            continue
+        res.append({"package": pkg, "installed": inst, "candidate": cand, "origin": host})
+    return res
+
+
 # ── 自動対策(Debian の修正版を入れる) ────────────────────────────────────────
 def apply_debian_fixes(findings):
     pkgs = sorted({f["package"] for f in findings if f["source"] == f"debian-{VPS_SUITE}" and f["fix_available"] and f["package"]})
@@ -462,6 +505,14 @@ def main():
             new.append(f)
     node_new = node_feed(state)
 
+    # Debian 公式以外の配布元の新しい版(知らせるだけ)。前回知らせた版から変わったものが新着。初回は全部を新着として知らせる
+    tp = thirdparty_updates()
+    tp_first = "thirdparty" not in state
+    tp_seen = state.get("thirdparty", {})
+    tp_new = [x for x in tp if tp_seen.get(x["package"]) != x["candidate"]]
+    state["thirdparty"] = {x["package"]: x["candidate"] for x in tp}
+    log(f"配布元(Debian 公式以外)の新しい版: {len(tp)} 件(新着 {len(tp_new)})")
+
     # 対策(Debian の修正版)
     apt_result = apply_debian_fixes(findings)
 
@@ -491,9 +542,15 @@ def main():
         lines.append("")
     if node_new:
         lines += ["## Node.js の脆弱性のお知らせ(新着)", ""] + [f"- {n['title']} {n['link']}" for n in node_new] + [""]
+    if tp:
+        lines += ["## Debian 公式以外の配布元の新しい版(自動では入れない・夜に手で更新)", "",
+                  "| 部品 | 今の版 | 新しい版 | 配布元 | 新着 | リリースノート |", "|---|---|---|---|---|---|"]
+        for x in tp:
+            lines.append(f"| {x['package']} | {x['installed']} | {x['candidate']} | {x['origin']} | {'○' if x in tp_new else ''} | {RELEASE_NOTES.get(x['package'], '')} |")
+        lines += ["", "更新: `sudo apt-get install --only-upgrade <部品>`(docker の部品は docker が再起動し、Caddy・FlightLog・PostgreSQL が数十秒止まる)", ""]
     lines += ["## 全体", ""] + [f"- {k}: {v} 件(未修正の低緊急度を含む)" for k, v in sorted(total_by_src.items())]
     open(report_path, "w", encoding="utf-8").write("\n".join(lines) + "\n")
-    json.dump({"at": now_iso, "new": new, "node_new": node_new, "apt": apt_result, "totals": total_by_src},
+    json.dump({"at": now_iso, "new": new, "node_new": node_new, "apt": apt_result, "totals": total_by_src, "thirdparty": tp, "thirdparty_new": tp_new},
               open(os.path.join(REPORT_DIR, "latest.json"), "w", encoding="utf-8"), ensure_ascii=False, indent=1)
     save_state(state)
 
@@ -504,13 +561,17 @@ def main():
     claude_text = claude_investigate(new_high, report_path) if (new_high and not first_run) else None
 
     # 通知
-    if new or node_new or (apt_result and not apt_result.startswith("(適用せず)")):
+    if new or node_new or tp_new or (apt_result and not apt_result.startswith("(適用せず)")):
         top = sorted(new, key=lambda x: (x.get("score") or (9 if lv(x) == 'critical' else 7 if lv(x) == 'high' else 0)), reverse=True)[:6]
         body = [f"新しい脆弱性 {len(new)} 件" + (" (" + ", ".join(f"{k} {v}" for k, v in sorted(by_level.items())) + ")" if new else "")]
         for f in top:
             body.append(f"- [{lv(f)}] {f['source']} {f['package']} {f['id']}")
         if node_new:
             body.append(f"Node.js お知らせ {len(node_new)} 件: " + "; ".join(n["title"] for n in node_new[:3]))
+        if tp_new:
+            body.append(("配布元の見張りを開始。今の新しい版" if tp_first else "配布元(Docker 等)の新しい版") +
+                        f" {len(tp_new)} 件(自動では入れない・夜に更新): " +
+                        ", ".join(f"{x['package']} {x['installed']}→{x['candidate']}" for x in tp_new[:6]))
         if apt_result:
             body.append(f"自動対策: {apt_result}")
         if docker_result:

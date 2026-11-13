@@ -13,6 +13,7 @@ CVE-2026-98432(受信機の IP オプションの件)のように、公表され
 | Python(pip --user) | OSV.dev(PyPI) | |
 | docker コンテナ(Caddy / PostgreSQL の Alpine パッケージ) | OSV.dev(Alpine) | 対策はイメージの pull と up |
 | Node.js 本体 | nodejs.org の脆弱性フィード | 更新は nodesource の無人更新+node-refresh が行う |
+| Debian 公式以外の apt 配布元(Docker 社の docker-ce・containerd・compose/buildx、GitHub CLI など) | apt の更新一覧(apt-daily が 1 日 2 回取り直す)と配布元の URL | 自動更新も debsecan も対象外。**新しい版が出たら知らせるだけ**(前回知らせた版から変わったとき)。更新は夜に手で(docker の部品は docker の再起動で Caddy・FlightLog・PostgreSQL が数十秒止まる) |
 
 ## 動き(`secwatch.timer` 08:30 / 20:30 JST)
 1. 在庫 → 照合 → 新しい脆弱性(状態 `/var/lib/secwatch/state.json` に無いもの)を抽出

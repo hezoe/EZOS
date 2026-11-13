@@ -1,6 +1,18 @@
 {
-  "current": "1.1.12",
+  "current": "1.1.13",
   "releases": [
+    {
+      "version": "1.1.13",
+      "date": "2026-11-13",
+      "notes": {
+        "ja": [
+          "ops: secwatch が Debian 公式以外の apt 配布元(Docker 社・GitHub CLI など)の新しい版も見張って知らせるように(自動では入れない・更新は夜に手で)"
+        ],
+        "en": [
+          "ops: secwatch now watches non-Debian apt repositories (Docker, GitHub CLI, etc.) for new versions and notifies (no automatic upgrade)"
+        ]
+      }
+    },
     {
       "version": "1.1.12",
       "date": "2026-11-13",
