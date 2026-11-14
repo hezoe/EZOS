@@ -1,0 +1,6 @@
+[Unit]
+Description=secguard: 記録の容量を守る(Caddy 1.4GB・90日)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/secguard-logbudget.sh

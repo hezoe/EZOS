@@ -1,0 +1,24 @@
+## secguard(2026-11-14): 乗っ取りの兆候の記録。鍵 sg_* を secguard.py が見る。
+## 公開サービスの専用ユーザー(install.sh が uid を埋める)と docker の flightlog(1001)/postgres(70)の実行を全部残す
+## (平常時は node/python の起動だけ=少ない)。
+@SG_EXEC_RULES@
+## 管理者の設定の書き換え
+-w /etc/passwd -p wa -k sg_ident
+-w /etc/shadow -p wa -k sg_ident
+-w /etc/group -p wa -k sg_ident
+-w /etc/gshadow -p wa -k sg_ident
+-w /etc/sudoers -p wa -k sg_priv
+-w /etc/sudoers.d/ -p wa -k sg_priv
+-w /root/.ssh/ -p wa -k sg_keys
+-w /home/debian/.ssh/authorized_keys -p wa -k sg_keys
+-w /etc/ssh/sshd_config -p wa -k sg_sshd
+-w /etc/ssh/sshd_config.d/ -p wa -k sg_sshd
+-w /etc/systemd/system/ -p wa -k sg_units
+-w /usr/local/bin/ -p wa -k sg_bin
+-w /usr/local/sbin/ -p wa -k sg_bin
+-w /etc/wireguard/ -p wa -k sg_wg
+-w /etc/crontab -p wa -k sg_cron
+-w /etc/cron.d/ -p wa -k sg_cron
+-w /var/spool/cron/ -p wa -k sg_cron
+-w /etc/secguard.conf -p wa -k sg_secguard
+-w /etc/audit/ -p wa -k sg_secguard

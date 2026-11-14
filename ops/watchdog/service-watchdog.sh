@@ -212,6 +212,8 @@ declare -a NAME KIND TARGET SMIN SMAX SUBSTR RESTART OKV DET
 n=0; failing=()
 for rec in "${SERVICES[@]}"; do
   IFS='|' read -r nm kd tg mn mx sb rs <<< "$rec"
+  # 2026-11-14: secguard が乗っ取りの兆候で隔離(停止)したサービスは起こし直さない(ops/secguard)
+  if [ -e "/var/lib/secguard/quarantine/$nm" ]; then log "skip $nm: secguard で隔離中"; continue; fi
   NAME[n]="$nm"; KIND[n]="$kd"; TARGET[n]="$tg"; SMIN[n]="${mn:-0}"; SMAX[n]="${mx:-0}"; SUBSTR[n]="$sb"; RESTART[n]="$rs"
   if run_check "$kd" "$tg" "${mn:-0}" "${mx:-0}" "$sb"; then OKV[n]=1; else OKV[n]=0; failing+=("$n"); fi
   DET[n]="$CHK_DETAIL"

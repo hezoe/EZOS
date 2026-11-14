@@ -1,0 +1,13 @@
+# /etc/secguard.conf(root 0600)。実値(自宅などの IP)は repo に入れない。
+# ACTION=enforce は遮断・停止する。observe は知らせるだけ。
+ACTION=enforce
+# 遮断しない IP/CIDR(空白区切り)。VPN(10.x)・内部・VPS 自身は最初から対象外
+ALLOW_IPS=
+BAN_SEC=86400
+WEB_BAN_SCORE=10
+WEB_404_BAN=80
+WEB_FLOOD_REQ=3000
+# この時刻(epoch)までは、公開サービスの見覚えのない実行・待ち受けを覚えるだけ(止めない)。install.sh が 48 時間後を入れる
+LEARN_UNTIL=0
+DIGEST_SEC=1800
+NOTIFY_MAX_PER_HOUR=30

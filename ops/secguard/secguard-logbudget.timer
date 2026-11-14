@@ -1,0 +1,10 @@
+[Unit]
+Description=secguard: 記録の容量を毎日確かめる
+
+[Timer]
+OnCalendar=*-*-* 04:40
+RandomizedDelaySec=300
+Persistent=true
+
+[Install]
+WantedBy=timers.target
