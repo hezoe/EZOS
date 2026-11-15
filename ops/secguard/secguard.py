@@ -7,6 +7,7 @@ takikawa と docker の flightlog/postgres)を見張り、攻撃らしい動き�
 
   1. Web で攻撃と判定した送信元 IP → ipset secguard-ban に期限付き(既定 24 時間)で入れて遮断
      (raw PREROUTING で落とすので、ホスト宛ても docker の 80/443 宛ても届かない)
+     常習の区画は /etc/secguard.conf の BLOCK_NETS に書くと ipset secguard-block で期限なしに遮断する(起動時に読み直す)
   2. 乗っ取りの強い兆候 → そのサービスだけを止める(最終の対策。システム全体には広げない)
        - 公開サービスの専用ユーザーが内部(EZOS・SSH・登録 API・VPN・docker 網)へ出ようとした(SECGUARD-EGRESS)
        - 公開サービスの専用ユーザーがシェル・ネット道具・sudo などを実行した(auditd: sg_exec)
@@ -46,6 +47,8 @@ CADDY_LOG_DIR = Path("/home/debian/saas/caddy/data/logs")
 AUDIT_LOG = Path("/var/log/audit/audit.log")
 WATCHDOG_CONF = "/etc/service-watchdog.conf"
 IPSET = "secguard-ban"
+BLOCK_IPSET = "secguard-block"      # BLOCK_NETS(恒久に遮断する区画)
+BLOCK_MIN_PREFIX = 16               # 書き間違いで広い範囲を落とさないよう /16 より広い区画は受け付けない
 TEST = "--test-web" in sys.argv
 
 # ── 設定(/etc/secguard.conf。KEY=VALUE。無ければ既定) ─────────────────────────────
@@ -61,6 +64,7 @@ def load_conf():
         "DIGEST_SEC": "1800",          # 遮断・設定変更のまとめ通知の間隔
         "NOTIFY_MAX_PER_HOUR": "30",   # 通知の上限(至急の停止の通知は数えない)
         "ALLOW_IPS": "",               # 遮断しない IP/CIDR(空白区切り。自宅・事務所など。repo には書かない)
+        "BLOCK_NETS": "",              # 期限なしに遮断する IPv4 区画(空白区切り。常習の発信元)
         "ACTION": "enforce",           # enforce=遮断・停止する / observe=知らせるだけ
     }
     try:
@@ -227,6 +231,34 @@ def restore_bans():
         for ip, b in bans.items():
             ipset_add(ip, b["until"] - now)
     log(f"restored {len(bans)} bans")
+
+def load_blocklist():
+    """BLOCK_NETS を secguard-block に入れ直す。別の set に組んでから swap するので、入れ替えの間も穴が開かない。"""
+    nets = []
+    for n in CONF["BLOCK_NETS"].split():
+        try:
+            net = ipaddress.ip_network(n, strict=False)
+        except ValueError:
+            log(f"BLOCK_NETS: 読めない {n!r}")
+            continue
+        if net.version != 4 or net.prefixlen < BLOCK_MIN_PREFIX or not net.is_global \
+                or any(net.overlaps(x) for x in NEVER_BAN):
+            log(f"BLOCK_NETS: 受け付けない {net}(IPv4・/{BLOCK_MIN_PREFIX} 以下の広さ・外部・ALLOW_IPS 等と重ならないこと)")
+            continue
+        nets.append(str(net))
+    if ENFORCE:
+        tmp = BLOCK_IPSET + "-new"
+        subprocess.run(["ipset", "create", BLOCK_IPSET, "hash:net", "-exist"], check=False)
+        subprocess.run(["ipset", "destroy", tmp], check=False, stderr=subprocess.DEVNULL)
+        subprocess.run(["ipset", "create", tmp, "hash:net"], check=False)
+        for n in nets:
+            subprocess.run(["ipset", "add", tmp, n, "-exist"], check=False)
+        subprocess.run(["ipset", "swap", tmp, BLOCK_IPSET], check=False)
+        subprocess.run(["ipset", "destroy", tmp], check=False)
+        rule = ["PREROUTING", "-i", "ens3", "-m", "set", "--match-set", BLOCK_IPSET, "src", "-j", "DROP"]
+        if subprocess.run(["iptables", "-t", "raw", "-C", *rule], stderr=subprocess.DEVNULL).returncode != 0:
+            subprocess.run(["iptables", "-t", "raw", "-I", rule[0], "1", *rule[1:]], check=False)
+    log(f"blocklist {len(nets)} nets: {' '.join(nets)}")
 
 def ban(ip, reason, detail=""):
     global _ban_paused
@@ -679,7 +711,7 @@ def main():
         for ip, b in sorted(bans.items(), key=lambda x: x[1]["until"]):
             print(f"  {ip:16} {b['reason']}  {b['detail'][:90]}")
         return
-    restore_bans(); load_quarantined()
+    restore_bans(); load_blocklist(); load_quarantined()
     log(f"secguard start enforce={ENFORCE} learning={learning()} targets={UID2GROUP}")
     q = collections.deque()
     threading.Thread(target=journal_reader, args=(q,), daemon=True).start()

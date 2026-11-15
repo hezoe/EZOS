@@ -1,6 +1,18 @@
 {
-  "current": "1.1.14",
+  "current": "1.1.15",
   "releases": [
+    {
+      "version": "1.1.15",
+      "date": "2026-11-15",
+      "notes": {
+        "ja": [
+          "ops: secguard に恒久遮断の区画(BLOCK_NETS)を追加。常習の発信元を期限なしに遮断(/16 より広い区画・内部・ALLOW_IPS と重なる区画は受け付けない)"
+        ],
+        "en": [
+          "ops: secguard gains BLOCK_NETS to permanently block repeat-offender IPv4 ranges (rejects ranges wider than /16, internal ranges and overlaps with ALLOW_IPS)"
+        ]
+      }
+    },
     {
       "version": "1.1.14",
       "date": "2026-11-14",

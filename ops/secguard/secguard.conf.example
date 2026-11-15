@@ -3,6 +3,8 @@
 ACTION=enforce
 # 遮断しない IP/CIDR(空白区切り)。VPN(10.x)・内部・VPS 自身は最初から対象外
 ALLOW_IPS=
+# 期限なしに遮断する IPv4 区画(空白区切り。常習の発信元。/16 より狭いもの)。書き換えたら systemctl restart secguard
+BLOCK_NETS=
 BAN_SEC=86400
 WEB_BAN_SCORE=10
 WEB_404_BAN=80

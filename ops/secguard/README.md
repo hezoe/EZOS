@@ -37,6 +37,8 @@ Cookie/Authorization は残さない。応答の Content-Type と Location は�
 | SSH のログイン | 通知(SSH は操作者の VPN からだけ届く) |
 
 遮断しないもの: VPN の中(10.0.0.0/8)・docker 網・VPS 自身・`/etc/secguard.conf` の `ALLOW_IPS`。
+常習の発信元の区画は `/etc/secguard.conf` の `BLOCK_NETS`(空白区切りの CIDR)に書くと、期限なしに遮断する(ipset `secguard-block`・raw PREROUTING。
+書き換えたら `sudo systemctl restart secguard` で入れ直す)。書き間違いの保険として、/16 より広い区画・VPN/内部・`ALLOW_IPS` と重なる区画は受け付けない。
 1 時間に 300 件を超える遮断は止めて知らせる(誤判定の暴走防止)。通知は 1 時間 30 件まで(至急は数えない)。
 
 systemd が起動したもの(親が PID 1)は、サービスの起動として扱う。管理者の `docker exec`(親が containerd-shim/runc)は
