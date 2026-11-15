@@ -25,7 +25,7 @@ Cookie/Authorization は残さない。応答の Content-Type と Location は�
 
 | 兆候 | 対処 |
 |---|---|
-| Web: 弱点探し(`.env`・`wp-`・`.git` など 1 点)・危険な要求(`${jndi:`・`../../`・SQL/コマンド注入など 5 点)・認証の失敗(1 点)が 10 分で 10 点 / 404 が 10 分で 80 件 / 5 分で 3000 件 | その IP を 24 時間遮断(ipset `secguard-ban`・raw PREROUTING)。30 分ごとのまとめ通知 |
+| Web: 弱点探し(`.env`・`wp-`・`.git` など 1 点)・危険な要求(`${jndi:`・`../`・`$(…)`・`${IFS}`・SQL/コマンド注入など 5 点。URL は 16KB まで調べる)・認証の失敗(1 点)が 10 分で 10 点 / 404 が 10 分で 80 件 / 5 分で 3000 件 | その IP を 24 時間遮断(ipset `secguard-ban`・raw PREROUTING)。30 分ごとのまとめ通知 |
 | Web: 探りに HTML 以外の中身を 2xx で返した | 漏れの疑いとして通知(多くのサイトは知らない URL にも `index.html`(text/html)を返すので、それは除く) |
 | 公開サービスのユーザーが内部へ出ようとした(`SECGUARD-EGRESS`) | **そのサービスを隔離(停止)**・至急の通知 |
 | 公開サービスのユーザー(ogn/navlog/notam/takikawa)・docker の flightlog(uid 1001)/postgres(70)がシェル・ネット道具・sudo などを実行した(auditd `sg_exec`) | **隔離**・至急 |

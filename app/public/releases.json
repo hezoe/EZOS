@@ -1,6 +1,18 @@
 {
-  "current": "1.1.15",
+  "current": "1.1.16",
   "releases": [
+    {
+      "version": "1.1.16",
+      "date": "2026-11-16",
+      "notes": {
+        "ja": [
+          "ops: secguard が長い URL の末尾に隠したコマンド注入を見逃していた問題を修正(URL を 16KB まで調べる・$(…)/${IFS}/生の /../ を危険な要求に追加)"
+        ],
+        "en": [
+          "ops: secguard no longer misses command injection hidden at the end of long URLs (scan up to 16KB; flag $(…), ${IFS} and raw /../)"
+        ]
+      }
+    },
     {
       "version": "1.1.15",
       "date": "2026-11-15",

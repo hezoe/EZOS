@@ -350,7 +350,9 @@ CRITICAL = re.compile(r"(\$\{jndi:|\$\{\$\{|\.\./\.\./|%2e%2e%2f|%2e%2e/|\.\.%2f
                       r"union(\s|%20|\+)+select|select(\s|%20|\+).+from(\s|%20|\+)|sleep\(\d|benchmark\(|"
                       r"<script|%3cscript|javascript:|onerror=|php://|data://|expect://|file://|"
                       r"cmd=|exec=|/bin/(ba)?sh|wget(\s|%20|\+)|curl(\s|%20|\+)|;(\s|%20)*(id|uname|cat)\b|"
-                      r"\|\s*(id|uname|sh)\b|base64_decode|eval\(|system\(|passthru|shell_exec|allow_url_include)", re.I)
+                      r"\|\s*(id|uname|sh|bash)\b|base64_decode|eval\(|system\(|passthru|shell_exec|allow_url_include|"
+                      # シェルのコマンド置換・区切りの典型(`$(…)`・`${IFS}`)と、ブラウザが送らない生の `/../`
+                      r"\$\(|\$\{IFS|/\.\./)", re.I)
 web_score = collections.defaultdict(collections.deque)    # ip -> deque[(ts, pts, what)]
 web_404 = collections.defaultdict(collections.deque)
 web_req = collections.defaultdict(collections.deque)
@@ -364,7 +366,8 @@ def _trim(dq, now, win):
 def on_web(d, fname):
     r = d.get("request") or {}
     ip = r.get("client_ip") or r.get("remote_ip") or ""
-    uri = str(r.get("uri", ""))[:2000]
+    # 照合は 16KB まで見る(2026-11-16: 長い base64 の後ろに `|sh` を置く注入を、2000 字で切って見逃した)
+    uri = str(r.get("uri", ""))[:16384]
     host = str(r.get("host", ""))[:100]
     st = int(d.get("status") or 0)
     ts = float(d.get("ts") or time.time())
