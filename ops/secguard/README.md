@@ -32,6 +32,7 @@ Cookie/Authorization は残さない。応答の Content-Type と Location は�
 | 公開サービスのユーザーが sudo を試みた | **隔離**・至急 |
 | 見覚えのない実行・公開サービスの新しい待ち受けポート | 学習期間(設置から 48 時間)は覚えるだけ。その後は**隔離** |
 | コンテナが禁止先へ出ようとした(`SECGUARD-CTR`) | 通知(Caddy を止めると EZOS を含む全サイトが止まるので、自動では止めない) |
+| おとりファイル(下記)への書き込み・改名・削除(拒否された試みも数える)・中身の不一致(5 分ごとに照合) | **ランサム攻撃の疑い**として至急の通知(10 分に 1 回まで、残りはまとめへ)。公開サービスのユーザーなら**隔離** |
 | アカウント・sudoers・SSH の鍵・secguard 自身の書き換え | 至急ではない高優先の通知 |
 | systemd・/usr/local・WireGuard・cron の書き換え | まとめ通知(apt/dpkg による変更は除く) |
 | SSH のログイン | 通知(SSH は操作者の VPN からだけ届く) |
@@ -40,6 +41,11 @@ Cookie/Authorization は残さない。応答の Content-Type と Location は�
 常習の発信元の区画は `/etc/secguard.conf` の `BLOCK_NETS`(空白区切りの CIDR)に書くと、期限なしに遮断する(ipset `secguard-block`・raw PREROUTING。
 書き換えたら `sudo systemctl restart secguard` で入れ直す)。書き間違いの保険として、/16 より広い区画・VPN/内部・`ALLOW_IPS` と重なる区画は受け付けない。
 1 時間に 300 件を超える遮断は止めて知らせる(誤判定の暴走防止)。通知は 1 時間 30 件まで(至急は数えない)。
+
+おとりファイル(2026-11-16): `/home/debian`・`/home/debian/saas`・`/home/debian/workspace`・`/var/lib`・`/var/backups`・`/opt`・`/srv`・`/root`
+の下の `000-confidential/`(`passwords.xlsx` など 3 つ。root の持ち物・読み取り専用)。誰も触らないはずの場所なので、触られたら暗号化が始まった疑いとみる。
+置き場は `secguard.py` の `CANARY_DIRS` と `50-secguard.rules` の `sg_canary` を揃える。作るのは `install.sh`(`secguard.py --make-canaries`。常駐は書き込めない囲いの中)。
+消えたり書き換えられたりしたものは証拠として残し、確かめてから `--make-canaries` で置き直す(中身の違う既存ファイルは上書きしないので、先に消す)。
 
 systemd が起動したもの(親が PID 1)は、サービスの起動として扱う。管理者の `docker exec`(親が containerd-shim/runc)は
 記録だけにする(ホストの root でしかできないため)。

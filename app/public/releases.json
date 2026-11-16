@@ -1,6 +1,24 @@
 {
-  "current": "1.1.17",
+  "current": "1.1.18",
   "releases": [
+    {
+      "version": "1.1.18",
+      "date": "2026-11-16",
+      "notes": {
+        "ja": [
+          "ops: ランサム攻撃への備えを追加。さくらを受け取り専用にし(VPS の鍵では上書き・削除・シェル不可、www は rsync だけ)、古い写しの削除と www の週ごとの写しはさくらの cron が行う",
+          "ops: バックアップの書き換え点検(backup-integrity-check、毎朝 05:20)を追加。指紋の台帳と VPS・さくらの写しを照らし合わせ、違いや消えたファイルを高優先で通知",
+          "ops: 非公開リポジトリの全履歴(git bundle)を毎晩さくらへ送る段を追加(変わったものだけ・60 日、最新は期限なし)",
+          "ops: secguard におとりファイルを追加。8 か所の 000-confidential への書き込み・改名・削除の試みをランサム攻撃の疑いとして至急通知(公開サービスのユーザーなら隔離)"
+        ],
+        "en": [
+          "ops: ransomware hardening — Sakura becomes receive-only (the VPS key cannot overwrite, delete or get a shell; www is rsync-only), with old-copy cleanup and weekly www snapshots done by a cron job on Sakura",
+          "ops: add backup-integrity-check (daily 05:20) comparing a SHA-256 ledger against the VPS and Sakura copies and alerting on changed or missing files",
+          "ops: send full history of private repositories (git bundles) to Sakura nightly (changed repos only, 60 days, newest kept indefinitely)",
+          "ops: secguard gains canary files in 8 000-confidential folders; any write/rename/delete attempt raises an urgent possible-ransomware alert (and quarantines a public-service user)"
+        ]
+      }
+    },
     {
       "version": "1.1.17",
       "date": "2026-11-16",

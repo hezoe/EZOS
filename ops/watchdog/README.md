@@ -22,6 +22,7 @@ EZOS を動かすホストの**サービス死活監視・自動再起動・通�
 | 起動 | `service-watchdog.timer`（既定5分毎）→ `service-watchdog.service`(oneshot) |
 | DBバックアップ | `db-backup.{sh,service,timer}`（毎晩） |
 | オフサイト複製 | `offsite-backup.sh`（`/usr/local/sbin`・`db-backup-offsite.conf` で db-backup の後に実行） |
+| バックアップの書き換え点検 | `backup-integrity-check.{py,service,timer}`（毎朝 05:20） |
 | 証明書更新の見届け | `cert-renewal-check.{sh,service,timer}`（任意・`CERTRENEW_HOST` 設定時） |
 
 ## インストール
@@ -67,12 +68,28 @@ D は git に入れない物を VPS 消失に備えて外へ置くためのも�
 暗号化は公開鍵 `/etc/offsite-backup/secrets.pub.asc` で行い、**復号の秘密鍵は VPS にもさくらにも置かない**(持ち主が手元で保管)。
 対象が消えている・暗号化や複製に失敗したときは通知する。
 
-戻し方(秘密鍵 `OFFSITE-SECRETS-PRIVATE-KEY.asc` を手元から持ってくる):
+### 書き換えの点検(`backup-integrity-check.py`・毎朝 05:20)
+
+`offsite-backup.sh` はバックアップを作るたびに指紋(SHA-256)を台帳 `/var/lib/offsite-backup/manifest.tsv` に残し、
+同じ台帳をさくら `~/backups/manifest.tsv` にも置く(70 日で行を落とす。変わらないリポジトリの最新 bundle は毎晩時刻を進めて残す)。点検はこれと照らし合わせ、違いがあれば高優先で通知する。
+
+- VPS のバックアップ(DB ダンプ・暗号化した秘密情報・www のスナップショット)とさくらの写しが台帳の指紋と一致するか
+- 台帳にないファイルが紛れ込んでいないか・保持期間内のファイルが消えていないか
+- VPS とさくらの台帳が同じか(片方だけ書き換えても気づく)
+- VPS の置き場が root 専用(700)で、ファイルが他人から書けないか
+
+台帳の列は「種類・名前・指紋・記録時刻・置き場所(local/both/remote)」。バックアップと同時には動かない(`/run/offsite-backup.lock`)。
+試すときは `sudo python3 -I /usr/local/sbin/backup-integrity-check.py --no-notify`。台帳を作り直すときは `--init`(台帳に無いファイルを今の中身で登録)。
+
+さくら側は受け取り専用(`sakura/backup-recv.sh` を `~/bin/backup-recv`、`sakura/backup-rotate.sh` を `~/bin/backup-rotate` に置き cron で毎日)。
+VPS の鍵ではさくらの `backups/` を読めない・消せないので、写しを取り出すのは持ち主の鍵(制限なし)で行う。
+
+戻し方(秘密鍵 `OFFSITE-SECRETS-PRIVATE-KEY.asc` を手元から持ってくる。写しは持ち主の鍵で取り出して VPS へ運ぶ):
 
 ```sh
 G=$(mktemp -d /dev/shm/g.XXXX)
 gpg --homedir "$G" --import OFFSITE-SECRETS-PRIVATE-KEY.asc
-scp <さくらのアカウント>:backups/vps-secrets/vps-secrets-YYYYmmdd.tar.gz.gpg .
+scp <さくらのアカウント>:backups/vps-secrets/vps-secrets-YYYYmmdd-HHMMSS.tar.gz.gpg .   # 持ち主の鍵で
 gpg --homedir "$G" -d vps-secrets-YYYYmmdd.tar.gz.gpg | tar -tzvf -            # 中身を確かめる
 gpg --homedir "$G" -d vps-secrets-YYYYmmdd.tar.gz.gpg | sudo tar -xzpf - -C / etc/wireguard   # 要る物だけ戻す
 rm -rf "$G"

@@ -15,6 +15,9 @@ for u in secguard.service secguard-logbudget.service secguard-logbudget.timer; d
 done
 sed -i "s|^Documentation=file:.*|Documentation=file:$SRC/README.md|" /etc/systemd/system/secguard.service
 
+# おとりファイル(ランサム攻撃の早期発見)。規則を読む前に置く
+python3 -I /usr/local/sbin/secguard.py --make-canaries
+
 # auditd: 公開サービスの専用ユーザーと docker の flightlog(1001)/postgres(70)の実行・管理者の設定の書き換え
 rules=""
 for who in ogn navlog notam takikawa 1001 70; do

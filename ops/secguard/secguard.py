@@ -16,6 +16,8 @@ takikawa と docker の flightlog/postgres)を見張り、攻撃らしい動き�
      止めたサービスは /var/lib/secguard/quarantine/<名前> を置き、systemd の条件(90-secguard.conf)と
      service-watchdog の両方が起こし直さない。戻すのは浩さんが確かめてから `secguard-release <名前>`。
   3. 管理者の設定(アカウント・sudoers・SSH の鍵・systemd・/usr/local/bin・WireGuard)の書き換え → 通知だけ
+  4. おとりファイル(CANARY_DIRS の 000-confidential/)への書き込み・改名・削除 → ランサム攻撃の疑いとして至急
+     (auditd: sg_canary。失敗した試みも数える。公開サービスのユーザーならそのサービスを隔離。5 分ごとに中身も照合)
 
 入力(どれも外から来た文字列を含むので、解析は json/正規表現だけで行い、シェルには渡さない。IP は ipaddress で検証):
   - /home/debian/saas/caddy/data/logs/*.access.log(Caddy の JSON。回転に追随)
@@ -25,6 +27,7 @@ takikawa と docker の flightlog/postgres)を見張り、攻撃らしい動き�
 
   secguard.py              常駐(secguard.service)
   secguard.py --test-web   Caddy の記録を最初から読み、判定だけ表示(遮断も通知もしない)
+  secguard.py --make-canaries  おとりファイルを置く(install.sh から。常駐は書き込めない囲いの中なので)
 """
 import collections
 import ipaddress
@@ -50,6 +53,17 @@ IPSET = "secguard-ban"
 BLOCK_IPSET = "secguard-block"      # BLOCK_NETS(恒久に遮断する区画)
 BLOCK_MIN_PREFIX = 16               # 書き間違いで広い範囲を落とさないよう /16 より広い区画は受け付けない
 TEST = "--test-web" in sys.argv
+
+# おとりファイル(ランサム攻撃の早期発見・2026-11-16)。誰も触らないはずの場所に置き、auditd(sg_canary)で見張る。
+# 置き場は 50-secguard.rules の sg_canary と合わせる。root の持ち物・書き込み不可にして、試みた時点で記録に残す。
+CANARY_DIRS = ["/home/debian/000-confidential", "/home/debian/saas/000-confidential",
+               "/home/debian/workspace/000-confidential", "/var/lib/000-confidential",
+               "/var/backups/000-confidential", "/opt/000-confidential", "/srv/000-confidential",
+               "/root/000-confidential"]
+CANARY_TEXT = ("secguard decoy file (2026-11-16). Do not edit, move or delete.\n"
+               "Any change to this folder is treated as a ransomware attack and raises an urgent alert.\n"
+               "おとりファイルです。触らないでください(書き換え・移動・削除で至急の通知が出ます)。\n")
+CANARY_FILES = ["passwords.xlsx", "customer-list.docx", "README.txt"]
 
 # ── 設定(/etc/secguard.conf。KEY=VALUE。無ければ既定) ─────────────────────────────
 def load_conf():
@@ -544,6 +558,16 @@ def on_audit_event(recs):
     auid = sc.get("auid", "")
     ppid = sc.get("ppid", "0")
     paths = [aud_val(r.get("name", "")) for r in recs if r.get("type") == "PATH" and r.get("name")]
+    if key == "sg_canary":
+        if sc.get("pid") == str(os.getpid()):
+            return          # 起動時に自分で作った分
+        ok = sc.get("success", "") == "yes"
+        cwd = next((aud_val(r.get("cwd", "")) for r in recs if r.get("type") == "CWD"), "")
+        comm = aud_val(sc.get("comm", ""))
+        detail = (f"{exe} ({comm}) uid={uid} auid={auid} syscall={sc.get('syscall', '?')} "
+                  f"{'成功' if ok else '失敗(拒否)'}\n対象: {', '.join(p for p in paths[:4] if p)} (cwd {cwd})")
+        canary_hit("触られました(書き込み・改名・削除の試み)", detail, UID2GROUP.get(uid))
+        return
     if key == "sg_exec":
         g = UID2GROUP.get(uid)
         if not g:
@@ -589,6 +613,59 @@ def on_audit_event(recs):
             pending_digest["changes"].append(line)
 
 aud_cur = {"serial": None, "recs": [], "t": 0.0}
+
+# ── おとりファイル ─────────────────────────────────────────────────────────────────
+canary_alert = {"t": 0.0, "n": 0}
+
+def ensure_canaries():
+    """無いおとりを作る(中身が違う既存のものは証拠として残し、照合で知らせ続ける)。
+    常駐は書き込みのできない囲いの中で動くので、install.sh が `secguard.py --make-canaries` で呼ぶ"""
+    for d in CANARY_DIRS:
+        try:
+            os.makedirs(d, mode=0o755, exist_ok=True)
+            os.chown(d, 0, 0); os.chmod(d, 0o755)
+            for f in CANARY_FILES:
+                p = os.path.join(d, f)
+                if not os.path.exists(p):
+                    with open(p, "w") as fh:
+                        fh.write(CANARY_TEXT)
+                    os.chown(p, 0, 0); os.chmod(p, 0o444)
+        except OSError as e:
+            log(f"canary {d}: {e}")
+
+def canary_hit(what, detail, group=None):
+    """ランサム攻撃の疑い。至急の通知は 10 分に 1 回まで(暗号化は大量の記録を出すので)、残りは数えてまとめに"""
+    canary_alert["n"] += 1
+    event("canary", what=what, detail=detail[:500], group=group)
+    if group:
+        quarantine(group, f"公開サービスのユーザーがおとりファイルに触った({what})", detail)
+    if time.time() - canary_alert["t"] < 600:
+        pending_digest["info"].append(f"おとり {what}: {detail[:120]}")
+        return
+    canary_alert["t"] = time.time()
+    notify("secguard 至急: ランサム攻撃の疑い",
+           f"おとりファイルが{what}。\n{detail[:900]}\n\n"
+           f"誰も触らないはずのファイルです。心当たりが無ければ、ファイルの暗号化が始まっている疑いがあります。\n"
+           f"バックアップ(さくら)は VPS からは消せない作りです。VPS を止めるか、さくらのコンソールから確かめてください。\n{stamp()}",
+           "urgent", "rotating_light,lock", force=True)
+    log(f"CANARY {what} {detail[:200]}")
+
+def check_canaries():
+    """auditd が止められても気づけるよう、中身・持ち主も照合する"""
+    bad = []
+    for d in CANARY_DIRS:
+        for f in CANARY_FILES:
+            p = os.path.join(d, f)
+            try:
+                st = os.lstat(p)
+                with open(p, errors="replace") as fh:
+                    ok = fh.read(4096) == CANARY_TEXT and st.st_uid == 0 and not os.path.islink(p)
+            except OSError:
+                ok = False
+            if not ok:
+                bad.append(p)
+    if bad:
+        canary_hit("書き換えられているか消えています", "照合: " + ", ".join(bad[:8]) + (f" ほか {len(bad) - 8} 件" if len(bad) > 8 else ""))
 
 def aud_flush():
     """溜めた 1 件分(同じ通し番号の行)を処理する。EOE が出ない環境があるので、番号が変わった時と 1 秒たった時に出す"""
@@ -702,6 +779,9 @@ def main():
     for f in ("events.jsonl", "bans.json", "learned.json"):
         if (STATE_DIR / f).exists():
             os.chmod(STATE_DIR / f, 0o600)
+    if "--make-canaries" in sys.argv:
+        ensure_canaries()
+        return
     if TEST:
         n = 0
         for f in sorted(CADDY_LOG_DIR.glob("*.access.log")):
@@ -721,6 +801,7 @@ def main():
     tails = {}
     audit = Tail(AUDIT_LOG)
     last_listen = 0
+    last_canary = time.time()
     while True:
         for f in CADDY_LOG_DIR.glob("*.access.log"):
             if f not in tails:
@@ -753,6 +834,12 @@ def main():
                 check_listeners()
             except Exception as e:  # noqa: BLE001
                 log(f"listen: {e}")
+        if time.time() - last_canary > 300:
+            last_canary = time.time()
+            try:
+                check_canaries()
+            except Exception as e:  # noqa: BLE001
+                log(f"canary: {e}")
         digest()
         time.sleep(1)
 

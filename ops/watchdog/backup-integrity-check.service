@@ -1,0 +1,12 @@
+[Unit]
+Description=バックアップが書き換えられていないかの点検(VPS とさくらの写しを指紋の台帳と照合)
+Documentation=file:/home/debian/EZOS/ops/watchdog/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 -I /usr/local/sbin/backup-integrity-check.py
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=1200

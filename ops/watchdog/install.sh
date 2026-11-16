@@ -27,6 +27,11 @@ install -d -m 0755 /etc/systemd/system/db-backup.service.d
 install -m 0644 "$SRC/db-backup-offsite.conf" /etc/systemd/system/db-backup.service.d/offsite.conf
 grep -qE '^REMOTE=.+' /etc/offsite-backup/offsite-backup.conf 2>/dev/null || echo "要設定: /etc/offsite-backup/offsite-backup.conf に REMOTE=<さくらのアカウント>@<ホスト>"
 [ -s /etc/offsite-backup/secrets.pub.asc ] || echo "要設置: /etc/offsite-backup/secrets.pub.asc(秘密情報を暗号化する公開鍵。README 参照)"
+# バックアップの書き換え点検(毎朝 05:20)。初回は既存のバックアップを台帳に登録する
+install -m 0755 "$SRC/backup-integrity-check.py" /usr/local/sbin/backup-integrity-check.py
+install -m 0644 "$SRC/backup-integrity-check.service" /etc/systemd/system/backup-integrity-check.service
+install -m 0644 "$SRC/backup-integrity-check.timer"   /etc/systemd/system/backup-integrity-check.timer
+[ -s /var/lib/offsite-backup/manifest.tsv ] || python3 -I /usr/local/sbin/backup-integrity-check.py --init --no-notify || true
 
 # 証明書更新の見届け(任意): CERTRENEW_HOST が設定されていれば有効化し、更新前の期限を基準記録
 CRHOST="$( . /etc/service-watchdog.conf 2>/dev/null || true; printf '%s' "${CERTRENEW_HOST:-}" )"
@@ -53,13 +58,14 @@ install -m 0644 "$SRC/ezos-integrity-check.service" /etc/systemd/system/ezos-int
 install -m 0644 "$SRC/ezos-integrity-check.timer"   /etc/systemd/system/ezos-integrity-check.timer
 
 # unit の Documentation= を実際の設置場所へ合わせる(ユーザー名/設置先に依存させない)
-for u in service-watchdog.service service-watchdog.timer db-backup.service cert-renewal-check.service node-refresh.service ezos-guard.service ezos-integrity-check.service; do
+for u in service-watchdog.service service-watchdog.timer db-backup.service backup-integrity-check.service cert-renewal-check.service node-refresh.service ezos-guard.service ezos-integrity-check.service; do
   [ -f "/etc/systemd/system/$u" ] && sed -i "s|^Documentation=file:.*|Documentation=file:$SRC/README.md|" "/etc/systemd/system/$u"
 done
 
 systemctl daemon-reload
 systemctl enable --now service-watchdog.timer
 systemctl enable --now db-backup.timer
+systemctl enable --now backup-integrity-check.timer
 systemctl enable --now node-refresh.timer
 systemctl enable --now ezos-guard.timer
 systemctl enable --now ezos-integrity-check.timer

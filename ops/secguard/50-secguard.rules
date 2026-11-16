@@ -22,3 +22,13 @@
 -w /var/spool/cron/ -p wa -k sg_cron
 -w /etc/secguard.conf -p wa -k sg_secguard
 -w /etc/audit/ -p wa -k sg_secguard
+## おとりファイル(ランサム攻撃の早期発見・2026-11-16)。置き場は secguard.py の CANARY_DIRS と合わせる。
+## 中身への書き込み・属性の変更・作成・改名・削除を、失敗した試みも含めて残す
+-w /home/debian/000-confidential/ -p wa -k sg_canary
+-w /home/debian/saas/000-confidential/ -p wa -k sg_canary
+-w /home/debian/workspace/000-confidential/ -p wa -k sg_canary
+-w /var/lib/000-confidential/ -p wa -k sg_canary
+-w /var/backups/000-confidential/ -p wa -k sg_canary
+-w /opt/000-confidential/ -p wa -k sg_canary
+-w /srv/000-confidential/ -p wa -k sg_canary
+-w /root/000-confidential/ -p wa -k sg_canary
