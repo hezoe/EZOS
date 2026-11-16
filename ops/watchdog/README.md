@@ -21,6 +21,7 @@ EZOS を動かすホストの**サービス死活監視・自動再起動・通�
 | 状態 | `/var/lib/service-watchdog/` |
 | 起動 | `service-watchdog.timer`（既定5分毎）→ `service-watchdog.service`(oneshot) |
 | DBバックアップ | `db-backup.{sh,service,timer}`（毎晩） |
+| オフサイト複製 | `offsite-backup.sh`（`/usr/local/sbin`・`db-backup-offsite.conf` で db-backup の後に実行） |
 | 証明書更新の見届け | `cert-renewal-check.{sh,service,timer}`（任意・`CERTRENEW_HOST` 設定時） |
 
 ## インストール
@@ -51,6 +52,31 @@ sudo ops/watchdog/install.sh           # 再実行（既存 /etc conf は保持�
 3. それ以外は `FAIL_THRESHOLD` 回**連続**失敗のみ `restart_cmd` → `POST_RESTART_WAIT` 秒後に再チェック → **成否に関わらず通知**。
 4. `COOLDOWN_SEC` 内は同一サービスへ再アクションしない（フラップ防止）。
 5. 環境アラートは状態ベースで重複通知を抑制。
+
+## オフサイト複製(`offsite-backup.sh`)
+
+毎晩 db-backup のあとに走る。失敗は ntfy(vps-healthcheck のトピック)。送り先は `/etc/offsite-backup/offsite-backup.conf` の `REMOTE=`(公開リポジトリには載せない)。
+
+| | 中身 | 置き先 | 保持 |
+|---|---|---|---|
+| A | 当日の DB ダンプ | さくら `~/backups/vps-db/` | 14 日 |
+| B / C | さくら `~/www` のミラー(月曜は tar も) | VPS `/var/backups/sakura/` | ミラー + 3 世代 |
+| D | 秘密情報(WireGuard 鍵・CATVPN 台帳・`/etc` の実値・各 `.env`・SSH/署名鍵・systemd ユニット・cron)を暗号化 | さくら `~/backups/vps-secrets/`(VPS にも 3 世代) | 30 日 |
+
+D は git に入れない物を VPS 消失に備えて外へ置くためのもの。対象は台本の `SECRET_PATHS`。
+暗号化は公開鍵 `/etc/offsite-backup/secrets.pub.asc` で行い、**復号の秘密鍵は VPS にもさくらにも置かない**(持ち主が手元で保管)。
+対象が消えている・暗号化や複製に失敗したときは通知する。
+
+戻し方(秘密鍵 `OFFSITE-SECRETS-PRIVATE-KEY.asc` を手元から持ってくる):
+
+```sh
+G=$(mktemp -d /dev/shm/g.XXXX)
+gpg --homedir "$G" --import OFFSITE-SECRETS-PRIVATE-KEY.asc
+scp <さくらのアカウント>:backups/vps-secrets/vps-secrets-YYYYmmdd.tar.gz.gpg .
+gpg --homedir "$G" -d vps-secrets-YYYYmmdd.tar.gz.gpg | tar -tzvf -            # 中身を確かめる
+gpg --homedir "$G" -d vps-secrets-YYYYmmdd.tar.gz.gpg | sudo tar -xzpf - -C / etc/wireguard   # 要る物だけ戻す
+rm -rf "$G"
+```
 
 ## 運用コマンド
 ```sh

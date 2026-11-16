@@ -1,6 +1,18 @@
 {
-  "current": "1.1.16",
+  "current": "1.1.17",
   "releases": [
+    {
+      "version": "1.1.17",
+      "date": "2026-11-16",
+      "notes": {
+        "ja": [
+          "ops: 夜のオフサイト複製(offsite-backup.sh)をリポジトリに取り込み、秘密情報(WireGuard 鍵・CATVPN 台帳・設定の実値・.env・署名鍵など)を公開鍵で暗号化してさくらへ毎晩置く段を追加(30 日保持・復号の鍵は VPS に置かない)"
+        ],
+        "en": [
+          "ops: bring the nightly offsite copy (offsite-backup.sh) into the repo and add an encrypted off-site copy of secrets (WireGuard keys, CATVPN ledger, live config, .env files, signing keys) to Sakura every night (30 days; the decryption key is never kept on the VPS)"
+        ]
+      }
+    },
     {
       "version": "1.1.16",
       "date": "2026-11-16",

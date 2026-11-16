@@ -21,6 +21,12 @@ install -m 0755 "$SRC/db-backup.sh" /usr/local/bin/db-backup.sh
 install -m 0644 "$SRC/db-backup.service" /etc/systemd/system/db-backup.service
 install -m 0644 "$SRC/db-backup.timer"   /etc/systemd/system/db-backup.timer
 mkdir -p /var/backups/db && chmod 700 /var/backups/db
+# オフサイト複製(DB ダンプ→さくら・さくら www→VPS・秘密情報の暗号化→さくら)。db-backup の後に走る
+install -m 0755 "$SRC/offsite-backup.sh" /usr/local/sbin/offsite-backup.sh
+install -d -m 0755 /etc/systemd/system/db-backup.service.d
+install -m 0644 "$SRC/db-backup-offsite.conf" /etc/systemd/system/db-backup.service.d/offsite.conf
+grep -qE '^REMOTE=.+' /etc/offsite-backup/offsite-backup.conf 2>/dev/null || echo "要設定: /etc/offsite-backup/offsite-backup.conf に REMOTE=<さくらのアカウント>@<ホスト>"
+[ -s /etc/offsite-backup/secrets.pub.asc ] || echo "要設置: /etc/offsite-backup/secrets.pub.asc(秘密情報を暗号化する公開鍵。README 参照)"
 
 # 証明書更新の見届け(任意): CERTRENEW_HOST が設定されていれば有効化し、更新前の期限を基準記録
 CRHOST="$( . /etc/service-watchdog.conf 2>/dev/null || true; printf '%s' "${CERTRENEW_HOST:-}" )"
