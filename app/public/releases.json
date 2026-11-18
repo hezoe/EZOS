@@ -1,6 +1,18 @@
 {
-  "current": "1.1.18",
+  "current": "1.1.19",
   "releases": [
+    {
+      "version": "1.1.19",
+      "date": "2026-11-18",
+      "notes": {
+        "ja": [
+          "ops: secguard がコンテナの起動の手順(Alpine の busybox で動く env・id など)を乗っ取りと取り違え、Docker の再起動で FlightLog と PostgreSQL を隔離していた問題を修正。起動から 120 秒以内の実行は記録だけにする(CONTAINER_START_GRACE)"
+        ],
+        "en": [
+          "ops: fix secguard mistaking container start-up steps (env, id, etc. run via busybox on Alpine) for a takeover and quarantining FlightLog and PostgreSQL after a Docker restart; executions within 120 seconds of a container start are now only recorded (CONTAINER_START_GRACE)"
+        ]
+      }
+    },
     {
       "version": "1.1.18",
       "date": "2026-11-16",

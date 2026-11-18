@@ -11,5 +11,7 @@ WEB_404_BAN=80
 WEB_FLOOD_REQ=3000
 # この時刻(epoch)までは、公開サービスの見覚えのない実行・待ち受けを覚えるだけ(止めない)。install.sh が 48 時間後を入れる
 LEARN_UNTIL=0
+# コンテナの起動からこの秒数の実行は起動の手順として記録だけ(止めない)
+CONTAINER_START_GRACE=120
 DIGEST_SEC=1800
 NOTIFY_MAX_PER_HOUR=30

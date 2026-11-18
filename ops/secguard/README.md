@@ -29,6 +29,7 @@ Cookie/Authorization は残さない。応答の Content-Type と Location は�
 | Web: 探りに HTML 以外の中身を 2xx で返した | 漏れの疑いとして通知(多くのサイトは知らない URL にも `index.html`(text/html)を返すので、それは除く) |
 | 公開サービスのユーザーが内部へ出ようとした(`SECGUARD-EGRESS`) | **そのサービスを隔離(停止)**・至急の通知 |
 | 公開サービスのユーザー(ogn/navlog/notam/takikawa)・docker の flightlog(uid 1001)/postgres(70)がシェル・ネット道具・sudo などを実行した(auditd `sg_exec`) | **隔離**・至急 |
+| 上のうち、docker のコンテナの起動から 120 秒以内の実行(Alpine の起動手順は env・id・sh などを busybox で動かす) | 起動の手順として記録だけ(`exec_container_start`・まとめ通知)。秒数は `CONTAINER_START_GRACE` |
 | 公開サービスのユーザーが sudo を試みた | **隔離**・至急 |
 | 見覚えのない実行・公開サービスの新しい待ち受けポート | 学習期間(設置から 48 時間)は覚えるだけ。その後は**隔離** |
 | コンテナが禁止先へ出ようとした(`SECGUARD-CTR`) | 通知(Caddy を止めると EZOS を含む全サイトが止まるので、自動では止めない) |

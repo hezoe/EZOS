@@ -29,6 +29,7 @@ takikawa と docker の flightlog/postgres)を見張り、攻撃らしい動き�
   secguard.py --test-web   Caddy の記録を最初から読み、判定だけ表示(遮断も通知もしない)
   secguard.py --make-canaries  おとりファイルを置く(install.sh から。常駐は書き込めない囲いの中なので)
 """
+import calendar
 import collections
 import ipaddress
 import json
@@ -75,6 +76,7 @@ def load_conf():
         "WEB_404_BAN": "80",           # 時間幅内の 404 がこの数で遮断
         "WEB_FLOOD_REQ": "3000",       # 5 分間の要求数がこの数で遮断(1 秒 10 件相当)
         "LEARN_UNTIL": "0",            # この時刻(epoch)までは見覚えのない実行・待ち受けを覚えるだけ(止めない)
+        "CONTAINER_START_GRACE": "120",  # コンテナの起動からこの秒数の実行は起動の手順として記録だけ(止めない)
         "DIGEST_SEC": "1800",          # 遮断・設定変更のまとめ通知の間隔
         "NOTIFY_MAX_PER_HOUR": "30",   # 通知の上限(至急の停止の通知は数えない)
         "ALLOW_IPS": "",               # 遮断しない IP/CIDR(空白区切り。自宅・事務所など。repo には書かない)
@@ -542,6 +544,27 @@ def parent_comm(ppid):
     except (OSError, ValueError):
         return ""
 
+# コンテナの起動の手順(Alpine の env・id・sh は busybox)を乗っ取りと取り違えない(2026-11-18、
+# Docker 更新の再起動で flightlog・postgres を隔離した誤検知)。起動は root の docker 操作でしか起きない
+started_cache = {}
+
+def container_just_started(g):
+    ctrs = TARGETS[g].get("docker", [])
+    if not ctrs:
+        return False
+    c, now = ctrs[0], time.time()   # その uid が動くコンテナ(postgres の 2 つ目は巻き添えで止めるだけ)
+    t, at = started_cache.get(c, (0.0, 0.0))
+    if now - at > 5:
+        try:
+            out = subprocess.run(["docker", "inspect", "-f", "{{.State.StartedAt}}", c], capture_output=True,
+                                 text=True, timeout=10).stdout.strip()
+            m = re.match(r"(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)", out)
+            t = calendar.timegm(time.strptime(m.group(1), "%Y-%m-%dT%H:%M:%S")) if m else 0.0
+        except (OSError, subprocess.SubprocessError):
+            t = 0.0
+        started_cache[c] = (t, now)
+    return 0 <= now - t < I("CONTAINER_START_GRACE")
+
 CHANGE_KEYS = {"sg_ident": "アカウント", "sg_priv": "sudo の設定", "sg_keys": "SSH の鍵", "sg_sshd": "SSH の設定",
                "sg_units": "systemd", "sg_bin": "/usr/local の実行ファイル", "sg_wg": "WireGuard", "sg_cron": "cron",
                "sg_secguard": "secguard 自身"}
@@ -586,6 +609,11 @@ def on_audit_event(recs):
             event("exec_docker", group=g, exe=exe, argv=argv)
             pending_digest["info"].append(f"docker exec {g}: {exe}")
             return
+        container_start = not started_by_systemd and container_just_started(g)
+        if base in DANGEROUS and container_start:
+            event("exec_container_start", group=g, exe=exe, argv=argv, parent=pc)
+            pending_digest["info"].append(f"コンテナ起動中の実行 {g}: {exe} ({argv[:60]})")
+            return
         if base in DANGEROUS and not started_by_systemd:
             event("exec_dangerous", group=g, exe=exe, argv=argv, ppid=ppid, parent=pc)
             quarantine(g, f"公開サービスのユーザーが {base} を実行した", detail)
@@ -593,10 +621,10 @@ def on_audit_event(recs):
         k = f"{g}:{exe}"
         if k in learned["exe"]:
             return
-        if learning() or started_by_systemd:
+        if learning() or started_by_systemd or container_start:
             learned["exe"][k] = time.time(); save_learned()
             event("exec_learned", group=g, exe=exe, argv=argv, parent=pc)
-            pending_digest["info"].append(f"覚えた実行 {g}: {exe}" + ("(systemd が起動)" if started_by_systemd else ""))
+            pending_digest["info"].append(f"覚えた実行 {g}: {exe}" + ("(systemd が起動)" if started_by_systemd else "(コンテナの起動中)" if container_start else ""))
         else:
             event("exec_unknown", group=g, exe=exe, argv=argv, ppid=ppid, parent=pc)
             quarantine(g, "公開サービスのユーザーが見覚えのないものを実行した", detail)
