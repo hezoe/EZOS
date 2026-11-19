@@ -1,6 +1,18 @@
 {
-  "current": "1.1.19",
+  "current": "1.1.20",
   "releases": [
+    {
+      "version": "1.1.20",
+      "date": "2026-11-19",
+      "notes": {
+        "ja": [
+          "ops: ezoe.net の閲覧数を数える pvcount を追加。外部の解析サービスを使わず、ページの pv.js が stats.ezoe.net へ場所と外の参照元のホスト名だけを送る。IP・User-Agent・Cookie は保存せず、人数はその日だけの使い捨ての鍵で見分ける。ロボット・他サイトの Origin は数えない。集計(/stats)は管理 VPN からだけ"
+        ],
+        "en": [
+          "ops: add pvcount, a page-view counter for ezoe.net that uses no third-party analytics. The page's pv.js sends only the path and the external referrer host to stats.ezoe.net; no IP, User-Agent or cookie is stored, and visitors are distinguished with a key that is discarded daily. Bots and foreign origins are not counted. The stats page (/stats) is reachable only from the admin VPN"
+        ]
+      }
+    },
     {
       "version": "1.1.19",
       "date": "2026-11-18",

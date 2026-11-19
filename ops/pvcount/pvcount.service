@@ -1,0 +1,42 @@
+# pvcount: ezoe.net の閲覧数を数える(2026-11-19)。stats.ezoe.net(Caddy)→ 127.0.0.1/172.17.0.1:3105
+# 一時ユーザー(DynamicUser)で動かし、書けるのは /var/lib/pvcount だけ。外へは出ない(受けるだけ)。
+[Unit]
+Description=pvcount: ezoe.net page view counter (no IP/cookie stored)
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/bin/python3 /usr/local/bin/pvcount.py
+Environment=PV_STATE=/var/lib/pvcount/stats.json
+DynamicUser=yes
+StateDirectory=pvcount
+Restart=on-failure
+RestartSec=5
+MemoryMax=128M
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectProc=invisible
+ProcSubset=pid
+ProtectClock=yes
+ProtectHostname=yes
+ProtectKernelLogs=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+# 受けるのは手元と Caddy のコンテナからだけ(応答は同じ相手へ返る)
+IPAddressDeny=any
+IPAddressAllow=127.0.0.0/8 172.18.0.250 172.17.0.1
+
+[Install]
+WantedBy=multi-user.target

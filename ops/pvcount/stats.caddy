@@ -1,0 +1,37 @@
+# /home/debian/saas/caddy/sites/stats.caddy(2026-11-19 pvcount)。DNS の A レコード stats.ezoe.net → VPS ができてから置く。
+#   sudo docker exec saas-caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
+# /pv はだれでも(ezoe.net のページの pv.js が送る)。閲覧の記録には IP を残さない(log_skip)。
+# /stats・/stats.json は管理 VPN(EZOS-Admin・10.77.0.0/24)からだけ。
+stats.ezoe.net {
+  header {
+    Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    X-Content-Type-Options "nosniff"
+    X-Frame-Options "DENY"
+    Referrer-Policy "no-referrer"
+    Permissions-Policy "geolocation=(), microphone=(), camera=()"
+    Content-Security-Policy "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'"
+    -Server
+    -X-Powered-By
+  }
+
+  @pv path /pv
+  log_skip @pv
+  handle @pv {
+    request_body {
+      max_size 1KB
+    }
+    reverse_proxy host.docker.internal:3105
+  }
+
+  # handle は abort より先に評価されるので、VPN の確かめは handle の中で行う
+  @outside not remote_ip 10.77.0.0/24
+  handle /stats* {
+    abort @outside
+    reverse_proxy host.docker.internal:3105
+  }
+  handle {
+    abort
+  }
+
+  import access-log stats
+}
