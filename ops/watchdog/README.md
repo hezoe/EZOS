@@ -45,6 +45,7 @@ sudo ops/watchdog/install.sh           # 再実行（既存 /etc conf は保持�
 - `DEADMAN_URL` — healthchecks.io 等の ping URL（空=無効）。毎巡回 ping し、途絶を外部が検知。
 - `FAILED_UNITS_CHECK` / `FAILED_UNITS_IGNORE` — systemd failed の総ざらいと除外。
 - `BACKUP_TARGETS="container|POSTGRES_USER ..."` / `BACKUP_DBS` — DBバックアップ対象と鮮度監視対象。
+- `BACKUP_REMOTE_TARGETS="名前|user@host|鍵 ..."`(2026-11-19) — 別ホストの DB。相手側の authorized_keys で鍵を `from=…,restrict,command="DB を gzip した SQL で出す台本"` に絞り、db-backup が受け取りながら `/etc/offsite-backup/secrets.pub.asc` で暗号化して `<名前>-日時.sql.gz.gpg` に置く(VPS では開けない)。offsite-backup がさくら vps-db へ送り、改ざん点検・鮮度監視(`BACKUP_DBS` に名前を足す)・さくらの世代整理も `.sql.gz.gpg` を扱う。実例: JP1 ホスト(`jp1|ubuntu@<IP>|/etc/offsite-backup/jp1_backup_ed25519`、相手の台本 `/usr/local/sbin/jp1-db-dump`)。
 - `CERTRENEW_HOST` / `CERTRENEW_LASTDAY` ＋ `cert-renewal-check.timer` の `OnCalendar` — 証明書更新の見届け。
 
 ## ロジック（service-watchdog）

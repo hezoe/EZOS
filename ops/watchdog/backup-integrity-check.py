@@ -39,7 +39,7 @@ DAY = 86400
 
 # 種類ごとの置き場と保持(offsite-backup.sh / db-backup.sh と合わせる)
 LOCAL = {
-    "db": ("/var/backups/db", "*.sql.gz"),
+    "db": ("/var/backups/db", "*.sql.gz*"),   # .sql.gz.gpg=別ホストの DB(暗号化済み)
     "secrets": ("/var/backups/secrets", "vps-secrets-*.tar.gz.gpg"),
     "snap": ("/var/backups/sakura", "www-snap-*.tar.gz"),
 }
@@ -173,6 +173,8 @@ def main():
             continue
         present = set()
         for p in sorted(glob.glob(os.path.join(d, pat))):
+            if p.endswith(".tmp"):   # 書き込み途中
+                continue
             name = os.path.basename(p)
             present.add(name)
             fst = os.stat(p)

@@ -1,6 +1,18 @@
 {
-  "current": "1.1.20",
+  "current": "1.1.21",
   "releases": [
+    {
+      "version": "1.1.21",
+      "date": "2026-11-19",
+      "notes": {
+        "ja": [
+          "ops: 別ホストの DB も毎晩バックアップできるようにした(BACKUP_REMOTE_TARGETS)。相手側で出力専用に絞った鍵で SSH し、受け取りながら公開鍵で暗号化して <名前>-日時.sql.gz.gpg に置く(VPS では中身を開けない)。さくらへの転送・改ざん点検・鮮度監視・さくらの世代整理も .sql.gz.gpg を扱うよう対応"
+        ],
+        "en": [
+          "ops: nightly backup of databases on other hosts (BACKUP_REMOTE_TARGETS). The dump is fetched over SSH with a key restricted to a dump-only command on the remote side and encrypted with the public key while being received, stored as <name>-date.sql.gz.gpg (it cannot be opened on the VPS). Offsite transfer, tamper check, freshness monitoring and Sakura rotation now handle .sql.gz.gpg as well"
+        ]
+      }
+    },
     {
       "version": "1.1.20",
       "date": "2026-11-19",

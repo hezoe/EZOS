@@ -41,6 +41,7 @@ BACKUP_DIR="/var/backups/db"
 BACKUP_KEEP_DAYS=7
 BACKUP_TARGETS=""         # "container|POSTGRES_USER" をスペース区切り(例 "pg1|postgres pg2|appuser")。空=無効
 BACKUP_DBS=""             # 鮮度監視の接頭辞。BACKUP_TARGETSのcontainer名と揃える(例 "pg1 pg2")。空=無効
+BACKUP_REMOTE_TARGETS=""  # 別ホストの DB "名前|user@host|鍵" をスペース区切り。相手は鍵を command= で DB 出力専用に絞る。暗号化して <名前>-日時.sql.gz.gpg に置く
 BACKUP_MAX_AGE_SEC=93600  # 最新dumpがこれより古い/無い→警告(26h)
 
 # --- 証明書更新の見届け(任意): 更新窓は cert-renewal-check.timer(OnCalendar)で指定 ---

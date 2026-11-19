@@ -1,6 +1,7 @@
 #!/bin/sh
 # さくら側の後片付けと www の週ごとの写し(2026-11-16)。~/bin/backup-rotate に置き、さくらの cron で毎日動かす。
 # VPS の鍵には削除させない(backup-recv)ので、古い写しはここでだけ消す(DB 14 日・秘密情報 30 日・git 60 日)。
+# DB は *.sql.gz(VPS)と *.sql.gz.gpg(別ホスト JP1・暗号化済み・2026-11-19〜)の両方。
 # www は VPS の鍵(rrsync)で書き換えられうるので、さくらの中に週 1 回の写しを残す(VPS からは届かない)。
 set -u
 umask 077
@@ -9,7 +10,7 @@ KEEP_DB_DAYS=14
 KEEP_SECRETS_DAYS=30
 KEEP_WWW=3
 KEEP_GIT_DAYS=60
-find "$B/vps-db" -type f -name '*.sql.gz' -mtime +"$KEEP_DB_DAYS" -exec rm -f {} + 2>/dev/null
+find "$B/vps-db" -type f -name '*.sql.gz*' -mtime +"$KEEP_DB_DAYS" -exec rm -f {} + 2>/dev/null
 find "$B/vps-secrets" -type f -name '*.gpg' -mtime +"$KEEP_SECRETS_DAYS" -exec rm -f {} + 2>/dev/null
 # git の全履歴: リポジトリごとに最新の 1 つは期限を過ぎても残す(変わらないリポジトリの唯一の写しなので)
 if [ -d "$B/vps-git" ]; then

@@ -179,7 +179,7 @@ check_backups() {
   local dir="${BACKUP_DIR:-/var/backups/db}" maxage="${BACKUP_MAX_AGE_SEC:-93600}" nowt db newest age sf plast d
   nowt="$(now)"
   for db in $BACKUP_DBS; do
-    newest="$(ls -t "$dir/${db}"-*.sql.gz 2>/dev/null | head -1)"
+    newest="$(ls -t "$dir/${db}"-*.sql.gz "$dir/${db}"-*.sql.gz.gpg 2>/dev/null | head -1)"
     sf="$STATE_DIR/backup_${db}.warn"
     if [ -z "$newest" ]; then age=-1; else age=$(( nowt - $(stat -c %Y "$newest" 2>/dev/null || echo 0) )); fi
     if [ "$age" -lt 0 ] || [ "$age" -ge "$maxage" ]; then

@@ -92,7 +92,7 @@ notify_fail() {
 # --- A) VPS DBダンプ → さくら ---
 today=$(date +%Y%m%d)
 shopt -s nullglob
-dumps=("$DB_DIR"/*-"$today"-*.sql.gz)
+dumps=("$DB_DIR"/*-"$today"-*.sql.gz "$DB_DIR"/*-"$today"-*.sql.gz.gpg)   # .gpg=別ホストの DB(db-backup の BACKUP_REMOTE_TARGETS)
 if [ ${#dumps[@]} -eq 0 ]; then
   fail_msgs+=("当日のDBダンプが見つからない($DB_DIR)")
 else
