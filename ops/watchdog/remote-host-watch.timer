@@ -1,0 +1,12 @@
+[Unit]
+Description=Run remote-host-watch every 2 minutes
+Documentation=file:/home/debian/workspace/ops/watchdog/README.md
+
+[Timer]
+OnBootSec=120
+OnUnitActiveSec=120
+AccuracySec=15
+Persistent=false
+
+[Install]
+WantedBy=timers.target

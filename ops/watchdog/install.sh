@@ -57,8 +57,13 @@ install -m 0755 "$SRC/ezos-integrity-check.sh"  /usr/local/bin/ezos-integrity-ch
 install -m 0644 "$SRC/ezos-integrity-check.service" /etc/systemd/system/ezos-integrity-check.service
 install -m 0644 "$SRC/ezos-integrity-check.timer"   /etc/systemd/system/ezos-integrity-check.timer
 
+# 別ホストの見張り(2026-11-19): 設定 /etc/remote-host-watch.conf(実値・root 600)があるときだけ有効化
+install -m 0755 "$SRC/remote-host-watch.sh"      /usr/local/bin/remote-host-watch.sh
+install -m 0644 "$SRC/remote-host-watch.service" /etc/systemd/system/remote-host-watch.service
+install -m 0644 "$SRC/remote-host-watch.timer"   /etc/systemd/system/remote-host-watch.timer
+
 # unit の Documentation= を実際の設置場所へ合わせる(ユーザー名/設置先に依存させない)
-for u in service-watchdog.service service-watchdog.timer db-backup.service backup-integrity-check.service cert-renewal-check.service node-refresh.service ezos-guard.service ezos-integrity-check.service; do
+for u in service-watchdog.service service-watchdog.timer db-backup.service backup-integrity-check.service cert-renewal-check.service node-refresh.service ezos-guard.service ezos-integrity-check.service remote-host-watch.service remote-host-watch.timer; do
   [ -f "/etc/systemd/system/$u" ] && sed -i "s|^Documentation=file:.*|Documentation=file:$SRC/README.md|" "/etc/systemd/system/$u"
 done
 
@@ -70,6 +75,7 @@ systemctl enable --now node-refresh.timer
 systemctl enable --now ezos-guard.timer
 systemctl enable --now ezos-integrity-check.timer
 [ -n "$CRHOST" ] && systemctl enable cert-renewal-check.timer
+[ -r /etc/remote-host-watch.conf ] && systemctl enable --now remote-host-watch.timer
 echo "有効化完了。次のタイマ起動から監視開始:"
 systemctl status service-watchdog.timer --no-pager | head -4
 systemctl status db-backup.timer --no-pager | head -3

@@ -1,6 +1,20 @@
 {
-  "current": "1.1.21",
+  "current": "1.1.22",
   "releases": [
+    {
+      "version": "1.1.22",
+      "date": "2026-11-19",
+      "notes": {
+        "ja": [
+          "ops: 別ホストの見張り remote-host-watch を追加(2 分毎)。VPN のつながり・SSH・サービス・failed ユニット・ディスク・メモリ・相手側の DB バックアップ・公開 URL を見て、3 回連続の異常で ntfy に知らせ、決めたユニットだけを相手の入口で再起動する。相手の鍵は状態の確認と再起動だけに絞る",
+          "ops: 別ホストの秘密情報のバックアップ(REMOTE_SECRETS)。相手の上で公開鍵で暗号化したものだけを受け取り、宛先の鍵を確かめてさくらへ送る(平文は相手から出ない)。改ざん点検も対象に"
+        ],
+        "en": [
+          "ops: add remote-host-watch (every 2 minutes) for other hosts. It checks the VPN link, SSH, services, failed units, disk, memory, the remote DB backup and public URLs, notifies ntfy after 3 consecutive failures and restarts only allowed units through the remote entry point. The remote key is limited to status and restart",
+          "ops: backup of secrets on other hosts (REMOTE_SECRETS). Only data already encrypted with the public key on the remote host is received, its recipient key is verified and it is sent to Sakura (no plaintext leaves the remote host). Covered by the tamper check"
+        ]
+      }
+    },
     {
       "version": "1.1.21",
       "date": "2026-11-19",

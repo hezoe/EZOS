@@ -24,6 +24,7 @@ EZOS を動かすホストの**サービス死活監視・自動再起動・通�
 | オフサイト複製 | `offsite-backup.sh`（`/usr/local/sbin`・`db-backup-offsite.conf` で db-backup の後に実行） |
 | バックアップの書き換え点検 | `backup-integrity-check.{py,service,timer}`（毎朝 05:20） |
 | 証明書更新の見届け | `cert-renewal-check.{sh,service,timer}`（任意・`CERTRENEW_HOST` 設定時） |
+| 別ホストの見張り | `remote-host-watch.{sh,service,timer}`（2 分毎・設定 `/etc/remote-host-watch.conf` があるとき） |
 
 ## インストール
 
@@ -46,6 +47,7 @@ sudo ops/watchdog/install.sh           # 再実行（既存 /etc conf は保持�
 - `FAILED_UNITS_CHECK` / `FAILED_UNITS_IGNORE` — systemd failed の総ざらいと除外。
 - `BACKUP_TARGETS="container|POSTGRES_USER ..."` / `BACKUP_DBS` — DBバックアップ対象と鮮度監視対象。
 - `BACKUP_REMOTE_TARGETS="名前|user@host|鍵 ..."`(2026-11-19) — 別ホストの DB。相手側の authorized_keys で鍵を `from=…,restrict,command="DB を gzip した SQL で出す台本"` に絞り、db-backup が受け取りながら `/etc/offsite-backup/secrets.pub.asc` で暗号化して `<名前>-日時.sql.gz.gpg` に置く(VPS では開けない)。offsite-backup がさくら vps-db へ送り、改ざん点検・鮮度監視(`BACKUP_DBS` に名前を足す)・さくらの世代整理も `.sql.gz.gpg` を扱う。実例: JP1 ホスト(`jp1|ubuntu@<IP>|/etc/offsite-backup/jp1_backup_ed25519`、相手の台本 `/usr/local/sbin/jp1-db-dump`)。
+- `REMOTE_SECRETS="名前|user@host|鍵 ..."`(2026-11-19・`/etc/offsite-backup/offsite-backup.conf`) — 別ホストの秘密情報。相手側で同じ公開鍵 `secrets.pub.asc` を置き、鍵の `command=` の入口が `secrets` で「tar.gz を暗号化したもの」だけを出す(平文は相手から出ない)。offsite-backup が受け取り、宛先の鍵が `secrets.pub.asc` であることだけ確かめて `/var/backups/secrets/<名前>-secrets-日時.tar.gz.gpg`(3 世代)に置き、さくら vps-secrets へ送る。実例: JP1 ホスト(入口 `/usr/local/sbin/jp1-backup` → `jp1-secrets-dump`。DB と同じ鍵で、指定なし=DB)。
 - `CERTRENEW_HOST` / `CERTRENEW_LASTDAY` ＋ `cert-renewal-check.timer` の `OnCalendar` — 証明書更新の見届け。
 
 ## ロジック（service-watchdog）
@@ -96,11 +98,19 @@ gpg --homedir "$G" -d vps-secrets-YYYYmmdd.tar.gz.gpg | sudo tar -xzpf - -C / et
 rm -rf "$G"
 ```
 
+## 別ホストの見張り(`remote-host-watch.sh`・2026-11-19)
+別の VPS(例: JP1)を、この VPS から VPN 越しに 2 分毎に見張る。通知は service-watchdog と同じ ntfy。
+- 見るもの: WireGuard の最後の通信(`WG_STALE_SEC` より古い=VPN 切れ)・SSH で届くか・相手のサービス(is-active)・failed ユニット・ディスク・空きメモリ・相手側の DB バックアップの鮮度・公開 URL の L7(`REMOTE_HTTP`)。再起動待ちの更新は 1 回だけ知らせる。
+- 連続 `FAIL_THRESHOLD` 回の異常で 1 回知らせ、続けば `REMIND_SEC` ごとに念押し、戻れば回復を知らせる。サービス/URL の異常では、許したユニットだけを相手の入口で再起動する。
+- 相手の鍵は `from=<VPN のこちらの IP>,restrict,command="<入口>"` に絞る。入口が受け付けるのは `status`(読むだけ)と `restart <unit>`(相手側でも許可リストと 15 分の間隔を確かめる)だけ。シェルは渡さない。
+- 設定の雛形は `remote-host-watch.conf.example`。実値(宛先・鍵・WireGuard の公開鍵)は `/etc/remote-host-watch.conf`(root 600)に置き、リポジトリに入れない。
+
 ## 運用コマンド
 ```sh
 sudo systemctl start service-watchdog.service            # 手動1回
 sudo journalctl -u service-watchdog.service -n 30 --no-pager
-systemctl list-timers 'service-watchdog*' 'db-backup*' 'cert-renewal*'
+systemctl list-timers 'service-watchdog*' 'db-backup*' 'cert-renewal*' 'remote-host-watch*'
+sudo journalctl -u remote-host-watch.service -n 30 --no-pager  # 別ホストの見張り
 sudo systemctl stop service-watchdog.timer               # 一時停止
 ```
 

@@ -1,0 +1,11 @@
+[Unit]
+Description=Remote host watch (VPN/SSH/services/disk/backup/L7 of other hosts, ntfy notify)
+Documentation=file:/home/debian/workspace/ops/watchdog/README.md
+After=network-online.target wg-quick@wg0.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/remote-host-watch.sh /etc/remote-host-watch.conf
+# 相手の入口は鍵で絞ってある。wg show と鍵の読み出しのため root。
+TimeoutStartSec=170

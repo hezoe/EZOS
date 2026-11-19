@@ -4,6 +4,7 @@
 #   B) さくら ~/www → VPS /var/backups/sakura/www-mirror/ (rsync ミラー。VPS の鍵は rrsync で ~/www に限定)
 #   C) 月曜のみ: ミラーの tar スナップショット (3世代保持)
 #   D) 秘密情報(鍵・台帳・設定)を公開鍵で暗号化 → さくら ~/backups/vps-secrets/ (さくら側で30日保持)
+#      別ホスト(REMOTE_SECRETS)の秘密情報は相手の上で暗号化したものを受け取って同じ所へ(2026-11-19)
 #   さくらへの送り出しはバックアップ専用鍵(/etc/offsite-backup/backup_ed25519)で行う。さくら側は
 #   ~/bin/backup-recv が「新しいファイルを置く」だけを受け付け、上書き・削除はさせない(ランサム対策 2026-11-16)。
 #   古い写しの削除と www の週ごとの写しは、さくらの cron(~/bin/backup-rotate)が行う。
@@ -156,6 +157,33 @@ if [ -s "$SECRETS_PUB" ]; then
   else
     rm -f "$out.tmp"; fail_msgs+=("秘密情報の暗号化に失敗 (tar=${rc[0]} gpg=${rc[1]})")
   fi
+  # 別ホストの秘密情報(2026-11-19): 相手の上で同じ公開鍵で暗号化したものを受け取って置く(平文は相手から出ない)。
+  #   offsite-backup.conf の REMOTE_SECRETS="名前|user@host|鍵 ..."。相手は鍵を command= で絞り、"secrets" で暗号文を出す。
+  #   開けないので、この公開鍵あての暗号文かどうかだけを確かめる。
+  read -r -a RSECRETS <<< "$(grep -E '^REMOTE_SECRETS=' /etc/offsite-backup/offsite-backup.conf 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '"')"
+  gh=$(mktemp -d /run/offsite-gpg.XXXXXX)
+  want=$(gpg --homedir "$gh" --batch --with-colons --import-options show-only --import "$SECRETS_PUB" 2>/dev/null | awk -F: '$1 == "sub" { print $5 }')
+  for t in "${RSECRETS[@]}"; do
+    IFS='|' read -r nm dest key <<< "$t"
+    out="$SECRETS_DIR/$nm-secrets-$(date +%Y%m%d-%H%M%S).tar.gz.gpg"
+    ssh -i "$key" -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=20 \
+        -o UserKnownHostsFile=/home/debian/.ssh/known_hosts "$dest" secrets </dev/null > "$out.tmp" 2>/dev/null
+    src=$?
+    got=$(gpg --homedir "$gh" --batch --list-packets "$out.tmp" 2>/dev/null | awk '/^:pubkey enc packet:/ { print $NF }')
+    if [ "$src" -eq 0 ] && [ -n "$got" ] && grep -qxF "$got" <<< "$want" && [ "$(stat -c %s "$out.tmp")" -gt 1024 ]; then
+      mv -f "$out.tmp" "$out"; chmod 600 "$out"
+      ls -1t "$SECRETS_DIR/$nm"-secrets-*.tar.gz.gpg | tail -n +$((KEEP_SECRETS_LOCAL+1)) | xargs -r rm -f
+      if put vps-secrets "$out"; then
+        echo "OK  $nm の秘密情報(相手の上で暗号化済み)をさくらへ複製 ($(du -h "$out" | cut -f1))"
+        record secrets "$out" both
+      else
+        fail_msgs+=("$nm の秘密情報のさくらへの複製に失敗"); record secrets "$out" local
+      fi
+    else
+      rm -f "$out.tmp"; fail_msgs+=("$nm の秘密情報を受け取れない (ssh=$src 宛先の鍵=${got:-なし})")
+    fi
+  done
+  rm -rf "$gh"
 else
   fail_msgs+=("暗号化の公開鍵がない($SECRETS_PUB)")
 fi

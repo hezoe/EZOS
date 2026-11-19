@@ -40,7 +40,7 @@ DAY = 86400
 # 種類ごとの置き場と保持(offsite-backup.sh / db-backup.sh と合わせる)
 LOCAL = {
     "db": ("/var/backups/db", "*.sql.gz*"),   # .sql.gz.gpg=別ホストの DB(暗号化済み)
-    "secrets": ("/var/backups/secrets", "vps-secrets-*.tar.gz.gpg"),
+    "secrets": ("/var/backups/secrets", "*-secrets-*.tar.gz.gpg"),   # jp1-secrets-*=別ホスト(相手の上で暗号化済み)
     "snap": ("/var/backups/sakura", "www-snap-*.tar.gz"),
 }
 LOCAL_KEEP_DAYS = {"db": 7}            # 日数で消すもの

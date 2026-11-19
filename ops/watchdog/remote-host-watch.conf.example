@@ -1,0 +1,22 @@
+# remote-host-watch 設定テンプレート。実値へ編集して /etc/remote-host-watch.conf として設置する(root 600)。
+# ※ このファイルはリポジトリ管理(公開)。実ホスト名・IP・鍵の場所の実値は書かないこと。
+# 通知先(NTFY_URL/NTFY_TOPIC)は省略すると /etc/service-watchdog.conf のものを使う。
+
+FAIL_THRESHOLD=3          # 連続何回の異常で知らせる(2 分毎なら約 6 分)
+REMIND_SEC=21600          # 異常が続くときの念押し間隔
+WG_STALE_SEC=180          # WireGuard の最後の通信がこれより古い=VPN 切れ
+DISK_WARN_PCT=90
+MEM_AVAIL_WARN_MB=200
+BACKUP_MAX_AGE_SEC=93600  # 相手側の DB バックアップがこれより古い/無い→知らせる(26h)
+
+# 見張るホスト: "名前|user@host|鍵|WireGuard の IF|相手の WireGuard 公開鍵|再起動してよいユニット(空白区切り)"
+#   相手の authorized_keys では鍵を from=<VPN のこちらの IP>,restrict,command="<入口>" に絞る。
+#   入口は "status"(unit/failed/disk/mem/backup_age/reboot_required/uptime を 1 行ずつ)と
+#   "restart <unit>"(相手側でも許可リストと 15 分の間隔を確かめる)だけを受け付けること。例: JP1 の /usr/local/sbin/jp1-watch-agent
+REMOTE_HOSTS=(
+  "host1|user@10.0.0.2|/etc/remote-host-watch/host1_watch_ed25519|wg0|PEER_PUBLIC_KEY=|caddy my-app"
+)
+# 公開 URL の L7: "名前|キー|URL|最小|最大|本文に含む文字(空=見ない)|異常時に再起動するユニット(空=しない)"
+REMOTE_HTTP=(
+  "host1|app|https://app.example.com/healthz|200|200|\"status\":\"ok\"|my-app"
+)
