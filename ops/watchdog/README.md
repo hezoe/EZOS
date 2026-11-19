@@ -48,6 +48,7 @@ sudo ops/watchdog/install.sh           # 再実行（既存 /etc conf は保持�
 - `BACKUP_TARGETS="container|POSTGRES_USER ..."` / `BACKUP_DBS` — DBバックアップ対象と鮮度監視対象。
 - `BACKUP_REMOTE_TARGETS="名前|user@host|鍵 ..."`(2026-11-19) — 別ホストの DB。相手側の authorized_keys で鍵を `from=…,restrict,command="DB を gzip した SQL で出す台本"` に絞り、db-backup が受け取りながら `/etc/offsite-backup/secrets.pub.asc` で暗号化して `<名前>-日時.sql.gz.gpg` に置く(VPS では開けない)。offsite-backup がさくら vps-db へ送り、改ざん点検・鮮度監視(`BACKUP_DBS` に名前を足す)・さくらの世代整理も `.sql.gz.gpg` を扱う。実例: JP1 ホスト(`jp1|ubuntu@<IP>|/etc/offsite-backup/jp1_backup_ed25519`、相手の台本 `/usr/local/sbin/jp1-db-dump`)。
 - `REMOTE_SECRETS="名前|user@host|鍵 ..."`(2026-11-19・`/etc/offsite-backup/offsite-backup.conf`) — 別ホストの秘密情報。相手側で同じ公開鍵 `secrets.pub.asc` を置き、鍵の `command=` の入口が `secrets` で「tar.gz を暗号化したもの」だけを出す(平文は相手から出ない)。offsite-backup が受け取り、宛先の鍵が `secrets.pub.asc` であることだけ確かめて `/var/backups/secrets/<名前>-secrets-日時.tar.gz.gpg`(3 世代)に置き、さくら vps-secrets へ送る。実例: JP1 ホスト(入口 `/usr/local/sbin/jp1-backup` → `jp1-secrets-dump`。DB と同じ鍵で、指定なし=DB)。
+- `VALUE_CHECKS=( "名前|URL|jqの式|下限|分|説明" ... )`(2026-11-20・要 jq) — 値の見張り(**通知のみ・再起動しない**)。生きているのに中身が空になる障害を拾う。式の値が下限未満のまま「分」以上続いたら ntfy、続く間は `VALUE_REMIND_SEC`(既定 6h)ごとに再通知、戻ったら復旧通知。URL 不応答・JSON 以外も下限未満の扱い。実例: `ogn-adsb|http://127.0.0.1:3103/healthz|.adsb_aircraft|1|15|ogn.ezoe.net の ADS-B 機体数`(取得元 adsb.lol の回数制限で 0 機になったのに気づけなかった件から)。
 - `CERTRENEW_HOST` / `CERTRENEW_LASTDAY` ＋ `cert-renewal-check.timer` の `OnCalendar` — 証明書更新の見届け。
 
 ## ロジック（service-watchdog）

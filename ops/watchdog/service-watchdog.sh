@@ -198,6 +198,47 @@ $(stamp) $HOST" high rotating_light
   done
 }
 
+# ---- 値の見張り(通知のみ・再起動しない。2026-11-20) ----
+# 生きているのに中身が空になる障害(例: ogn-web の ADS-B 取得元が回数制限で断り、機体が0機のまま)を拾う。
+# VALUE_CHECKS の各行 "名前|URL|jqの式|下限|分|説明": 式の値が下限未満の状態が「分」以上続いたら1回通知、
+# 続く間は VALUE_REMIND_SEC ごとに再通知、戻ったら復旧を通知。URL が応答しない・JSON でないときも下限未満と同じ扱い。
+check_values() {
+  declare -p VALUE_CHECKS >/dev/null 2>&1 && [ "${#VALUE_CHECKS[@]}" -gt 0 ] || return 0   # 未設定(古い conf)でも止まらない
+  command -v jq >/dev/null 2>&1 || return 0
+  local rec nm url expr lo mins desc val nowt sf since nlast bad
+  nowt="$(now)"
+  for rec in "${VALUE_CHECKS[@]}"; do
+    IFS='|' read -r nm url expr lo mins desc <<< "$rec"
+    [ -n "$nm" ] && [ -n "$url" ] && [ -n "$expr" ] || continue
+    val="$(curl -s -m "$CURL_TIMEOUT" "$url" 2>/dev/null | jq -r "$expr" 2>/dev/null | head -1)"
+    bad=0
+    if [[ "$val" =~ ^-?[0-9]+(\.[0-9]+)?$ ]]; then
+      awk -v v="$val" -v l="${lo:-1}" 'BEGIN{exit !(v < l)}' && bad=1
+    else bad=1; val="取得できず"; fi
+    sf="$STATE_DIR/value_${nm//[^A-Za-z0-9_.-]/_}.state"
+    since=0; nlast=0; [ -r "$sf" ] && read -r since nlast < "$sf"
+    if [ "$bad" = 1 ]; then
+      [ "${since:-0}" -gt 0 ] || since="$nowt"
+      if [ $(( nowt - since )) -ge $(( ${mins:-15} * 60 )) ] && \
+         { [ "${nlast:-0}" -eq 0 ] || [ $(( nowt - nlast )) -ge "${VALUE_REMIND_SEC:-21600}" ]; }; then
+        log "VALUE $nm low: $val (<$lo) since $(date -d "@$since" '+%F %T')"
+        notify "watchdog: $nm low" \
+"⚠ ${desc:-$nm} が ${val}(下限 ${lo})のまま $(( (nowt - since) / 60 )) 分続いています($(date -d "@$since" '+%H:%M') から)。
+取得元の障害・利用制限・設定の不具合を確認してください。サービスの再起動はしていません。
+$(stamp) $HOST" high warning
+        nlast="$nowt"
+      fi
+      echo "$since $nlast" > "$sf"
+    else
+      if [ "${nlast:-0}" -gt 0 ]; then
+        log "VALUE $nm recovered: $val"
+        notify "watchdog: $nm OK" "✅ ${desc:-$nm} が戻りました(現在 ${val})。$(stamp) $HOST" default white_check_mark
+      fi
+      rm -f "$sf" 2>/dev/null
+    fi
+  done
+}
+
 # 環境アラートはサービス状態と独立に毎巡回で評価(systemic早期exitより前に実施)
 # 外部死活監視: 生存pingを最初に打つ(=このホスト＋watchdog＋外向き通信が生きている印)
 [ -n "${DEADMAN_URL:-}" ] && curl -fsS -m 8 "$DEADMAN_URL" >/dev/null 2>&1
@@ -206,6 +247,7 @@ check_certs
 check_failed_units
 check_memory
 check_backups
+check_values
 
 # ---- Phase 1: 全サービスを評価 ----
 declare -a NAME KIND TARGET SMIN SMAX SUBSTR RESTART OKV DET

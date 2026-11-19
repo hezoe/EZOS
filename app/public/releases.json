@@ -1,6 +1,18 @@
 {
-  "current": "1.1.22",
+  "current": "1.1.23",
   "releases": [
+    {
+      "version": "1.1.23",
+      "date": "2026-11-20",
+      "notes": {
+        "ja": [
+          "ops: service-watchdog に値の見張り(VALUE_CHECKS)を追加。URL の JSON の値(jq の式)が下限未満のまま決めた分数続いたら ntfy に知らせ、戻ったら復旧を知らせる(通知のみ・再起動しない)。サービスは動いているのに中身が空になる障害(例: ADS-B の取得元が回数制限で断り、機体が0機のまま)を拾う"
+        ],
+        "en": [
+          "ops: add value checks (VALUE_CHECKS) to service-watchdog. When a JSON value from a URL (a jq expression) stays below a minimum for the given minutes it notifies ntfy, and notifies again on recovery (notify only, no restart). This catches failures where a service is up but its content is empty (e.g. an ADS-B source rejecting requests due to a rate limit, leaving zero aircraft)"
+        ]
+      }
+    },
     {
       "version": "1.1.22",
       "date": "2026-11-19",
